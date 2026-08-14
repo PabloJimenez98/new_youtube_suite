@@ -1,20 +1,43 @@
-<div class="upload">
-  <h2>Upload an episode</h2>
+<div class="upload glass-panel">
+  <h2 class="upload__heading">Upload an episode</h2>
 
-  <input
-    type="file"
-    accept="video/*"
-    [disabled]="state() === 'uploading'"
-    (change)="onFileSelected($event)"
-  />
+  <label
+    class="upload__dropzone"
+    [class.upload__dropzone--filled]="selectedFile"
+    [class.upload__dropzone--disabled]="state() === 'uploading'"
+  >
+    <input
+      type="file"
+      class="upload__input"
+      accept="video/*"
+      [disabled]="state() === 'uploading'"
+      (change)="onFileSelected($event)"
+    />
+
+    <span class="upload__dropzone-icon" aria-hidden="true">⇪</span>
+
+    @if (selectedFile) {
+      <span class="upload__filename">{{ selectedFile.name }}</span>
+    } @else {
+      <span class="upload__dropzone-text">Click to choose a video</span>
+    }
+  </label>
+
+  @if (selectedFile && state() !== 'uploading') {
+    <button type="button" class="upload__clear" (click)="reset()">Clear selection</button>
+  }
 
   @switch (state()) {
     @case ('uploading') {
-      <progress [value]="progress()" max="100"></progress>
-      <span>{{ progress() }}%</span>
+      <div class="upload__progress">
+        <div class="upload__progress-track">
+          <div class="upload__progress-bar" [style.width.%]="progress()"></div>
+        </div>
+        <span class="upload__progress-label">{{ progress() }}%</span>
+      </div>
     }
     @case ('success') {
-      <p class="upload__success">Upload complete.</p>
+      <p class="upload__success">✓ Upload complete.</p>
     }
     @case ('error') {
       <p class="upload__error" role="alert">{{ errorMessage() }}</p>
@@ -23,9 +46,10 @@
 
   <button
     type="button"
+    class="btn btn--primary upload__submit"
     [disabled]="!selectedFile || state() === 'uploading'"
     (click)="submit()"
   >
-    Upload
+    {{ state() === 'uploading' ? 'Uploading…' : 'Upload' }}
   </button>
 </div>

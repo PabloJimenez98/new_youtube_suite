@@ -28,6 +28,15 @@ class LocalStorageBackend(StorageBackend):
         # `Path(key).name` guards against a key smuggling `../` back in.
         return self.base_path / Path(key).name
 
+    def path_for(self, key: str) -> Path:
+        """Resolve `key` to an absolute filesystem path.
+
+        Local-backend-only (not part of the abstract `StorageBackend`
+        interface) -- used where a real path is genuinely needed, e.g.
+        `FileResponse` for Range-request-capable file streaming.
+        """
+        return self._resolve(key)
+
     def save(self, key: str, data: BinaryIO | bytes) -> str:
         path = self._resolve(key)
         if isinstance(data, bytes):

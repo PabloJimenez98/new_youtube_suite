@@ -1,14 +1,121 @@
+@use '../../../styles/mixins';
+
 .upload {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  max-width: 24rem;
+  gap: var(--space-3);
+  max-width: 26rem;
+
+  &__heading {
+    font-size: 1.1rem;
+  }
+
+  &__dropzone {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-raised);
+    cursor: pointer;
+    @include mixins.neon-focus(var(--color-accent-cyan));
+
+    &--filled {
+      border-style: solid;
+      border-color: var(--color-accent-cyan);
+    }
+
+    &--disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  &__input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: inherit;
+  }
+
+  &__dropzone-icon {
+    font-size: 1.25rem;
+    color: var(--color-accent-cyan);
+    flex-shrink: 0;
+  }
+
+  &__dropzone-text {
+    color: var(--color-text-secondary);
+  }
+
+  &__filename {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__clear {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--color-danger);
+    }
+  }
+
+  &__progress {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  &__progress-track {
+    flex: 1;
+    height: 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg-raised);
+    overflow: hidden;
+  }
+
+  &__progress-bar {
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--gradient-heading);
+    transition: width var(--transition-fast);
+  }
+
+  &__progress-label {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    min-width: 2.5rem;
+    text-align: right;
+  }
 
   &__success {
-    color: #146c2e;
+    color: var(--color-success);
+    margin: 0;
   }
 
   &__error {
-    color: #b3261e;
+    color: var(--color-danger);
+    margin: 0;
+  }
+
+  &__submit {
+    align-self: flex-start;
   }
 }

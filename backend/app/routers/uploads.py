@@ -1,8 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+import mimetypes
+import re
+from collections.abc import Iterator
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.security import get_current_user
+from app.auth.security import get_current_user, get_current_user_for_media
 from app.config import get_settings
 from app.database import get_db
 from app.models.job import Job
@@ -15,6 +21,22 @@ from app.storage import LocalStorageBackend, StorageKeyNotFoundError
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 settings = get_settings()
 storage = LocalStorageBackend(settings.storage_base_path)
+
+_RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")
+_CHUNK_SIZE = 64 * 1024
+
+
+def _iter_file_range(path: Path, start: int, end: int) -> Iterator[bytes]:
+    """Yield bytes [start, end] (inclusive) from `path`, in chunks."""
+    with path.open("rb") as f:
+        f.seek(start)
+        remaining = end - start + 1
+        while remaining > 0:
+            chunk = f.read(min(_CHUNK_SIZE, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+            yield chunk
 
 
 async def _get_upload_or_404(upload_id: int, db: AsyncSession) -> Upload:
@@ -77,6 +99,54 @@ async def delete_upload(
 
     await db.delete(upload)
     await db.commit()
+
+
+@router.get("/{upload_id}/file")
+async def stream_upload_file(
+    upload_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user_for_media),
+) -> StreamingResponse:
+    upload = await _get_upload_or_404(upload_id, db)
+
+    path = storage.path_for(upload.storage_path)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    file_size = path.stat().st_size
+    media_type, _ = mimetypes.guess_type(upload.filename)
+    media_type = media_type or "application/octet-stream"
+
+    # Starlette's FileResponse doesn't implement Range requests in the
+    # version pinned here, and Range support is what lets a <video>
+    # element seek without downloading the whole file first -- so this
+    # is handled by hand rather than relying on FileResponse.
+    range_header = request.headers.get("range")
+    if range_header:
+        match = _RANGE_RE.match(range_header)
+        if match:
+            start_str, end_str = match.groups()
+            start = int(start_str) if start_str else 0
+            end = int(end_str) if end_str else file_size - 1
+            end = min(end, file_size - 1)
+            if start <= end:
+                return StreamingResponse(
+                    _iter_file_range(path, start, end),
+                    status_code=status.HTTP_206_PARTIAL_CONTENT,
+                    media_type=media_type,
+                    headers={
+                        "Content-Range": f"bytes {start}-{end}/{file_size}",
+                        "Accept-Ranges": "bytes",
+                        "Content-Length": str(end - start + 1),
+                    },
+                )
+
+    return StreamingResponse(
+        _iter_file_range(path, 0, file_size - 1),
+        media_type=media_type,
+        headers={"Accept-Ranges": "bytes", "Content-Length": str(file_size)},
+    )
 
 
 @router.post(

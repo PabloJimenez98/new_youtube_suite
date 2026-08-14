@@ -32,6 +32,12 @@
     background: transparent;
   }
 
+  &--icon {
+    padding: var(--space-1) var(--space-2);
+    line-height: 1;
+    font-size: 0.85rem;
+  }
+
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;

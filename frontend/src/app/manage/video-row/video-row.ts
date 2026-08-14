@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 
+import { Auth } from '../../auth/auth';
 import { JobOut, TOOL_LABELS, TOOL_TYPES, ToolType } from '../../jobs/job.model';
 import { Jobs } from '../../jobs/jobs';
 import { UploadOut } from '../../uploads/upload.model';
@@ -13,6 +14,7 @@ import { JobStatusBadge } from '../../shared/job-status-badge/job-status-badge';
 })
 export class VideoRow {
   private readonly jobsService = inject(Jobs);
+  private readonly auth = inject(Auth);
 
   readonly upload = input.required<UploadOut>();
   /** This video's jobs, as last fetched by the parent's batched call. */
@@ -22,6 +24,17 @@ export class VideoRow {
   protected readonly toolTypes = TOOL_TYPES;
   protected readonly toolLabels = TOOL_LABELS;
   protected readonly runningToolType = signal<ToolType | null>(null);
+
+  /**
+   * <video src> requests come straight from the browser, bypassing
+   * Angular's HttpClient (and therefore authInterceptor) entirely --
+   * no way to attach an Authorization header. The token travels as a
+   * query param instead, only for this endpoint. See
+   * docs/decisions/0005-video-preview-streaming.md.
+   */
+  protected readonly videoUrl = computed(
+    () => `/uploads/${this.upload().id}/file?token=${this.auth.token() ?? ''}`,
+  );
 
   // Jobs created via this row's own "Run" clicks, merged with whatever
   // the parent last fetched -- the parent doesn't refetch after every

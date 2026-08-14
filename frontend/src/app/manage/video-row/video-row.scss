@@ -1,29 +1,54 @@
 .video-row {
   display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
 
-  &__info {
+  &__header {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    min-width: 10rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
   }
 
   &__filename {
+    margin: 0;
+    font-size: 1rem;
     font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 14rem;
+  }
+
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+  }
+
+  &__body {
+    display: flex;
+    gap: var(--space-4);
+    align-items: flex-start;
+  }
+
+  &__thumb {
+    flex-shrink: 0;
+    width: 11rem;
+    height: 6.2rem;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-base);
+    object-fit: cover;
+    outline: 1px solid var(--color-border);
   }
 
   &__tools {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-4);
     flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+    gap: var(--space-3);
   }
 
   &__tool {
@@ -31,20 +56,15 @@
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-1);
-    min-width: 5.5rem;
   }
 
   &__tool-label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--color-text-muted);
   }
 
   &__run {
-    padding: var(--space-1) var(--space-3);
-    font-size: 0.8rem;
-  }
-
-  &__delete {
-    margin-left: auto;
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.75rem;
   }
 }

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -13,7 +13,11 @@ from app.models.user import User
 
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+# auto_error=False: this dependency is shared by get_current_user (header
+# only, 401s itself if missing) and get_current_user_for_media (header OR
+# query-param fallback), so it must not raise before the media variant
+# gets a chance to check the query param.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -37,10 +41,7 @@ CREDENTIALS_ERROR = HTTPException(
 )
 
 
-async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db),
-) -> User:
+async def _user_from_token(token: str, db: AsyncSession) -> User:
     try:
         payload = jwt.decode(
             token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
@@ -55,6 +56,36 @@ async def get_current_user(
     if user is None:
         raise CREDENTIALS_ERROR
     return user
+
+
+async def get_current_user(
+    token: str | None = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    if token is None:
+        raise CREDENTIALS_ERROR
+    return await _user_from_token(token, db)
+
+
+async def get_current_user_for_media(
+    header_token: str | None = Depends(oauth2_scheme),
+    query_token: str | None = Query(default=None, alias="token"),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Same auth as `get_current_user`, but also accepts the token as a
+    `?token=` query param.
+
+    Needed for `<video src>`-style requests: the browser fetches those
+    directly, with no way for our code to attach a custom Authorization
+    header. See docs/decisions/0005-video-preview-streaming.md for the
+    trade-off this accepts (a token in a URL, logs, browser history).
+    Only used for the media-streaming endpoint -- every other route
+    still requires the header.
+    """
+    token = header_token or query_token
+    if token is None:
+        raise CREDENTIALS_ERROR
+    return await _user_from_token(token, db)
 
 
 async def authenticate_user(

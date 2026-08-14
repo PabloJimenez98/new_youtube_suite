@@ -1,6 +1,9 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 
+import { TOKEN_STORAGE_KEY } from '../../auth/auth';
 import { JobOut } from '../../jobs/job.model';
 import { Jobs } from '../../jobs/jobs';
 import { UploadOut } from '../../uploads/upload.model';
@@ -36,14 +39,31 @@ describe('VideoRow', () => {
 
   beforeEach(async () => {
     jobsStub = { createJob: vi.fn() };
+    localStorage.setItem(TOKEN_STORAGE_KEY, 'fake-token');
 
     await TestBed.configureTestingModule({
       imports: [VideoRow],
-      providers: [{ provide: Jobs, useValue: jobsStub }],
+      providers: [
+        { provide: Jobs, useValue: jobsStub },
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(VideoRow);
     fixture.componentRef.setInput('upload', upload);
+  });
+
+  afterEach(() => {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+  });
+
+  it('builds the video preview URL with the upload id and auth token', () => {
+    fixture.componentRef.setInput('jobs', []);
+    fixture.detectChanges();
+
+    const video = (fixture.nativeElement as HTMLElement).querySelector('video');
+    expect(video?.getAttribute('src')).toBe('/uploads/5/file?token=fake-token');
   });
 
   it('shows a Run button for tools with no job yet', () => {

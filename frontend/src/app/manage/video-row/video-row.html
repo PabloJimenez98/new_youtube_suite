@@ -1,34 +1,41 @@
-<div class="video-row glass-panel">
-  <div class="video-row__info">
-    <span class="video-row__filename">{{ upload().filename }}</span>
-    <span class="badge" [class]="'badge--' + upload().status">{{ upload().status }}</span>
-  </div>
+<article class="video-row glass-panel">
+  <header class="video-row__header">
+    <h3 class="video-row__filename">{{ upload().filename }}</h3>
+    <div class="video-row__header-actions">
+      <span class="badge" [class]="'badge--' + upload().status">{{ upload().status }}</span>
+      <button
+        type="button"
+        class="btn btn--danger btn--icon video-row__delete"
+        aria-label="Delete video"
+        title="Delete video"
+        (click)="deleteRequested.emit(upload())"
+      >
+        ✕
+      </button>
+    </div>
+  </header>
 
-  <div class="video-row__tools">
-    @for (tool of toolTypes; track tool) {
-      <div class="video-row__tool">
-        <span class="video-row__tool-label">{{ toolLabels[tool] }}</span>
-        @if (latestJobFor(tool); as job) {
-          <app-job-status-badge [status]="job.status" />
-        } @else {
-          <button
-            type="button"
-            class="btn btn--ghost video-row__run"
-            [disabled]="runningToolType() === tool"
-            (click)="runTool(tool)"
-          >
-            {{ runningToolType() === tool ? 'Starting…' : 'Run' }}
-          </button>
-        }
-      </div>
-    }
-  </div>
+  <div class="video-row__body">
+    <video class="video-row__thumb" [src]="videoUrl()" controls preload="metadata"></video>
 
-  <button
-    type="button"
-    class="btn btn--danger video-row__delete"
-    (click)="deleteRequested.emit(upload())"
-  >
-    Delete
-  </button>
-</div>
+    <div class="video-row__tools">
+      @for (tool of toolTypes; track tool) {
+        <div class="video-row__tool">
+          <span class="video-row__tool-label">{{ toolLabels[tool] }}</span>
+          @if (latestJobFor(tool); as job) {
+            <app-job-status-badge [status]="job.status" />
+          } @else {
+            <button
+              type="button"
+              class="btn btn--ghost video-row__run"
+              [disabled]="runningToolType() === tool"
+              (click)="runTool(tool)"
+            >
+              {{ runningToolType() === tool ? 'Starting…' : 'Run' }}
+            </button>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</article>
