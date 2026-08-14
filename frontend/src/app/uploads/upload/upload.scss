@@ -1,0 +1,14 @@
+.upload {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 24rem;
+
+  &__success {
+    color: #146c2e;
+  }
+
+  &__error {
+    color: #b3261e;
+  }
+}

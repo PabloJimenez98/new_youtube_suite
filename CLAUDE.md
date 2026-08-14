@@ -4,9 +4,11 @@
 Planning is complete. All four brainstorm phases are done: scope
 (`docs/decisions/v1-scope.md`), research (`docs/research/bibliography.md`),
 full specification (`docs/project-description.md`), and a milestone-based
-development plan (`docs/development-plan.md`). **Milestone M0 (backend
-& database skeleton) is done** — see `docs/decisions/0002-backend-skeleton.md`
-for what was decided. The next step is milestone **M1**.
+development plan (`docs/development-plan.md`). **Milestones M0 (backend
+& database skeleton) and M1 (frontend skeleton & upload flow) are
+done** — see `docs/decisions/0002-backend-skeleton.md` and
+`docs/decisions/0003-frontend-skeleton.md` for what was decided. The
+next step is milestone **M2**.
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 

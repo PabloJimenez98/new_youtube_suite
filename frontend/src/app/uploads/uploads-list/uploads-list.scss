@@ -1,0 +1,20 @@
+.uploads-list {
+  max-width: 30rem;
+
+  ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #eee;
+  }
+
+  &__error {
+    color: #b3261e;
+  }
+}

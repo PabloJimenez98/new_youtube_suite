@@ -11,15 +11,21 @@ time.
 
 ## Status
 
-**Milestone M0 (backend & database skeleton) is done.** Planning was
-completed across four brainstorm phases (scope → research →
-specification → development plan) — see [Documentation](#documentation)
-below. Implementation proceeds milestone-by-milestone from
-`docs/development-plan.md`; M0 shipped a FastAPI backend, Postgres
-schema (`users`/`uploads`/`jobs`), single-user JWT auth, and a
-local-filesystem storage abstraction (decision record:
-[`docs/decisions/0002-backend-skeleton.md`](docs/decisions/0002-backend-skeleton.md)).
-Next up: **M1** (Angular frontend skeleton & upload flow).
+**Milestones M0 and M1 are done.** Planning was completed across four
+brainstorm phases (scope → research → specification → development
+plan) — see [Documentation](#documentation) below. Implementation
+proceeds milestone-by-milestone from `docs/development-plan.md`:
+- **M0** shipped a FastAPI backend, Postgres schema
+  (`users`/`uploads`/`jobs`), single-user JWT auth, and a
+  local-filesystem storage abstraction (decision record:
+  [`docs/decisions/0002-backend-skeleton.md`](docs/decisions/0002-backend-skeleton.md)).
+- **M1** shipped an Angular frontend skeleton — login screen, an
+  upload form with progress reporting, and a bare uploads list — that
+  calls M0's endpoints through the Angular dev-server's proxy
+  (decision record:
+  [`docs/decisions/0003-frontend-skeleton.md`](docs/decisions/0003-frontend-skeleton.md)).
+
+Next up: **M2** (async job pipeline).
 
 ## Tech stack
 
@@ -49,7 +55,7 @@ Ongoing/running notes: [`docs/brainstorm.md`](docs/brainstorm.md).
 
 ## Getting started
 
-Backend only for now (frontend arrives in M1).
+### Backend
 
 ```bash
 # 1. Local Postgres (+ optional pgAdmin at http://localhost:5050)
@@ -71,13 +77,30 @@ python -m app.cli create-user you@example.com
 uvicorn app.main:app --reload
 ```
 
-Then `POST /auth/login` (form fields `username`/`password`) for a
-token, `POST /uploads` (multipart, bearer token) to upload a file,
-`GET /uploads` to list them.
+The API alone: `POST /auth/login` (form fields `username`/`password`)
+for a token, `POST /uploads` (multipart, bearer token) to upload a
+file, `GET /uploads` to list them.
 
-To run the test suite, create the separate test database once
+To run the backend test suite, create the separate test database once
 (`docker compose exec db psql -U youtube_suite -d youtube_suite -c
 "CREATE DATABASE youtube_suite_test;"`), then `pytest` from `backend/`.
+
+### Frontend
+
+Requires Node 22+ and the Angular CLI (`npm install -g @angular/cli`).
+With the backend running (above):
+
+```bash
+cd frontend
+npm install
+ng serve
+```
+
+Open `http://localhost:4200`, log in with the account you seeded, and
+upload a file. The dev server proxies `/auth` and `/uploads` to the
+backend at `127.0.0.1:8000` (see `frontend/proxy.conf.json`) — no CORS
+setup needed. Run the frontend test suite with `ng test` (Vitest,
+headless — no Chrome/browser install required).
 
 ## Development approach
 
