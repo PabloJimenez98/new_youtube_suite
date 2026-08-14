@@ -1,0 +1,53 @@
+@use '../../styles/mixins';
+
+.shell-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-6);
+  @include mixins.glass-panel;
+  border-radius: 0;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+
+  &__wordmark {
+    font-size: 1.1rem;
+    white-space: nowrap;
+  }
+
+  &__links {
+    display: flex;
+    gap: var(--space-5);
+    flex: 1;
+
+    a {
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      font-weight: 500;
+      padding: var(--space-1) 0;
+      border-bottom: 2px solid transparent;
+      transition:
+        color var(--transition-fast),
+        border-color var(--transition-fast);
+
+      &:hover {
+        color: var(--color-text-primary);
+      }
+
+      &.is-active {
+        color: var(--color-accent-cyan);
+        border-bottom-color: var(--color-accent-cyan);
+      }
+    }
+  }
+}
+
+.shell-content {
+  padding: var(--space-6);
+  max-width: 72rem;
+  margin: 0 auto;
+}

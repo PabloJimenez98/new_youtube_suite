@@ -1,4 +1,53 @@
-<div class="dashboard">
-  <app-upload (uploaded)="onUploaded()" />
-  <app-uploads-list />
-</div>
+<h1 class="page-heading">Dashboard</h1>
+
+@if (loading()) {
+  <p>Loading…</p>
+} @else if (errorMessage()) {
+  <p class="dashboard__error" role="alert">{{ errorMessage() }}</p>
+} @else {
+  <section class="dashboard__grid">
+    <app-stat-tile label="Total videos" [value]="totalVideos().toString()" />
+    <app-stat-tile
+      label="Total runtime"
+      [value]="totalRuntimeLabel().value"
+      [hint]="totalRuntimeLabel().hint ?? null"
+    />
+    @for (bucket of jobsByStatus(); track bucket.status) {
+      <app-stat-tile [label]="bucket.status + ' jobs'" [value]="bucket.count.toString()" />
+    }
+
+    <app-stat-tile label="Avg. predicted CTR" [value]="dummyAvgCtr" [preview]="true" />
+    <app-stat-tile
+      label="Top hook-scoring clip"
+      [value]="dummyTopHookClip.score + '/100'"
+      [hint]="dummyTopHookClip.title"
+      [preview]="true"
+    />
+    <app-stat-tile
+      label="Shorts generated"
+      [value]="dummyShortsGenerated.toString()"
+      [preview]="true"
+    />
+  </section>
+
+  <section class="dashboard__panel glass-panel">
+    <h2>Relevance curve <span class="badge badge--preview">Preview</span></h2>
+    <app-sparkline [values]="dummyRelevanceSparkline" [width]="400" [height]="60" />
+  </section>
+
+  <section class="dashboard__panel glass-panel">
+    <h2>Recent activity</h2>
+    @if (recentActivity().length === 0) {
+      <p>Nothing yet.</p>
+    } @else {
+      <ul class="dashboard__activity">
+        @for (item of recentActivity(); track item.label + item.at) {
+          <li>
+            <span>{{ item.label }}</span>
+            <span class="dashboard__activity-date">{{ item.at | date: 'short' }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+}

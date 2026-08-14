@@ -1,0 +1,10 @@
+.manage__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.manage__error {
+  color: var(--color-danger);
+}

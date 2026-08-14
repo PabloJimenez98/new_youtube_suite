@@ -1,0 +1,63 @@
+// Design tokens for YouTube Suite -- vaporwave / minimalist Y2K system.
+// Single source of truth: every component references these custom
+// properties, never a hardcoded hex value. See
+// docs/decisions/0004-full-app-shell-pivot.md for the design brief.
+
+:root {
+  // ---- Surfaces -------------------------------------------------------
+  --color-bg-base: #0d0b1e; // deep indigo-black, app background
+  --color-bg-raised: #161335; // panel/card base (before glass blend)
+  --color-bg-overlay: rgba(22, 19, 53, 0.68); // glass-panel fill
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+
+  // ---- Text -------------------------------------------------------------
+  --color-text-primary: #f5f3ff; // ~15:1 on --color-bg-base
+  --color-text-secondary: #b8b3d9; // ~9:1 on --color-bg-base
+  --color-text-muted: #8b86ad; // ~5.3:1 -- labels/hints only, never body copy
+
+  // ---- Accent neons (used sparingly -- interactive/emphasis only) -------
+  --color-accent-pink: #ff71ce;
+  --color-accent-cyan: #01cdfe;
+  --color-accent-violet: #b967ff; // tertiary, badges/secondary emphasis only
+  --color-accent-yellow: #fffb96; // rare highlight, e.g. "preview" markers
+
+  // ---- Semantic / status (job status, alerts) ----------------------------
+  --color-success: #4ce0b3;
+  --color-warning: #ffd166;
+  --color-danger: #ff5c8a;
+  --color-info: var(--color-accent-cyan);
+
+  // ---- Gradients ----------------------------------------------------------
+  --gradient-heading: linear-gradient(90deg, var(--color-accent-pink) 0%, var(--color-accent-cyan) 100%);
+  --gradient-horizon-sun: radial-gradient(circle at 50% 100%, rgba(255, 113, 206, 0.35), transparent 60%);
+
+  // ---- Typography -----------------------------------------------------------
+  --font-display: 'Orbitron', 'Segoe UI', sans-serif; // headings, wordmark, big numbers only
+  --font-body: 'Space Grotesk', 'Segoe UI', sans-serif; // all UI/body text
+  --font-mono: 'Space Mono', 'Courier New', monospace; // numeric/timestamp/id readouts
+
+  // ---- Spacing scale (4px base) ---------------------------------------------
+  --space-1: 0.25rem; // 4px
+  --space-2: 0.5rem; // 8px
+  --space-3: 0.75rem; // 12px
+  --space-4: 1rem; // 16px
+  --space-5: 1.5rem; // 24px
+  --space-6: 2rem; // 32px
+  --space-7: 3rem; // 48px
+  --space-8: 4rem; // 64px
+
+  // ---- Radius -----------------------------------------------------------------
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  // ---- Elevation / glow ---------------------------------------------------------
+  --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --glow-pink: 0 0 12px rgba(255, 113, 206, 0.55), 0 0 2px rgba(255, 113, 206, 0.85);
+  --glow-cyan: 0 0 12px rgba(1, 205, 254, 0.5), 0 0 2px rgba(1, 205, 254, 0.85);
+
+  // ---- Motion -------------------------------------------------------------------
+  --transition-fast: 150ms ease;
+}

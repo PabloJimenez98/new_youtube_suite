@@ -1,0 +1,27 @@
+<h1 class="page-heading">Manage videos</h1>
+
+<app-upload (uploaded)="onUploaded()" />
+
+@if (loading()) {
+  <p>Loading…</p>
+} @else if (errorMessage()) {
+  <p class="manage__error" role="alert">{{ errorMessage() }}</p>
+} @else if (videos().length === 0) {
+  <p>No videos yet -- upload one above to get started.</p>
+} @else {
+  <div class="manage__rows">
+    @for (video of videos(); track video.id) {
+      <app-video-row
+        [upload]="video"
+        [jobs]="jobsFor().get(video.id) ?? []"
+        (deleteRequested)="requestDelete($event)"
+      />
+    }
+  </div>
+}
+
+<app-delete-confirm-dialog
+  [upload]="pendingDelete()"
+  (confirmed)="confirmDelete()"
+  (cancelled)="cancelDelete()"
+/>

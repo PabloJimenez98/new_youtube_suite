@@ -1,0 +1,9 @@
+<svg
+  class="sparkline"
+  [attr.width]="width()"
+  [attr.height]="height()"
+  [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
+  preserveAspectRatio="none"
+>
+  <polyline [attr.points]="points()" />
+</svg>

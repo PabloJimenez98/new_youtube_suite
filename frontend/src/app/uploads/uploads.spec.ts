@@ -54,4 +54,27 @@ describe('Uploads', () => {
     expect(req.request.method).toBe('GET');
     req.flush([]);
   });
+
+  it('getUpload GETs /uploads/{id}', () => {
+    service.getUpload(7).subscribe();
+
+    const req = httpMock.expectOne('/uploads/7');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      id: 7,
+      filename: 'clip.mp4',
+      storage_path: 'x_clip.mp4',
+      duration_seconds: null,
+      uploaded_at: '2026-08-14T12:00:00Z',
+      status: 'uploaded',
+    });
+  });
+
+  it('deleteUpload DELETEs /uploads/{id}', () => {
+    service.deleteUpload(7).subscribe();
+
+    const req = httpMock.expectOne('/uploads/7');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+  });
 });

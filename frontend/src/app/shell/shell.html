@@ -1,0 +1,16 @@
+<header class="shell-nav">
+  <span class="shell-nav__wordmark page-heading">YouTube Suite</span>
+
+  <nav class="shell-nav__links">
+    <a routerLink="/library" routerLinkActive="is-active">Library</a>
+    <a routerLink="/dashboard" routerLinkActive="is-active">Dashboard</a>
+    <a routerLink="/analytics" routerLinkActive="is-active">Analytics</a>
+    <a routerLink="/manage" routerLinkActive="is-active">Manage</a>
+  </nav>
+
+  <button type="button" class="btn btn--ghost" (click)="logout()">Log out</button>
+</header>
+
+<main class="shell-content">
+  <router-outlet />
+</main>

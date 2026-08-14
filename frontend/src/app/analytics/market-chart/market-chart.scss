@@ -1,0 +1,39 @@
+.market-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+
+  &__row {
+    display: grid;
+    grid-template-columns: 10rem 1fr 2.5rem;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  &__label {
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__track {
+    height: 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg-raised);
+    overflow: hidden;
+  }
+
+  &__bar {
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--gradient-heading);
+  }
+
+  &__value {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    text-align: right;
+  }
+}

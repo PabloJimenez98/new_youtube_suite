@@ -1,4 +1,13 @@
+import os
+import tempfile
 from collections.abc import AsyncGenerator
+
+# Must happen before `app.main` (and therefore `app.routers.uploads`) is
+# imported anywhere -- the uploads router builds its `LocalStorageBackend`
+# once at module-import time from `get_settings()`, so tests need their
+# own isolated storage dir in place before that first import, not
+# patched in per-test.
+os.environ.setdefault("STORAGE_BASE_PATH", tempfile.mkdtemp(prefix="ys_test_uploads_"))
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -73,3 +82,13 @@ async def test_user(db_session: AsyncSession) -> User:
     await db_session.commit()
     await db_session.refresh(user)
     return user
+
+
+@pytest_asyncio.fixture
+async def auth_headers(client: AsyncClient, test_user: User) -> dict[str, str]:
+    response = await client.post(
+        "/auth/login",
+        data={"username": test_user.email, "password": "s3cret-pw"},
+    )
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}

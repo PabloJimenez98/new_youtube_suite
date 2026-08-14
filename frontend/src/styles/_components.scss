@@ -1,0 +1,136 @@
+// Global, reusable component classes. Defined once here rather than
+// per-component: angular.json's anyComponentStyle budget is 4kB
+// warning / 8kB error per component stylesheet, and re-deriving the
+// same button/panel/badge styling in every component would both blow
+// that budget and drift the design system apart over time.
+@use 'tokens';
+@use 'mixins';
+
+.btn {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.9rem;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-raised);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  @include mixins.neon-focus(var(--color-accent-cyan));
+
+  &--primary {
+    border-color: var(--color-accent-pink);
+    @include mixins.neon-focus(var(--color-accent-pink));
+  }
+
+  &--danger {
+    border-color: var(--color-danger);
+    @include mixins.neon-focus(var(--color-danger));
+  }
+
+  &--ghost {
+    background: transparent;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+.glass-panel {
+  @include mixins.glass-panel;
+  padding: var(--space-5);
+}
+
+.page-heading {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.75rem;
+  @include mixins.gradient-text;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+
+  &--queued {
+    background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+    color: var(--color-warning);
+  }
+
+  &--running {
+    background: color-mix(in srgb, var(--color-info) 20%, transparent);
+    color: var(--color-info);
+  }
+
+  &--succeeded {
+    background: color-mix(in srgb, var(--color-success) 20%, transparent);
+    color: var(--color-success);
+  }
+
+  &--failed {
+    background: color-mix(in srgb, var(--color-danger) 20%, transparent);
+    color: var(--color-danger);
+  }
+
+  &--preview {
+    background: color-mix(in srgb, var(--color-accent-yellow) 18%, transparent);
+    color: var(--color-accent-yellow);
+    border: 1px dashed var(--color-accent-yellow);
+  }
+
+  // Upload statuses (uploads.status) -- `failed` is shared with the job
+  // badge variant above, same meaning either way.
+  &--uploaded {
+    background: color-mix(in srgb, var(--color-info) 20%, transparent);
+    color: var(--color-info);
+  }
+
+  &--processing {
+    background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+    color: var(--color-warning);
+  }
+
+  &--ready {
+    background: color-mix(in srgb, var(--color-success) 20%, transparent);
+    color: var(--color-success);
+  }
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-5);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+
+  label {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+  }
+
+  input,
+  select {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-bg-raised);
+    color: var(--color-text-primary);
+    @include mixins.neon-focus(var(--color-accent-cyan));
+  }
+}

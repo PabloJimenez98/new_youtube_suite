@@ -1,0 +1,15 @@
+@if (upload(); as target) {
+  <div class="dialog-backdrop" (click)="cancelled.emit()">
+    <div class="dialog glass-panel" (click)="$event.stopPropagation()">
+      <h2>Delete video?</h2>
+      <p>
+        This permanently deletes <strong>{{ target.filename }}</strong> and its file. This
+        can't be undone.
+      </p>
+      <div class="dialog__actions">
+        <button type="button" class="btn btn--ghost" (click)="cancelled.emit()">Cancel</button>
+        <button type="button" class="btn btn--danger" (click)="confirmed.emit()">Delete</button>
+      </div>
+    </div>
+  </div>
+}

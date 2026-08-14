@@ -1,0 +1,28 @@
+<h1 class="page-heading">Analytics</h1>
+
+<app-preview-banner
+  message="This will show real data once the market-analysis pipeline ships (M10+) -- everything below is a mock preview of the eventual layout."
+/>
+
+<section class="glass-panel analytics__panel">
+  <h2>Your channel</h2>
+  <div class="analytics__metrics">
+    <div>
+      <span class="analytics__metric-label">Impressions</span>
+      <span class="analytics__metric-value">{{ channelMetrics.impressions | number }}</span>
+    </div>
+    <div>
+      <span class="analytics__metric-label">Avg. CTR</span>
+      <span class="analytics__metric-value">{{ channelMetrics.avgCtr }}</span>
+    </div>
+    <div>
+      <span class="analytics__metric-label">Avg. retention</span>
+      <span class="analytics__metric-value">{{ channelMetrics.avgRetention }}</span>
+    </div>
+  </div>
+</section>
+
+<section class="glass-panel analytics__panel">
+  <h2>Trending in curated public channels</h2>
+  <app-market-chart [trends]="trends" />
+</section>

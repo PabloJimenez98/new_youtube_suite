@@ -1,0 +1,14 @@
+<div class="market-chart">
+  @for (trend of trends(); track trend.channel) {
+    <div class="market-chart__row">
+      <span class="market-chart__label">{{ trend.channel }}</span>
+      <div class="market-chart__track">
+        <div
+          class="market-chart__bar"
+          [style.width.%]="(trend.trendScore / maxScore()) * 100"
+        ></div>
+      </div>
+      <span class="market-chart__value">{{ trend.trendScore }}</span>
+    </div>
+  }
+</div>

@@ -21,5 +21,19 @@ hook-strength scorer should ever take audio/video input (currently
 assumed text-only for consistency with the relevance model, but this
 was an inferred call, not an explicit decision).
 
+## 2026-08-14 — Full app shell pivot before M1's PR
+Deliberate scope expansion beyond M1's original spec, decided with the
+project owner before M1's PR was opened — see
+`docs/decisions/0004-full-app-shell-pivot.md` for the full reasoning.
+Backend gained tool-trigger/management endpoints for all 8 v1 tools
+(queued-only, nothing processes them yet — that's still M2+); frontend
+gained all four of v1's eventual screens (library, dashboard,
+analytics, manage) with real data where available and clearly-labeled
+dummy data elsewhere, plus a vaporwave/Y2K design system. **Flag for
+future milestones**: when M3/M5/M6/M7/M8/M10/M13/M14 come up, check
+whether their frontend "Development" bullet is already half-done by
+this pivot (a dummy-data file to swap for real data, a "preview" badge
+to remove) before scaffolding a new screen.
+
 ## Ideas
 (nothing logged yet)

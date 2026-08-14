@@ -1,0 +1,15 @@
+.preview-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+  border: 1px dashed var(--color-accent-yellow);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent-yellow) 8%, transparent);
+
+  p {
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+}

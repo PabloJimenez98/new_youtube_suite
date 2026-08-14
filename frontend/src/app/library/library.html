@@ -1,0 +1,15 @@
+<h1 class="page-heading">Library</h1>
+
+@if (loading()) {
+  <p>Loading…</p>
+} @else if (errorMessage()) {
+  <p class="library__error" role="alert">{{ errorMessage() }}</p>
+} @else if (videos().length === 0) {
+  <p>No videos uploaded yet. Head to Manage to upload your first one.</p>
+} @else {
+  <div class="card-grid">
+    @for (video of videos(); track video.id) {
+      <app-video-card [upload]="video" />
+    }
+  </div>
+}

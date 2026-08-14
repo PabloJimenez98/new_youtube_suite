@@ -1,0 +1,53 @@
+// Recurring vaporwave/Y2K visual motifs, as mixins so every component
+// shares one implementation instead of re-deriving the effect.
+
+// 1. Neon focus/hover glow -- the primary interaction motif. Apply to
+// every interactive element (buttons, inputs, nav links, cards).
+@mixin neon-focus($color: var(--color-accent-cyan)) {
+  transition:
+    box-shadow var(--transition-fast),
+    border-color var(--transition-fast);
+
+  &:hover,
+  &:focus-visible {
+    border-color: $color;
+    box-shadow:
+      0 0 12px color-mix(in srgb, $color 55%, transparent),
+      0 0 2px color-mix(in srgb, $color 85%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid transparent; // glow replaces the default outline, still visible
+  }
+}
+
+// 2. Gradient text -- page H1s and big stat numbers ONLY. Never body text.
+@mixin gradient-text($gradient: var(--gradient-heading)) {
+  background: $gradient;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+// 3. Glass panel -- the dominant structural container motif (cards, nav, tiles, modals).
+@mixin glass-panel {
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+// 4. Horizon-grid backdrop -- special-occasion only (the login screen).
+// Not reused elsewhere; that's what keeps it a hero accent, not noise.
+@mixin horizon-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    var(--gradient-horizon-sun),
+    repeating-linear-gradient(0deg, transparent 0 38px, var(--color-border) 39px 40px);
+  mask-image: linear-gradient(to bottom, black, transparent 75%);
+  pointer-events: none;
+  z-index: 0;
+}

@@ -1,0 +1,16 @@
+<article class="video-card glass-panel">
+  <div class="video-card__thumb" aria-hidden="true">
+    <span>▶</span>
+  </div>
+
+  <h3 class="video-card__title">{{ upload().filename }}</h3>
+
+  <div class="video-card__meta">
+    <span class="badge" [class]="'badge--' + upload().status">{{ upload().status }}</span>
+    @if (durationLabel()) {
+      <span class="video-card__duration">{{ durationLabel() }}</span>
+    }
+  </div>
+
+  <span class="video-card__date">{{ upload().uploaded_at | date: 'mediumDate' }}</span>
+</article>

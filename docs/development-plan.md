@@ -57,6 +57,15 @@ Updated as milestones complete — this table is the source of truth for
 - **1. Planning:** Define the upload UI's contract with the backend (accepted file types/size limits, progress reporting) and what "upload succeeded" looks like in the UI.
 - **2. Development:** Angular app shell, login screen, upload screen (calls M0's upload endpoint), a bare uploads-list view.
 - **3. Testing:** component tests for the upload form (validation, progress states); one manual end-to-end check (log in, upload a file, see it listed).
+- **Note (2026-08-14):** before M1's PR was opened, the project was
+  deliberately expanded beyond this milestone's original scope — see
+  `docs/decisions/0004-full-app-shell-pivot.md`. What's above is still
+  what M1 itself delivered (kept `Done` below); the expansion is
+  additive on the same branch. Later milestones' frontend
+  "Development" bullets (M3, M5, M6, M7, M8, M10, M13, M14) now mean
+  wiring real data into an already-existing screen from that pivot,
+  not building a screen from scratch — check the decision doc before
+  assuming a milestone needs new frontend scaffolding.
 
 ### M2 — Async job pipeline (first real end-to-end path)
 - **Depends on:** M0, M1

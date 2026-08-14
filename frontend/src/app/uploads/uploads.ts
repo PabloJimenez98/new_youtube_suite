@@ -26,4 +26,12 @@ export class Uploads {
   listUploads(): Observable<UploadOut[]> {
     return this.http.get<UploadOut[]>('/uploads');
   }
+
+  getUpload(id: number): Observable<UploadOut> {
+    return this.http.get<UploadOut>(`/uploads/${id}`);
+  }
+
+  deleteUpload(id: number): Observable<void> {
+    return this.http.delete<void>(`/uploads/${id}`);
+  }
 }
