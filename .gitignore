@@ -1,0 +1,53 @@
+# --- Python (FastAPI backend) ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+
+# --- Node / Angular (frontend) ---
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Media / generated artifacts (large binary outputs, not source) ---
+/media/
+/uploads/
+*.mp4
+*.mov
+*.mkv
+*.wav
+*.mp3
+
+# --- Model artifacts (large binaries, not source) ---
+*.ckpt
+*.safetensors
+*.onnx
+/models/artifacts/
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Claude Code local settings (machine-specific, not shared) ---
+.claude/settings.local.json

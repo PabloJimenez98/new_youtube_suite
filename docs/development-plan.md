@@ -18,6 +18,30 @@ matching the incremental-verification approach requested:
 
 Every milestone ends in something demonstrable — never "half a pipeline."
 
+## Progress
+
+Updated as milestones complete — this table is the source of truth for
+"what's the current milestone," used by the `milestone-dev` skill.
+
+| Milestone | Status |
+|---|---|
+| M0 — Backend & database skeleton | Done |
+| M1 — Frontend skeleton & upload flow | Not started |
+| M2 — Async job pipeline | Not started |
+| M3 — Transcript/subtitle generator | Not started |
+| M4 — Speaker diarization | Not started |
+| M5 — Chapter generator | Not started |
+| M6 — Show notes & metadata generator | Not started |
+| M7 — Relevance-detection model v0 | Not started |
+| M8 — Shorts generator | Not started |
+| M9 — Full-suite hardening | Not started |
+| M10 — Market-analysis pipeline v0 | Not started |
+| M11 — OAuth + Analytics API v2 | Not started |
+| M12 — YouTube Reporting API | Not started |
+| M13 — Title/thumbnail CTR predictor v0 | Not started |
+| M14 — Hook-strength scorer v0 | Not started |
+| M15 — Model retraining pipeline | Not started |
+
 ## Milestones
 
 ### M0 — Backend & database skeleton
