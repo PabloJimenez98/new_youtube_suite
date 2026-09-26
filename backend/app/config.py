@@ -30,6 +30,19 @@ class Settings(BaseSettings):
     # milestone (M3+) registers a real handler.
     dummy_job_duration_seconds: float = 5
 
+    # arq kills a job after this long. arq's own 300s default is far
+    # shorter than a real episode's transcription.
+    worker_job_timeout_seconds: int = 10800
+
+    # Transcription (M3) -- see docs/decisions/0007-transcription-pipeline.md.
+    # CC 6.1 GPUs (the GTX 1060 this runs on) only support int8/float32;
+    # `WHISPER_DEVICE=cpu` is the no-GPU fallback, no code changes needed.
+    whisper_model: str = "large-v3-turbo"
+    whisper_device: str = "cuda"
+    whisper_compute_type: str = "int8"
+    whisper_beam_size: int = 5
+    whisper_vad_filter: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

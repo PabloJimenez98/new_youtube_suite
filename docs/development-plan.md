@@ -28,7 +28,7 @@ Updated as milestones complete — this table is the source of truth for
 | M0 — Backend & database skeleton | Done |
 | M1 — Frontend skeleton & upload flow | Done |
 | M2 — Async job pipeline | Done |
-| M3 — Transcript/subtitle generator | Not started |
+| M3 — Transcript/subtitle generator | Done |
 | M4 — Speaker diarization | Not started |
 | M5 — Chapter generator | Not started |
 | M6 — Show notes & metadata generator | Not started |

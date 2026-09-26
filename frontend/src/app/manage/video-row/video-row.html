@@ -35,6 +35,21 @@
               {{ runningToolType() === tool ? 'Starting…' : 'Run' }}
             </button>
           }
+          @if (tool === 'transcribe' && hasTranscript()) {
+            <div class="video-row__downloads">
+              @for (format of subtitleFormats; track format) {
+                <button
+                  type="button"
+                  class="btn btn--ghost video-row__download"
+                  [disabled]="downloadingFormat() === format"
+                  [attr.aria-label]="'Download .' + format + ' subtitles'"
+                  (click)="downloadSubtitle(format)"
+                >
+                  .{{ format }}
+                </button>
+              }
+            </div>
+          }
         </div>
       }
     </div>

@@ -92,12 +92,16 @@ async def delete_upload(
 ) -> None:
     upload = await _get_upload_or_404(upload_id, db)
 
-    try:
-        storage.delete(upload.storage_path)
-    except StorageKeyNotFoundError:
-        # File already gone -- still let the row (and its jobs, via
-        # ON DELETE CASCADE) be cleaned up rather than blocking on it.
-        pass
+    # The extracted audio (M3) goes with the video. Files already gone
+    # don't block cleaning up the row (and its jobs/transcript rows,
+    # via ON DELETE CASCADE).
+    for key in (upload.storage_path, upload.audio_storage_path):
+        if key is None:
+            continue
+        try:
+            storage.delete(key)
+        except StorageKeyNotFoundError:
+            pass
 
     await db.delete(upload)
     await db.commit()

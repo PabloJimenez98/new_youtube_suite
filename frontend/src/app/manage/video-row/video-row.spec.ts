@@ -6,6 +6,7 @@ import { of, throwError } from 'rxjs';
 import { TOKEN_STORAGE_KEY } from '../../auth/auth';
 import { JobOut } from '../../jobs/job.model';
 import { Jobs } from '../../jobs/jobs';
+import { Transcripts } from '../../transcripts/transcripts';
 import { UploadOut } from '../../uploads/upload.model';
 import { VideoRow } from './video-row';
 
@@ -36,15 +37,18 @@ function makeJob(overrides: Partial<JobOut> = {}): JobOut {
 describe('VideoRow', () => {
   let fixture: ComponentFixture<VideoRow>;
   let jobsStub: { createJob: ReturnType<typeof vi.fn> };
+  let transcriptsStub: { getSubtitle: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     jobsStub = { createJob: vi.fn() };
+    transcriptsStub = { getSubtitle: vi.fn() };
     localStorage.setItem(TOKEN_STORAGE_KEY, 'fake-token');
 
     await TestBed.configureTestingModule({
       imports: [VideoRow],
       providers: [
         { provide: Jobs, useValue: jobsStub },
+        { provide: Transcripts, useValue: transcriptsStub },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],
@@ -139,5 +143,83 @@ describe('VideoRow', () => {
 
     fixture.componentInstance['runTool']('hook');
     expect(fixture.componentInstance['runningToolType']()).toBeNull();
+  });
+
+  describe('subtitle downloads', () => {
+    const downloadButtons = () =>
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        '.video-row__download',
+      );
+
+    it.each(['queued', 'running', 'failed'] as const)(
+      'are hidden when the only transcribe job is %s',
+      (status) => {
+        fixture.componentRef.setInput('jobs', [makeJob({ status })]);
+        fixture.detectChanges();
+        expect(downloadButtons().length).toBe(0);
+      },
+    );
+
+    it('are hidden when only another tool has succeeded', () => {
+      fixture.componentRef.setInput('jobs', [
+        makeJob({ tool_type: 'chapters', status: 'succeeded' }),
+      ]);
+      fixture.detectChanges();
+      expect(downloadButtons().length).toBe(0);
+    });
+
+    it('show .srt and .vtt once a transcribe job has succeeded', () => {
+      fixture.componentRef.setInput('jobs', [makeJob({ status: 'succeeded' })]);
+      fixture.detectChanges();
+      expect([...downloadButtons()].map((b) => b.textContent?.trim())).toEqual([
+        '.srt',
+        '.vtt',
+      ]);
+    });
+
+    it('stay available while a re-run is in flight', () => {
+      fixture.componentRef.setInput('jobs', [
+        makeJob({ id: 2, status: 'running', created_at: '2026-08-15T12:00:00Z' }),
+        makeJob({ id: 1, status: 'succeeded' }),
+      ]);
+      fixture.detectChanges();
+      expect(downloadButtons().length).toBe(2);
+    });
+
+    it('fetch the subtitle and save it under the video file stem', () => {
+      const blob = new Blob(['1\n']);
+      transcriptsStub.getSubtitle.mockReturnValue(of(blob));
+      const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:x');
+      const revokeUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+      const click = vi
+        .spyOn(HTMLAnchorElement.prototype, 'click')
+        .mockImplementation(function (this: HTMLAnchorElement) {
+          expect(this.download).toBe('episode.srt');
+          expect(this.href).toBe('blob:x');
+        });
+
+      fixture.componentRef.setInput('jobs', [makeJob({ status: 'succeeded' })]);
+      fixture.detectChanges();
+      downloadButtons()[0].click();
+
+      expect(transcriptsStub.getSubtitle).toHaveBeenCalledWith(5, 'srt');
+      expect(createUrl).toHaveBeenCalledWith(blob);
+      expect(click).toHaveBeenCalledTimes(1);
+      expect(revokeUrl).toHaveBeenCalledWith('blob:x');
+      expect(fixture.componentInstance['downloadingFormat']()).toBeNull();
+
+      createUrl.mockRestore();
+      revokeUrl.mockRestore();
+      click.mockRestore();
+    });
+
+    it('resets the downloading state if the request fails', () => {
+      transcriptsStub.getSubtitle.mockReturnValue(throwError(() => new Error('409')));
+      fixture.componentRef.setInput('jobs', [makeJob({ status: 'succeeded' })]);
+      fixture.detectChanges();
+
+      fixture.componentInstance['downloadSubtitle']('vtt');
+      expect(fixture.componentInstance['downloadingFormat']()).toBeNull();
+    });
   });
 });

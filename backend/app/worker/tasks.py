@@ -32,7 +32,7 @@ async def process_job(ctx: dict[str, Any], job_id: int) -> None:
 
         try:
             handler = HANDLERS[job.tool_type]
-            await handler(job)
+            await handler(job, db)
         except Exception as exc:
             job.status = "failed"
             job.completed_at = datetime.now(UTC)

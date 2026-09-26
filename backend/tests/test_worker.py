@@ -5,6 +5,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import get_settings
+from tests.fixtures import FIXTURE_CLIP
 from app.models.job import Job
 from app.models.upload import Upload
 from app.worker import handlers
@@ -13,7 +14,9 @@ from app.worker.tasks import process_job
 settings = get_settings()
 
 
-async def _create_job(db_session: AsyncSession, tool_type: str = "transcribe") -> Job:
+# `hook` still runs the M2 dummy handler; `transcribe` is real as of M3
+# (and covered by its own real-worker test at the bottom of this file).
+async def _create_job(db_session: AsyncSession, tool_type: str = "hook") -> Job:
     upload = Upload(filename="clip.mp4", storage_path="fake-key")
     db_session.add(upload)
     await db_session.commit()
@@ -50,7 +53,7 @@ async def test_process_job_failure_transitions_to_failed(
 ) -> None:
     job = await _create_job(db_session)
 
-    async def _boom(_job: Job) -> None:
+    async def _boom(_job: Job, _db: AsyncSession) -> None:
         raise RuntimeError("handler exploded")
 
     monkeypatch.setitem(handlers.HANDLERS, job.tool_type, _boom)
@@ -72,6 +75,26 @@ async def test_process_job_missing_job_is_a_noop(
 
 
 # ---- Integration: real enqueue (via the HTTP API) + a real arq worker ----
+
+
+async def _run_burst_worker(session_factory: async_sessionmaker[AsyncSession]) -> None:
+    """Run a real arq `Worker` in burst mode: drain the queue, then return."""
+
+    async def _on_startup(ctx: dict) -> None:
+        ctx["session_factory"] = session_factory
+
+    worker = Worker(
+        functions=[process_job],
+        redis_settings=RedisSettings.from_dsn(settings.test_redis_url),
+        on_startup=_on_startup,
+        burst=True,
+        max_tries=1,
+        handle_signals=False,
+    )
+    try:
+        await worker.async_run()
+    finally:
+        await worker.close()
 
 
 async def test_enqueue_and_real_worker_pickup(
@@ -99,29 +122,54 @@ async def test_enqueue_and_real_worker_pickup(
     job_response = await client.post(
         f"/uploads/{upload_id}/jobs",
         headers=auth_headers,
-        json={"tool_type": "transcribe"},
+        json={"tool_type": "hook"},
     )
     job_id = job_response.json()["id"]
     assert job_response.json()["status"] == "queued"
 
-    async def _on_startup(ctx: dict) -> None:
-        ctx["session_factory"] = session_factory
-
-    worker = Worker(
-        functions=[process_job],
-        redis_settings=RedisSettings.from_dsn(settings.test_redis_url),
-        on_startup=_on_startup,
-        burst=True,
-        max_tries=1,
-        handle_signals=False,
-    )
-    try:
-        await worker.async_run()
-    finally:
-        await worker.close()
+    await _run_burst_worker(session_factory)
 
     jobs_response = await client.get(f"/uploads/{upload_id}/jobs", headers=auth_headers)
     job = next(j for j in jobs_response.json() if j["id"] == job_id)
     assert job["status"] == "succeeded"
     assert job["started_at"] is not None
     assert job["completed_at"] is not None
+
+
+async def test_real_transcribe_job_through_real_worker(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """M3 regression of the M2 checkpoint with a real (not dummy) job:
+    upload the fixture clip through the API, enqueue `transcribe`, let a
+    real arq worker run the real handler (ffmpeg + Whisper `base` on CPU,
+    see conftest), and check the status transitions and persisted rows.
+    """
+    upload_response = await client.post(
+        "/uploads",
+        headers=auth_headers,
+        files={"file": ("clip.mp4", FIXTURE_CLIP.read_bytes(), "video/mp4")},
+    )
+    upload_id = upload_response.json()["id"]
+
+    job_response = await client.post(
+        f"/uploads/{upload_id}/jobs",
+        headers=auth_headers,
+        json={"tool_type": "transcribe"},
+    )
+    job_id = job_response.json()["id"]
+    assert job_response.json()["status"] == "queued"
+
+    await _run_burst_worker(session_factory)
+
+    jobs_response = await client.get(f"/uploads/{upload_id}/jobs", headers=auth_headers)
+    job = next(j for j in jobs_response.json() if j["id"] == job_id)
+    assert job["status"] == "succeeded", job["error_message"]
+    assert job["started_at"] is not None
+    assert job["completed_at"] is not None
+    assert job["started_at"] <= job["completed_at"]
+
+    srt = await client.get(f"/uploads/{upload_id}/transcript.srt", headers=auth_headers)
+    assert srt.status_code == 200
+    assert srt.text.startswith("1\n00:00:")

@@ -30,7 +30,13 @@ proceeds milestone-by-milestone from `docs/development-plan.md`:
   page polls job status every 3s (decision record:
   [`docs/decisions/0006-async-job-pipeline.md`](docs/decisions/0006-async-job-pipeline.md)).
 
-Next up: **M3** (transcript/subtitle generator).
+- **M3** shipped the transcript/subtitle generator: ffmpeg audio
+  extraction + faster-whisper `large-v3-turbo` (int8 on the GPU, ~14×
+  real-time) persisting segment/word rows, and `.srt`/`.vtt` downloads
+  from the Manage page (decision record:
+  [`docs/decisions/0007-transcription-pipeline.md`](docs/decisions/0007-transcription-pipeline.md)).
+
+Next up: **M4** (speaker diarization).
 
 ## Tech stack
 
@@ -61,6 +67,14 @@ Ongoing/running notes: [`docs/brainstorm.md`](docs/brainstorm.md).
 
 ## Getting started
 
+### One command
+
+Once the one-time setup below is done (venv, `.env`, operator account),
+`scripts/dev.sh` starts everything in one terminal: docker services,
+pending migrations, API, worker (with the CUDA libs on
+`LD_LIBRARY_PATH`) and the Angular dev server, with prefixed output.
+Ctrl+C stops the app processes; the containers keep running.
+
 ### Backend
 
 ```bash
@@ -81,11 +95,21 @@ python -m app.cli create-user you@example.com
 
 # 5. Run the API and, in a second terminal, the job worker
 uvicorn app.main:app --reload
+export LD_LIBRARY_PATH="$(python -c 'import site; print(site.getsitepackages()[0])')/nvidia/cublas/lib:$(python -c 'import site; print(site.getsitepackages()[0])')/nvidia/cudnn/lib"
 arq app.worker.settings.WorkerSettings
 ```
 
 Without the worker running, jobs created from the Manage page stay
 `queued`.
+
+**Transcription (M3)** needs the system `ffmpeg` binary
+(`sudo apt install ffmpeg`). By default the worker runs faster-whisper
+`large-v3-turbo` on the GPU in int8 (the first job downloads ~1.6 GB of
+model into the Hugging Face cache). The CUDA 12 runtime comes from the
+`nvidia-cublas-cu12`/`nvidia-cudnn-cu12` pip wheels, which is why the
+worker needs the `LD_LIBRARY_PATH` line above. Without a usable GPU,
+set `WHISPER_DEVICE=cpu` (slower, no other change). See
+[`docs/decisions/0007-transcription-pipeline.md`](docs/decisions/0007-transcription-pipeline.md).
 
 The API alone: `POST /auth/login` (form fields `username`/`password`)
 for a token, `POST /uploads` (multipart, bearer token) to upload a
@@ -95,6 +119,8 @@ To run the backend test suite, create the separate test database once
 (`docker compose exec db psql -U youtube_suite -d youtube_suite -c
 "CREATE DATABASE youtube_suite_test;"`), then `pytest` from `backend/`. The tests also need Redis (from
 `docker compose up -d`); they use logical DB 1 (`TEST_REDIS_URL`).
+The transcription tests need `ffmpeg` and run Whisper `base` on CPU
+(no GPU needed; ~145 MB model download on the first run).
 
 ### Frontend
 

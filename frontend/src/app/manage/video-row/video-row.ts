@@ -5,6 +5,12 @@ import { JobOut, TOOL_LABELS, TOOL_TYPES, ToolType } from '../../jobs/job.model'
 import { Jobs } from '../../jobs/jobs';
 import { UploadOut } from '../../uploads/upload.model';
 import { JobStatusBadge } from '../../shared/job-status-badge/job-status-badge';
+import {
+  SUBTITLE_FORMATS,
+  SubtitleFormat,
+  Transcripts,
+  saveBlob,
+} from '../../transcripts/transcripts';
 
 @Component({
   selector: 'app-video-row',
@@ -15,6 +21,7 @@ import { JobStatusBadge } from '../../shared/job-status-badge/job-status-badge';
 export class VideoRow {
   private readonly jobsService = inject(Jobs);
   private readonly auth = inject(Auth);
+  private readonly transcripts = inject(Transcripts);
 
   readonly upload = input.required<UploadOut>();
   /** This video's jobs, as last fetched by the parent's batched call. */
@@ -24,6 +31,8 @@ export class VideoRow {
   protected readonly toolTypes = TOOL_TYPES;
   protected readonly toolLabels = TOOL_LABELS;
   protected readonly runningToolType = signal<ToolType | null>(null);
+  protected readonly subtitleFormats = SUBTITLE_FORMATS;
+  protected readonly downloadingFormat = signal<SubtitleFormat | null>(null);
 
   /**
    * <video src> requests come straight from the browser, bypassing
@@ -68,6 +77,31 @@ export class VideoRow {
       },
       error: () => {
         this.runningToolType.set(null);
+      },
+    });
+  }
+
+  /**
+   * Subtitles are downloadable once any transcribe job has succeeded --
+   * the backend keeps serving that transcript during a re-run, so this
+   * isn't tied to the *latest* job (docs/decisions/0007 §5).
+   */
+  protected hasTranscript(): boolean {
+    return this.allJobs().some(
+      (job) => job.tool_type === 'transcribe' && job.status === 'succeeded',
+    );
+  }
+
+  protected downloadSubtitle(format: SubtitleFormat): void {
+    this.downloadingFormat.set(format);
+    const stem = this.upload().filename.replace(/\.[^.]+$/, '') || 'transcript';
+    this.transcripts.getSubtitle(this.upload().id, format).subscribe({
+      next: (blob) => {
+        saveBlob(blob, `${stem}.${format}`);
+        this.downloadingFormat.set(null);
+      },
+      error: () => {
+        this.downloadingFormat.set(null);
       },
     });
   }

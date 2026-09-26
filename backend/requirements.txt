@@ -13,3 +13,10 @@ bcrypt==4.0.1
 python-multipart==0.0.9
 email-validator==2.2.0
 arq==0.28.0
+# Transcription (M3) -- see docs/decisions/0007-transcription-pipeline.md.
+# Also needs the system `ffmpeg` binary.
+faster-whisper==1.2.1
+# CUDA 12 runtime libs for ctranslate2's GPU path (the worker needs them
+# on LD_LIBRARY_PATH -- see README). Unused with WHISPER_DEVICE=cpu.
+nvidia-cublas-cu12==12.9.2.10
+nvidia-cudnn-cu12==9.26.0.51

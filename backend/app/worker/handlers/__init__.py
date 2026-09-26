@@ -1,18 +1,23 @@
 """Per-`tool_type` job handler registry.
 
-Every `tool_type` maps to a handler today -- `dummy.run` -- because no
-real tool exists yet (see `docs/decisions/0006-async-job-pipeline.md`).
-Each later milestone (M3 transcribe, M4 diarize, ...) replaces its own
-entry with a real handler; the other entries stay on `dummy.run` until
-their own milestone lands. `app/worker/tasks.py` is the only consumer
-of this registry and never changes when an entry is swapped.
+`transcribe` has its real handler (M3). Every other `tool_type` still
+maps to `dummy.run` until its own milestone replaces the entry (see
+`docs/decisions/0006-async-job-pipeline.md`). `app/worker/tasks.py` is
+the only consumer of this registry.
+
+Handlers get `process_job`'s DB session so they can persist results
+through the same `ctx["session_factory"]` seam tests rely on
+(`docs/decisions/0007-transcription-pipeline.md` §4).
 """
 
 from collections.abc import Awaitable, Callable
 
-from app.models.job import JOB_TOOL_TYPES, Job
-from app.worker.handlers import dummy
+from sqlalchemy.ext.asyncio import AsyncSession
 
-Handler = Callable[[Job], Awaitable[None]]
+from app.models.job import JOB_TOOL_TYPES, Job
+from app.worker.handlers import dummy, transcribe
+
+Handler = Callable[[Job, AsyncSession], Awaitable[None]]
 
 HANDLERS: dict[str, Handler] = {tool_type: dummy.run for tool_type in JOB_TOOL_TYPES}
+HANDLERS["transcribe"] = transcribe.run

@@ -9,6 +9,14 @@ from collections.abc import AsyncGenerator
 # patched in per-test.
 os.environ.setdefault("STORAGE_BASE_PATH", tempfile.mkdtemp(prefix="ys_test_uploads_"))
 
+# Transcription tests (M3) run a small Whisper model on CPU: fast, and
+# independent of the CUDA setup. Production uses large-v3-turbo on GPU
+# -- see docs/decisions/0007-transcription-pipeline.md. Set before any
+# `get_settings()` call, which caches.
+os.environ.setdefault("WHISPER_MODEL", "base")
+os.environ.setdefault("WHISPER_DEVICE", "cpu")
+os.environ.setdefault("WHISPER_COMPUTE_TYPE", "int8")
+
 import pytest_asyncio
 from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings

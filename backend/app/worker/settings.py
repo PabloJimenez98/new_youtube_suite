@@ -29,3 +29,5 @@ class WorkerSettings:
     # "hardening" territory) -- a handler exception is a terminal
     # `failed`, not an automatic re-run.
     max_tries = 1
+    # arq's 300s default would kill any real transcription (M3).
+    job_timeout = settings.worker_job_timeout_seconds

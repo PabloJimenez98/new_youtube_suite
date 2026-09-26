@@ -49,3 +49,31 @@ Open items noted for later milestones (not built now):
   then 500s on enqueue, leaving a `queued` row nothing will pick up.
   M9 (hardening) should decide: enqueue-failure → mark `failed`, or a
   periodic re-enqueue sweep of stale `queued` rows.
+
+## 2026-09-26 — M3 (transcript/subtitle generator)
+Implemented per `docs/decisions/0007-transcription-pipeline.md`.
+Deferred / noted, not built in M3:
+- **Detected language isn't stored** (no column in the §4 schema).
+  M5/M6 LLM prompts may want it. Add `uploads.language` or a
+  transcript-level column when a milestone actually needs it.
+- **`compression_ratio` isn't stored** either. It's only useful as a
+  hallucination signal. Revisit if M9 hardening wants quality flags.
+- **`progress_pct` stays NULL.** Whisper's segment generator plus
+  `info.duration` could drive it, but M3 didn't ask for it. Candidate
+  for M9 (a 1 h episode takes ~4 min on the GTX 1060).
+- **One subtitle cue per Whisper segment** (as spec'd). Segments can be
+  long. Re-cueing from word timestamps (~42 chars/line, 2 lines) would
+  make better captions. Candidate for M8, whose caption burn-in needs
+  clip-scoped cues anyway, or M9.
+- **Transcript viewer/editor** (spec §3 "result viewers") has no
+  screen yet. M3 only added `.srt`/`.vtt` download buttons in Manage.
+- **Input video is read through `LocalStorageBackend.path_for`**, which
+  is local-only. An S3 backend needs a download-to-temp step in the
+  transcribe handler.
+- **GPU contention with M4.** The transcribe handler serializes itself
+  with an in-process lock, but pyannote (M4) will also want the 3 GB
+  GPU. M4's planning should decide on a shared GPU lock or a
+  dedicated queue/`max_jobs`.
+- **arq `job_timeout` is global** (3 h now, raised from 300 s for
+  transcription). Per-function timeouts may be worth it once more real
+  handlers exist.
