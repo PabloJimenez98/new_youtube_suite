@@ -24,7 +24,8 @@
           <span class="video-row__tool-label">{{ toolLabels[tool] }}</span>
           @if (latestJobFor(tool); as job) {
             <app-job-status-badge [status]="job.status" />
-          } @else {
+          }
+          @if (canRun(tool)) {
             <button
               type="button"
               class="btn btn--ghost video-row__run"

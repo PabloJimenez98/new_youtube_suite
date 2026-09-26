@@ -10,6 +10,8 @@ from collections.abc import AsyncGenerator
 os.environ.setdefault("STORAGE_BASE_PATH", tempfile.mkdtemp(prefix="ys_test_uploads_"))
 
 import pytest_asyncio
+from arq import create_pool
+from arq.connections import ArqRedis, RedisSettings
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
@@ -18,6 +20,7 @@ from app.config import get_settings
 from app.database import Base, get_db
 from app.main import app
 from app.models.user import User
+from app.worker.pool import get_arq_pool
 
 settings = get_settings()
 
@@ -66,6 +69,32 @@ async def db_session(
 ) -> AsyncGenerator[AsyncSession, None]:
     async with session_factory() as session:
         yield session
+
+
+@pytest_asyncio.fixture
+async def arq_redis_pool() -> AsyncGenerator[ArqRedis, None]:
+    """Pool bound to `test_redis_url` (a separate logical Redis DB from
+    dev), flushed before and after each test so jobs from one test
+    can't leak into the next -- same isolation goal as `db_engine`'s
+    per-test create/drop, just for Redis instead of Postgres.
+    """
+    pool = await create_pool(RedisSettings.from_dsn(settings.test_redis_url))
+    await pool.flushdb()
+    yield pool
+    await pool.flushdb()
+    await pool.aclose()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _override_get_arq_pool(
+    arq_redis_pool: ArqRedis,
+) -> AsyncGenerator[None, None]:
+    async def _get_arq_pool_override() -> ArqRedis:
+        return arq_redis_pool
+
+    app.dependency_overrides[get_arq_pool] = _get_arq_pool_override
+    yield
+    app.dependency_overrides.pop(get_arq_pool, None)
 
 
 @pytest_asyncio.fixture

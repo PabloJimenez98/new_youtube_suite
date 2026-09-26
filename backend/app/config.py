@@ -20,6 +20,16 @@ class Settings(BaseSettings):
 
     storage_base_path: Path = Path("../uploads")
 
+    # arq job queue (M2). Separate logical Redis DB for tests, mirroring
+    # the database_url/test_database_url split above.
+    redis_url: str = "redis://localhost:6379/0"
+    test_redis_url: str = "redis://localhost:6379/1"
+
+    # How long the M2 dummy job handler sleeps before succeeding -- a
+    # stand-in for real per-tool processing time until each tool's own
+    # milestone (M3+) registers a real handler.
+    dummy_job_duration_seconds: float = 5
+
 
 @lru_cache
 def get_settings() -> Settings:

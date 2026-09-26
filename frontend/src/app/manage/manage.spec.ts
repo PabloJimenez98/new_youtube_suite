@@ -92,3 +92,48 @@ describe('Manage', () => {
     expect(uploadsStub.deleteUpload).not.toHaveBeenCalled();
   });
 });
+
+describe('Manage job-status polling', () => {
+  let fixture: ComponentFixture<Manage>;
+  let jobsStub: { listAllJobs: ReturnType<typeof vi.fn> };
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    const uploadsStub = { listUploads: vi.fn().mockReturnValue(of([videoA])) };
+    jobsStub = { listAllJobs: vi.fn().mockReturnValue(of([jobForA])) };
+
+    await TestBed.configureTestingModule({
+      imports: [Manage],
+      providers: [
+        { provide: Uploads, useValue: uploadsStub },
+        { provide: Jobs, useValue: jobsStub },
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(Manage);
+    fixture.detectChanges(); // ngOnInit: initial refresh() + starts the poll timer
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('re-fetches jobs on a fixed interval', () => {
+    expect(jobsStub.listAllJobs).toHaveBeenCalledTimes(1); // from the initial refresh()
+
+    vi.advanceTimersByTime(3000);
+    expect(jobsStub.listAllJobs).toHaveBeenCalledTimes(2);
+
+    vi.advanceTimersByTime(3000);
+    expect(jobsStub.listAllJobs).toHaveBeenCalledTimes(3);
+  });
+
+  it('stops polling once the component is destroyed', () => {
+    fixture.destroy();
+
+    vi.advanceTimersByTime(9000);
+    expect(jobsStub.listAllJobs).toHaveBeenCalledTimes(1); // no calls after destroy
+  });
+});

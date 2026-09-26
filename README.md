@@ -11,7 +11,7 @@ time.
 
 ## Status
 
-**Milestones M0 and M1 are done.** Planning was completed across four
+**Milestones M0–M2 are done.** Planning was completed across four
 brainstorm phases (scope → research → specification → development
 plan) — see [Documentation](#documentation) below. Implementation
 proceeds milestone-by-milestone from `docs/development-plan.md`:
@@ -24,8 +24,13 @@ proceeds milestone-by-milestone from `docs/development-plan.md`:
   calls M0's endpoints through the Angular dev-server's proxy
   (decision record:
   [`docs/decisions/0003-frontend-skeleton.md`](docs/decisions/0003-frontend-skeleton.md)).
+- **M2** shipped the async job pipeline: an `arq` worker over Redis
+  drives jobs through `queued → running → succeeded/failed` (every
+  tool runs a dummy handler until its own milestone), and the Manage
+  page polls job status every 3s (decision record:
+  [`docs/decisions/0006-async-job-pipeline.md`](docs/decisions/0006-async-job-pipeline.md)).
 
-Next up: **M2** (async job pipeline).
+Next up: **M3** (transcript/subtitle generator).
 
 ## Tech stack
 
@@ -38,7 +43,8 @@ Next up: **M2** (async job pipeline).
 | Diarization | `pyannote.audio` 4.0.7 + WhisperX |
 | Custom models | Relevance-detection, title/thumbnail CTR predictor, hook-strength scorer — see the model strategy in the project description |
 | Blob storage | Local filesystem behind a `StorageBackend` interface (M0) |
-| Job orchestration, ML training stack | Not yet decided — resolved incrementally per milestone in the development plan |
+| Job orchestration | `arq` worker over Redis (M2) |
+| ML training stack | Not yet decided — resolved incrementally per milestone in the development plan |
 
 ## Documentation
 
@@ -58,7 +64,7 @@ Ongoing/running notes: [`docs/brainstorm.md`](docs/brainstorm.md).
 ### Backend
 
 ```bash
-# 1. Local Postgres (+ optional pgAdmin at http://localhost:5050)
+# 1. Local Postgres + Redis (+ optional pgAdmin at http://localhost:5050)
 docker compose up -d
 
 # 2. Backend env
@@ -73,9 +79,13 @@ alembic upgrade head
 # 4. Seed the single operator account (no public signup endpoint)
 python -m app.cli create-user you@example.com
 
-# 5. Run
+# 5. Run the API and, in a second terminal, the job worker
 uvicorn app.main:app --reload
+arq app.worker.settings.WorkerSettings
 ```
+
+Without the worker running, jobs created from the Manage page stay
+`queued`.
 
 The API alone: `POST /auth/login` (form fields `username`/`password`)
 for a token, `POST /uploads` (multipart, bearer token) to upload a
@@ -83,7 +93,8 @@ file, `GET /uploads` to list them.
 
 To run the backend test suite, create the separate test database once
 (`docker compose exec db psql -U youtube_suite -d youtube_suite -c
-"CREATE DATABASE youtube_suite_test;"`), then `pytest` from `backend/`.
+"CREATE DATABASE youtube_suite_test;"`), then `pytest` from `backend/`. The tests also need Redis (from
+`docker compose up -d`); they use logical DB 1 (`TEST_REDIS_URL`).
 
 ### Frontend
 

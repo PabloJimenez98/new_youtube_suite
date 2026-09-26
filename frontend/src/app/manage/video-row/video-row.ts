@@ -48,6 +48,17 @@ export class VideoRow {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
   }
 
+  /**
+   * "Run" is available with no job yet, and again once the latest job
+   * has reached a terminal state -- hidden only while queued/running.
+   * Retry policy (backoff, auto-retry) is explicitly M9's territory;
+   * this is just letting the operator ask for another run by hand.
+   */
+  protected canRun(tool: ToolType): boolean {
+    const job = this.latestJobFor(tool);
+    return !job || job.status === 'succeeded' || job.status === 'failed';
+  }
+
   protected runTool(tool: ToolType): void {
     this.runningToolType.set(tool);
     this.jobsService.createJob(this.upload().id, tool).subscribe({

@@ -16,6 +16,19 @@ services:
       timeout: 5s
       retries: 10
 
+  # Broker for the arq job queue (M2). Pure broker, not a data store --
+  # Postgres stays the source of truth for job state -- so no volume.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   # Local-dev-only DB admin UI. Not part of any milestone's application
   # scope -- just a convenience for browsing the DB in a browser.
   pgadmin:

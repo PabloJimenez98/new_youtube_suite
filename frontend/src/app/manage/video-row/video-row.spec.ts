@@ -75,8 +75,8 @@ describe('VideoRow', () => {
     expect(buttons.length).toBe(8); // all 8 tools, none started
   });
 
-  it('shows a status badge instead of Run for a tool that already has a job', () => {
-    fixture.componentRef.setInput('jobs', [makeJob({ tool_type: 'transcribe' })]);
+  it('hides Run (shows only the badge) while a job is queued/running', () => {
+    fixture.componentRef.setInput('jobs', [makeJob({ tool_type: 'transcribe', status: 'queued' })]);
     fixture.detectChanges();
 
     const badges = (fixture.nativeElement as HTMLElement).querySelectorAll(
@@ -87,6 +87,22 @@ describe('VideoRow', () => {
       (fixture.nativeElement as HTMLElement).querySelectorAll('.video-row__run').length,
     ).toBe(7);
   });
+
+  it.each(['succeeded', 'failed'] as const)(
+    'shows Run again alongside the badge once the latest job is %s',
+    (status) => {
+      fixture.componentRef.setInput('jobs', [makeJob({ tool_type: 'transcribe', status })]);
+      fixture.detectChanges();
+
+      const badges = (fixture.nativeElement as HTMLElement).querySelectorAll(
+        'app-job-status-badge',
+      );
+      expect(badges.length).toBe(1);
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('.video-row__run').length,
+      ).toBe(8); // all 8 tools can be run, including the terminal transcribe one
+    },
+  );
 
   it('runTool creates a job and optimistically shows its status', () => {
     fixture.componentRef.setInput('jobs', []);

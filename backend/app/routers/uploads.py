@@ -3,6 +3,7 @@ import re
 from collections.abc import Iterator
 from pathlib import Path
 
+from arq.connections import ArqRedis
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
@@ -17,6 +18,7 @@ from app.models.user import User
 from app.schemas.job import JobCreate, JobOut
 from app.schemas.upload import UploadOut
 from app.storage import LocalStorageBackend, StorageKeyNotFoundError
+from app.worker.pool import get_arq_pool
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 settings = get_settings()
@@ -156,6 +158,7 @@ async def create_job(
     upload_id: int,
     job_in: JobCreate,
     db: AsyncSession = Depends(get_db),
+    arq_pool: ArqRedis = Depends(get_arq_pool),
     _current_user: User = Depends(get_current_user),
 ) -> Job:
     await _get_upload_or_404(upload_id, db)
@@ -164,6 +167,7 @@ async def create_job(
     db.add(job)
     await db.commit()
     await db.refresh(job)
+    await arq_pool.enqueue_job("process_job", job.id)
     return job
 
 

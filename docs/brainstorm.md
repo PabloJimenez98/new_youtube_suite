@@ -37,3 +37,15 @@ to remove) before scaffolding a new screen.
 
 ## Ideas
 (nothing logged yet)
+
+## 2026-09-26 — M2 done (async job pipeline)
+`arq` + Redis worker, per-`tool_type` handler registry (all 8 on the
+dummy handler), 3s polling on the Manage page, manual re-run once a job
+is terminal — see `docs/decisions/0006-async-job-pipeline.md`.
+Open items noted for later milestones (not built now):
+- The API's arq pool (`app/worker/pool.py`) is never closed on app
+  shutdown — harmless for dev, worth a FastAPI lifespan hook in M9.
+- If Redis is down, `POST /uploads/{id}/jobs` commits the job row and
+  then 500s on enqueue, leaving a `queued` row nothing will pick up.
+  M9 (hardening) should decide: enqueue-failure → mark `failed`, or a
+  periodic re-enqueue sweep of stale `queued` rows.
