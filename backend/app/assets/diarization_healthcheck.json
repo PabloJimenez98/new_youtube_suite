@@ -1,0 +1,30 @@
+{
+  "duration_seconds": 37.03,
+  "sample_rate": 16000,
+  "turns": [
+    {
+      "speaker": "A",
+      "start": 0.0,
+      "end": 12.985,
+      "utterance_id": "3000-15664-0008",
+      "librispeech_speaker_id": 3000,
+      "text": "YET STRANGE TO SAY THERE ARE DAYS EVEN HERE SOMEWHAT DULL LOOKING WHEN THE MOUNTAIN SEEMS UNCOMMUNICATIVE SENDING OUT NO APPRECIABLE INVITATION AS IF NOT AT HOME"
+    },
+    {
+      "speaker": "B",
+      "start": 13.585,
+      "end": 25.7,
+      "utterance_id": "3536-8226-0005",
+      "librispeech_speaker_id": 3536,
+      "text": "AND HAD THE CASE BEEN BROUGHT BEFORE THE JUDGE ORDINARY BY MEANS OF HER HUSBAND'S EXERTIONS SHE WOULD HAVE TAKEN PLEASURE IN READING EVERY WORD OF THE EVIDENCE EVEN THOUGH HER HUSBAND SHOULD HAVE BEEN EVER SO ROUGHLY HANDLED BY THE LAWYERS"
+    },
+    {
+      "speaker": "A",
+      "start": 26.3,
+      "end": 37.03,
+      "utterance_id": "3000-15664-0011",
+      "librispeech_speaker_id": 3000,
+      "text": "SLIGHT RAINSTORMS ARE LIKELY TO BE ENCOUNTERED IN A TRIP ROUND THE MOUNTAIN BUT ONE MAY EASILY FIND SHELTER BENEATH WELL THATCHED TREES THAT SHED THE RAIN LIKE A ROOF"
+    }
+  ]
+}

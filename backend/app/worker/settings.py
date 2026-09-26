@@ -12,6 +12,7 @@ from arq.connections import RedisSettings
 
 from app.config import get_settings
 from app.database import async_session_factory
+from app.diarization.pipeline import startup_healthcheck
 from app.worker.tasks import process_job
 
 settings = get_settings()
@@ -19,6 +20,9 @@ settings = get_settings()
 
 async def startup(ctx: dict[str, Any]) -> None:
     ctx["session_factory"] = async_session_factory
+    if settings.diarization_healthcheck:
+        # Never raises: a failure only disables `diarize` jobs (M4, 0008 §5).
+        await startup_healthcheck()
 
 
 class WorkerSettings:

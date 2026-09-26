@@ -6,9 +6,9 @@ Planning is complete. All four brainstorm phases are done: scope
 full specification (`docs/project-description.md`), and a milestone-based
 development plan (`docs/development-plan.md`). **Milestones M0 (backend
 & database skeleton), M1 (frontend skeleton & upload flow), M2
-(async job pipeline) and M3 (transcript/subtitle generator) are done**
-— see `docs/decisions/` (0002–0007) for what was decided. The next step
-is milestone **M4**.
+(async job pipeline), M3 (transcript/subtitle generator) and M4
+(speaker diarization) are done** — see `docs/decisions/` (0002–0008)
+for what was decided. The next step is milestone **M5**.
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 

@@ -36,7 +36,13 @@ proceeds milestone-by-milestone from `docs/development-plan.md`:
   from the Manage page (decision record:
   [`docs/decisions/0007-transcription-pipeline.md`](docs/decisions/0007-transcription-pipeline.md)).
 
-Next up: **M4** (speaker diarization).
+- **M4** shipped speaker diarization: pyannote `community-1` on the
+  GPU alongside Whisper (~19× real-time), word/segment speaker labels,
+  a startup healthcheck that degrades only diarization, and
+  speaker-labelled subtitles split at speaker changes (decision record:
+  [`docs/decisions/0008-speaker-diarization.md`](docs/decisions/0008-speaker-diarization.md)).
+
+Next up: **M5** (chapter generator).
 
 ## Tech stack
 
@@ -111,6 +117,22 @@ worker needs the `LD_LIBRARY_PATH` line above. Without a usable GPU,
 set `WHISPER_DEVICE=cpu` (slower, no other change). See
 [`docs/decisions/0007-transcription-pipeline.md`](docs/decisions/0007-transcription-pipeline.md).
 
+**Speaker diarization (M4)** uses pyannote's gated
+`pyannote/speaker-diarization-community-1` pipeline. Set it up once:
+1. Create a Hugging Face account and accept the model's conditions at
+   https://huggingface.co/pyannote/speaker-diarization-community-1.
+2. Create a *read* access token.
+3. Put the token in `backend/.env` as `HF_TOKEN=...`.
+
+At startup the worker runs a healthcheck: it diarizes a bundled
+2-speaker clip. If that fails (missing token, license not accepted,
+empty output), the worker still starts and the other tools keep
+working, but `diarize` jobs fail with the reason. It shows as a tooltip
+on the failed badge in Manage. torch comes from the PyTorch **cu126**
+index (set at the top of `requirements.txt`), the last build that still
+supports Pascal GPUs like the GTX 1060. See
+[`docs/decisions/0008-speaker-diarization.md`](docs/decisions/0008-speaker-diarization.md).
+
 The API alone: `POST /auth/login` (form fields `username`/`password`)
 for a token, `POST /uploads` (multipart, bearer token) to upload a
 file, `GET /uploads` to list them.
@@ -120,7 +142,10 @@ To run the backend test suite, create the separate test database once
 "CREATE DATABASE youtube_suite_test;"`), then `pytest` from `backend/`. The tests also need Redis (from
 `docker compose up -d`); they use logical DB 1 (`TEST_REDIS_URL`).
 The transcription tests need `ffmpeg` and run Whisper `base` on CPU
-(no GPU needed; ~145 MB model download on the first run).
+(no GPU needed; ~145 MB model download on the first run). The
+diarization tests run pyannote on CPU and need `HF_TOKEN` in
+`backend/.env`. With both models on CPU, the full backend suite takes a
+few minutes.
 
 ### Frontend
 
@@ -138,6 +163,17 @@ upload a file. The dev server proxies `/auth` and `/uploads` to the
 backend at `127.0.0.1:8000` (see `frontend/proxy.conf.json`) — no CORS
 setup needed. Run the frontend test suite with `ng test` (Vitest,
 headless — no Chrome/browser install required).
+
+## Third-party models
+
+- Transcription: [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
+  running OpenAI Whisper `large-v3-turbo` (MIT).
+- Speaker diarization: [pyannote.audio](https://github.com/pyannote/pyannote-audio)
+  (MIT) with the `pyannote/speaker-diarization-community-1` pipeline,
+  whose weights are licensed **CC-BY-4.0**.
+- Test/healthcheck audio: LibriSpeech (CC BY 4.0). See
+  `backend/tests/fixtures/ATTRIBUTION.md` and
+  `backend/app/assets/ATTRIBUTION.md`.
 
 ## Development approach
 

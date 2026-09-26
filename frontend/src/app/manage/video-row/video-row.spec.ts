@@ -222,4 +222,63 @@ describe('VideoRow', () => {
       expect(fixture.componentInstance['downloadingFormat']()).toBeNull();
     });
   });
+
+  describe('Speakers (diarize) run button', () => {
+    const speakersButton = () => {
+      const cells = [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll('.video-row__tool'),
+      ];
+      const cell = cells.find(
+        (c) => c.querySelector('.video-row__tool-label')?.textContent?.trim() === 'Speakers',
+      );
+      return cell?.querySelector<HTMLButtonElement>('.video-row__run') ?? null;
+    };
+
+    it('is disabled with a hint until a transcript exists', () => {
+      fixture.componentRef.setInput('jobs', []);
+      fixture.detectChanges();
+
+      expect(speakersButton()?.disabled).toBe(true);
+      expect(speakersButton()?.getAttribute('title')).toBe('Needs a transcript');
+    });
+
+    it('stays disabled while transcription is still running', () => {
+      fixture.componentRef.setInput('jobs', [makeJob({ status: 'running' })]);
+      fixture.detectChanges();
+
+      expect(speakersButton()?.disabled).toBe(true);
+    });
+
+    it('is enabled once a transcribe job has succeeded', () => {
+      fixture.componentRef.setInput('jobs', [makeJob({ status: 'succeeded' })]);
+      fixture.detectChanges();
+
+      expect(speakersButton()?.disabled).toBe(false);
+      expect(speakersButton()?.hasAttribute('title')).toBe(false);
+    });
+
+    it('does not gate the other tools', () => {
+      fixture.componentRef.setInput('jobs', []);
+      fixture.detectChanges();
+
+      const disabled = (fixture.nativeElement as HTMLElement).querySelectorAll(
+        '.video-row__run:disabled',
+      );
+      expect(disabled.length).toBe(1);
+    });
+  });
+
+  it('passes the job error message to its status badge', () => {
+    fixture.componentRef.setInput('jobs', [
+      makeJob({ tool_type: 'diarize', status: 'failed', error_message: 'Diarization unavailable' }),
+      makeJob({ id: 2, status: 'succeeded' }),
+    ]);
+    fixture.detectChanges();
+
+    const failedBadge = (fixture.nativeElement as HTMLElement).querySelector(
+      '.badge--failed',
+    );
+    expect(failedBadge?.getAttribute('title')).toBe('Diarization unavailable');
+  });
 });
+

@@ -77,3 +77,42 @@ Deferred / noted, not built in M3:
 - **arq `job_timeout` is global** (3 h now, raised from 300 s for
   transcription). Per-function timeouts may be worth it once more real
   handlers exist.
+
+## 2026-09-26 — M4 (speaker diarization)
+Implemented per `docs/decisions/0008-speaker-diarization.md`, with the
+measured GPU/CPU spike in `docs/research/m4-diarization-spike.md`.
+Deferred / noted, not built in M4:
+- **Re-transcribing drops speaker labels.** `transcribe` replaces the
+  transcript rows, so `diarize` has to be re-run by hand. Automatic
+  chaining (transcribe → diarize), or re-diarizing after a
+  re-transcription, belongs to M9 hardening or a pipeline-orchestration
+  change.
+- **Speakers are anonymous** (`SPEAKER_00`, ...). Mapping them to host
+  and guest names would need UI (and probably an `upload_speakers`
+  table). Worth it for show notes (M6) and shorts captions (M8).
+- **No speaker-count hint.** pyannote accepts
+  `num_speakers`/`min_speakers`/`max_speakers`, and podcasts usually
+  know their host count, which could improve accuracy. That needs a job
+  parameter, and jobs carry no parameters yet.
+- **Overlapping speech is flattened.** Using
+  `exclusive_speaker_diarization` gives one speaker per instant. The
+  overlap-aware `speaker_diarization` output is discarded, and it could
+  matter for crosstalk-heavy shorts (M8).
+- **torchcodec is broken here** (`libnvrtc.so.13`). It is harmless
+  because audio is passed preloaded, but a future torch/pyannote
+  upgrade should re-check it. Also watch torch versions generally:
+  **cu126 is the last torch build line with Pascal kernels**, so a GPU
+  upgrade or a CPU move becomes necessary when torch cu126 stops being
+  published for the versions pyannote needs.
+- **GPU fallbacks are measured but not implemented:** model swapping
+  between GPU and RAM (under 0.5 s per swap), and
+  `embedding_batch_size=1` (1.8 GB peak). Use them if a future model
+  squeezes the 3 GB.
+- **A CUDA OOM poisons the worker process** (seen in M4). After
+  ctranslate2 hits `out of memory`, every later GPU call in that
+  process fails (`invalid device ordinal`) until the worker restarts.
+  M4 removed the cause (torch cache release, 0008), but recovery
+  belongs to M9 hardening. Candidates: detect CUDA errors in
+  `process_job` and exit the worker so a supervisor restarts it, or run
+  GPU work in a child process.
+

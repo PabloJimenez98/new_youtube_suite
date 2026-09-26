@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,6 +43,17 @@ class Settings(BaseSettings):
     whisper_compute_type: str = "int8"
     whisper_beam_size: int = 5
     whisper_vad_filter: bool = True
+
+    # Speaker diarization (M4) -- see docs/decisions/0008-speaker-diarization.md.
+    # Read token for the gated pyannote/speaker-diarization-community-1 model.
+    hf_token: SecretStr | None = None
+    diarization_device: str = "cuda"
+    # 8 fits alongside a resident Whisper on 3 GB at no speed cost vs the
+    # default 32 (measured, docs/research/m4-diarization-spike.md).
+    diarization_embedding_batch_size: int = 8
+    # Run the pipeline on a known 2-speaker clip at worker startup; if it
+    # fails, only `diarize` jobs degrade (they fail fast with the reason).
+    diarization_healthcheck: bool = True
 
 
 @lru_cache

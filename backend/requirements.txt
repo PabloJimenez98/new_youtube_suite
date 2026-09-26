@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cu126
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 sqlalchemy==2.0.35
@@ -17,6 +18,17 @@ arq==0.28.0
 # Also needs the system `ffmpeg` binary.
 faster-whisper==1.2.1
 # CUDA 12 runtime libs for ctranslate2's GPU path (the worker needs them
-# on LD_LIBRARY_PATH -- see README). Unused with WHISPER_DEVICE=cpu.
-nvidia-cublas-cu12==12.9.2.10
-nvidia-cudnn-cu12==9.26.0.51
+# on LD_LIBRARY_PATH -- see README). Pinned to the versions torch 2.8.0
+# cu126 requires (M4); ctranslate2 4.8.2 verified on them -- see
+# docs/decisions/0008-speaker-diarization.md §2.
+nvidia-cublas-cu12==12.6.4.1
+nvidia-cudnn-cu12==9.10.2.21
+
+# Speaker diarization (M4). The cu126 torch build is the last that still
+# ships Pascal (GTX 1060) kernels -- cu128+ dropped them.
+torch==2.8.0+cu126
+torchaudio==2.8.0+cu126
+pyannote.audio==4.0.7
+# pyannote's own decoder (torchcodec) can't load here, so the WAV is read
+# with soundfile and passed in preloaded.
+soundfile==0.14.0

@@ -1,6 +1,6 @@
 """Unit tests for `.srt` / `.vtt` rendering -- no DB, no model."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pytest
 
@@ -8,10 +8,20 @@ from app.transcription.subtitles import format_timestamp, to_srt, to_vtt
 
 
 @dataclass
+class W:
+    word: str
+    start_seconds: float | None
+    end_seconds: float | None
+    speaker_label: str | None
+
+
+@dataclass
 class Seg:
     start_seconds: float
     end_seconds: float
     text: str
+    speaker_label: str | None = None
+    words: list[W] = field(default_factory=list)
 
 
 @pytest.mark.parametrize(
@@ -86,3 +96,132 @@ def test_srt_leaves_text_unescaped() -> None:
 
 def test_end_before_start_is_clamped() -> None:
     assert "00:00:02,000 --> 00:00:02,000" in to_srt([Seg(2.0, 1.5, "x")])
+
+
+# ---- Speaker labels (M4) ----
+
+LABELLED = [
+    Seg(0.0, 2.5, "Hello and welcome.", "SPEAKER_00"),
+    Seg(2.5, 4.0, "Thanks for having me.", "SPEAKER_01"),
+    Seg(4.0, 5.0, "Unlabelled bit."),
+]
+
+
+def test_srt_prefixes_speaker_labels() -> None:
+    assert to_srt(LABELLED) == (
+        "1\n00:00:00,000 --> 00:00:02,500\n[SPEAKER_00] Hello and welcome.\n"
+        "\n"
+        "2\n00:00:02,500 --> 00:00:04,000\n[SPEAKER_01] Thanks for having me.\n"
+        "\n"
+        "3\n00:00:04,000 --> 00:00:05,000\nUnlabelled bit.\n"
+    )
+
+
+def test_vtt_uses_voice_spans_for_speaker_labels() -> None:
+    assert to_vtt(LABELLED) == (
+        "WEBVTT\n\n"
+        "00:00:00.000 --> 00:00:02.500\n<v SPEAKER_00>Hello and welcome.\n"
+        "\n"
+        "00:00:02.500 --> 00:00:04.000\n<v SPEAKER_01>Thanks for having me.\n"
+        "\n"
+        "00:00:04.000 --> 00:00:05.000\nUnlabelled bit.\n"
+    )
+
+
+def test_vtt_voice_span_text_is_still_escaped() -> None:
+    assert to_vtt([Seg(0, 1, "a < b", "SPEAKER_00")]).endswith("<v SPEAKER_00>a &lt; b\n")
+
+
+def test_srt_speaker_prefix_only_on_first_line() -> None:
+    srt = to_srt([Seg(0, 1, "line one\nline two", "SPEAKER_01")])
+    assert srt.endswith("[SPEAKER_01] line one\nline two\n")
+
+
+# ---- Per-speaker cue splitting (M4 follow-up, 0008 §6) ----
+
+
+def _seg(*words: tuple[str, float | None, str | None], start: float = 0.0, end: float = 5.0) -> Seg:
+    ws = [W(text, t, None if t is None else t + 0.3, label) for text, t, label in words]
+    majority = max(
+        {w.speaker_label for w in ws if w.speaker_label},
+        key=lambda s: sum(w.speaker_label == s for w in ws),
+        default=None,
+    )
+    return Seg(start, end, " ".join(w.word for w in ws), majority, ws)
+
+
+def test_mixed_segment_splits_into_one_cue_per_speaker() -> None:
+    seg = _seg(
+        ("So", 0.0, "SPEAKER_00"), ("what", 0.4, "SPEAKER_00"), ("happened?", 0.8, "SPEAKER_00"),
+        ("Nothing", 2.0, "SPEAKER_01"), ("really.", 2.5, "SPEAKER_01"),
+    )
+    assert to_srt([seg]) == (
+        "1\n00:00:00,000 --> 00:00:02,000\n[SPEAKER_00] So what happened?\n"
+        "\n"
+        "2\n00:00:02,000 --> 00:00:05,000\n[SPEAKER_01] Nothing really.\n"
+    )
+    assert to_vtt([seg]) == (
+        "WEBVTT\n\n"
+        "00:00:00.000 --> 00:00:02.000\n<v SPEAKER_00>So what happened?\n"
+        "\n"
+        "00:00:02.000 --> 00:00:05.000\n<v SPEAKER_01>Nothing really.\n"
+    )
+
+
+def test_srt_numbering_continues_across_split_cues() -> None:
+    first = _seg(("a", 0.0, "SPEAKER_00"), ("b", 0.5, "SPEAKER_00"),
+                 ("c", 1.0, "SPEAKER_01"), ("d", 1.5, "SPEAKER_01"), end=2.0)
+    second = Seg(2.0, 3.0, "next", "SPEAKER_00")
+    srt = to_srt([first, second])
+    assert "\n3\n00:00:02,000 --> 00:00:03,000\n[SPEAKER_00] next\n" in srt
+    assert srt.count(" --> ") == 3
+
+
+def test_single_word_interjection_is_folded_not_split() -> None:
+    seg = _seg(
+        ("I", 0.0, "SPEAKER_00"), ("think", 0.4, "SPEAKER_00"),
+        ("yeah", 0.8, "SPEAKER_01"),
+        ("it", 1.2, "SPEAKER_00"), ("works", 1.6, "SPEAKER_00"),
+    )
+    # One-word runs may be diarization noise: behave exactly like an
+    # unsplit segment (segment text, majority label).
+    assert to_srt([seg]) == "1\n00:00:00,000 --> 00:00:05,000\n[SPEAKER_00] I think yeah it works\n"
+
+
+def test_unlabelled_words_stay_with_their_run() -> None:
+    # Regression: an unlabelled word must not hand the *next* speaker's
+    # words to the previous run.
+    seg = _seg(
+        ("Right", 0.0, "SPEAKER_00"), ("€5", None, None),
+        ("No", 1.0, "SPEAKER_01"), ("way", 1.4, "SPEAKER_01"),
+    )
+    assert to_vtt([seg]) == (
+        "WEBVTT\n\n"
+        "00:00:00.000 --> 00:00:01.000\n<v SPEAKER_00>Right €5\n"
+        "\n"
+        "00:00:01.000 --> 00:00:05.000\n<v SPEAKER_01>No way\n"
+    )
+
+
+def test_leading_unlabelled_words_join_the_first_speaker() -> None:
+    seg = _seg(
+        ("Um", None, None), ("well", 0.3, "SPEAKER_01"), ("yes", 0.6, "SPEAKER_01"),
+        ("Okay", 2.0, "SPEAKER_00"), ("then", 2.4, "SPEAKER_00"),
+    )
+    cues = to_srt([seg])
+    assert "[SPEAKER_01] Um well yes\n" in cues
+    assert "[SPEAKER_00] Okay then\n" in cues
+
+
+def test_uniformly_labelled_segment_keeps_the_segment_text() -> None:
+    # No split → identical to the one-cue-per-segment output, using the
+    # segment's own text (not re-joined words).
+    seg = _seg(("Hello,", 0.0, "SPEAKER_00"), ("world.", 0.5, "SPEAKER_00"))
+    seg.text = "Hello, world."
+    assert to_srt([seg]) == "1\n00:00:00,000 --> 00:00:05,000\n[SPEAKER_00] Hello, world.\n"
+
+
+def test_words_without_any_labels_behave_like_m3() -> None:
+    seg = _seg(("plain", 0.0, None), ("text", 0.5, None))
+    assert to_srt([seg]) == "1\n00:00:00,000 --> 00:00:05,000\nplain text\n"
+

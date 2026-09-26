@@ -29,7 +29,7 @@ Updated as milestones complete — this table is the source of truth for
 | M1 — Frontend skeleton & upload flow | Done |
 | M2 — Async job pipeline | Done |
 | M3 — Transcript/subtitle generator | Done |
-| M4 — Speaker diarization | Not started |
+| M4 — Speaker diarization | Done |
 | M5 — Chapter generator | Not started |
 | M6 — Show notes & metadata generator | Not started |
 | M7 — Relevance-detection model v0 | Not started |

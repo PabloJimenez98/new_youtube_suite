@@ -16,6 +16,9 @@ os.environ.setdefault("STORAGE_BASE_PATH", tempfile.mkdtemp(prefix="ys_test_uplo
 os.environ.setdefault("WHISPER_MODEL", "base")
 os.environ.setdefault("WHISPER_DEVICE", "cpu")
 os.environ.setdefault("WHISPER_COMPUTE_TYPE", "int8")
+# Same for diarization (M4): pyannote on CPU in tests. HF_TOKEN still
+# comes from backend/.env -- the real-pipeline tests need it.
+os.environ.setdefault("DIARIZATION_DEVICE", "cpu")
 
 import pytest_asyncio
 from arq import create_pool

@@ -1,1 +1,7 @@
-<span class="badge" [class]="'badge--' + status()">{{ label() }}</span>
+<span
+  class="badge"
+  [class]="'badge--' + status()"
+  [class.badge--has-tooltip]="!!tooltip()"
+  [attr.title]="tooltip()"
+  >{{ label() }}</span
+>

@@ -279,4 +279,14 @@ threshold therefore has margin.
   output. Final count: backend 78 passed, frontend 85 passed.
 - **Dev convenience:** `scripts/dev.sh` starts the whole local stack
   in one terminal. It is tooling, not milestone scope.
+- **CUDA wheel pins changed in M4 (2026-09-26).** Adding torch 2.8.0
+  cu126 for pyannote moved `nvidia-cudnn-cu12` from 9.26.0.51 to
+  **9.10.2.21** and `nvidia-cublas-cu12` from 12.9.2.10 to
+  **12.6.4.1** (torch's exact pins). faster-whisper / ctranslate2 4.8.2
+  was re-verified on the new versions and gives the same output. See
+  `0008-speaker-diarization.md` §2 and `docs/research/m4-diarization-spike.md`
+  (check D1).
+- **The Whisper lock became the shared GPU lock in M4.** The
+  transcription lock now lives in `app/worker/gpu.py` and also guards
+  diarization (0008 §1).
 

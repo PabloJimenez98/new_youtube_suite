@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.auth.security import get_current_user
 from app.database import get_db
@@ -75,6 +76,8 @@ async def _subtitle_response(
             select(TranscriptSegment)
             .where(TranscriptSegment.upload_id == upload_id)
             .order_by(TranscriptSegment.segment_index)
+            # Word labels drive per-speaker cue splitting (M4, 0008 §6).
+            .options(selectinload(TranscriptSegment.words))
         )
     ).scalars()
     body = to_srt(segments) if fmt == "srt" else to_vtt(segments)

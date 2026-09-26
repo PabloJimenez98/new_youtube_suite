@@ -92,6 +92,11 @@ export class VideoRow {
     );
   }
 
+  /** Diarization labels an existing transcript (M4) -- nothing to label without one. */
+  protected needsTranscript(tool: ToolType): boolean {
+    return tool === 'diarize' && !this.hasTranscript();
+  }
+
   protected downloadSubtitle(format: SubtitleFormat): void {
     this.downloadingFormat.set(format);
     const stem = this.upload().filename.replace(/\.[^.]+$/, '') || 'transcript';

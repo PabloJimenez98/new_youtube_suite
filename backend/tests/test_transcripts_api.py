@@ -179,3 +179,38 @@ async def test_404_unknown_upload(client: AsyncClient, auth_headers: dict[str, s
 async def test_401_without_token(client: AsyncClient, fmt: str) -> None:
     response = await client.get(f"/uploads/1/transcript.{fmt}")
     assert response.status_code == 401
+
+
+async def test_mixed_speaker_segment_is_split_in_the_download(
+    client: AsyncClient, auth_headers: dict[str, str], db_session: AsyncSession
+) -> None:
+    upload = await _make_upload(db_session, "succeeded")
+    db_session.add(
+        TranscriptSegment(
+            upload_id=upload.id,
+            segment_index=0,
+            start_seconds=0.0,
+            end_seconds=4.0,
+            text="Are you sure? Totally sure.",
+            speaker_label="SPEAKER_00",
+            words=[
+                TranscriptWord(word_index=0, word="Are", start_seconds=0.0, end_seconds=0.3, speaker_label="SPEAKER_00"),
+                TranscriptWord(word_index=1, word="you", start_seconds=0.3, end_seconds=0.6, speaker_label="SPEAKER_00"),
+                TranscriptWord(word_index=2, word="sure?", start_seconds=0.6, end_seconds=1.0, speaker_label="SPEAKER_00"),
+                TranscriptWord(word_index=3, word="Totally", start_seconds=2.0, end_seconds=2.6, speaker_label="SPEAKER_01"),
+                TranscriptWord(word_index=4, word="sure.", start_seconds=2.6, end_seconds=3.0, speaker_label="SPEAKER_01"),
+            ],
+        )
+    )
+    await db_session.commit()
+
+    response = await client.get(f"/uploads/{upload.id}/transcript.vtt", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.text == (
+        "WEBVTT\n\n"
+        "00:00:00.000 --> 00:00:02.000\n<v SPEAKER_00>Are you sure?\n"
+        "\n"
+        "00:00:02.000 --> 00:00:04.000\n<v SPEAKER_01>Totally sure.\n"
+    )
+

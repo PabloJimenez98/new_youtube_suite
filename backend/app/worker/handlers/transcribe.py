@@ -20,10 +20,8 @@ from app.models.upload import Upload
 from app.storage import LocalStorageBackend
 from app.transcription import whisper
 from app.transcription.audio import extract_audio
+from app.worker.gpu import gpu_lock
 
-# arq runs several jobs concurrently, but only one Whisper model fits in
-# the GPU's 3 GB -- serialize transcriptions within this worker process.
-_transcribe_lock = asyncio.Lock()
 
 
 def audio_key_for(upload_id: int) -> str:
@@ -43,7 +41,7 @@ async def run(job: Job, db: AsyncSession) -> None:
         wav_path = Path(tmp) / "audio.wav"
         await extract_audio(source, wav_path)
 
-        async with _transcribe_lock:
+        async with gpu_lock:
             results = await asyncio.to_thread(whisper.transcribe, wav_path)
 
         audio_key = audio_key_for(upload.id)

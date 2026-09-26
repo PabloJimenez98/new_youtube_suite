@@ -136,3 +136,13 @@ your consideration before/during Phase 3:
   files if a deeper follow-up pass would be warranted later.
 - Whisper/pyannote/WhisperX tooling was treated as already-settled per
   Phase 1 and only maturity-checked, not deeply re-researched.
+
+## Development-phase spikes
+Short measured experiments run during a milestone's planning or
+development sub-phase to replace estimates with numbers on the real
+hardware. Each one records its setup, its script and its results.
+- **M3, faster-whisper on the GTX 1060:** `large-v3-turbo` int8 ran at
+  ~14.7× real-time with ~1.55 GB VRAM. Recorded inline in
+  [`../decisions/0007-transcription-pipeline.md`](../decisions/0007-transcription-pipeline.md) §1.
+- **M4, pyannote `community-1` GPU vs. CPU:** GPU at ~17× real-time; it fits alongside Whisper with `embedding_batch_size=8` (~2.3 GB peak). CPU is under 1× real-time.
+  → [`m4-diarization-spike.md`](./m4-diarization-spike.md)

@@ -17,5 +17,10 @@ const LABELS: Record<JobStatus, string> = {
 })
 export class JobStatusBadge {
   readonly status = input.required<JobStatus>();
+  /** The job's `error_message`, shown as a tooltip when it failed. */
+  readonly error = input<string | null>(null);
   protected readonly label = computed(() => LABELS[this.status()]);
+  protected readonly tooltip = computed(() =>
+    this.status() === 'failed' ? this.error() : null,
+  );
 }

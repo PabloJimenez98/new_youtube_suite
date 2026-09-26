@@ -23,13 +23,14 @@
         <div class="video-row__tool">
           <span class="video-row__tool-label">{{ toolLabels[tool] }}</span>
           @if (latestJobFor(tool); as job) {
-            <app-job-status-badge [status]="job.status" />
+            <app-job-status-badge [status]="job.status" [error]="job.error_message" />
           }
           @if (canRun(tool)) {
             <button
               type="button"
               class="btn btn--ghost video-row__run"
-              [disabled]="runningToolType() === tool"
+              [disabled]="runningToolType() === tool || needsTranscript(tool)"
+              [attr.title]="needsTranscript(tool) ? 'Needs a transcript' : null"
               (click)="runTool(tool)"
             >
               {{ runningToolType() === tool ? 'Starting…' : 'Run' }}

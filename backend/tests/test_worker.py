@@ -5,7 +5,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import get_settings
-from tests.fixtures import FIXTURE_CLIP
+from tests.fixtures import CONVERSATION_CLIP, FIXTURE_CLIP
 from app.models.job import Job
 from app.models.upload import Upload
 from app.worker import handlers
@@ -173,3 +173,38 @@ async def test_real_transcribe_job_through_real_worker(
     srt = await client.get(f"/uploads/{upload_id}/transcript.srt", headers=auth_headers)
     assert srt.status_code == 200
     assert srt.text.startswith("1\n00:00:")
+
+
+async def test_transcribe_then_diarize_through_real_worker(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """M4 regression of the M2 checkpoint: two real jobs through a real
+    arq worker, chained the way the Manage page drives them -- diarize
+    only after transcribe has succeeded -- then the speaker labels show
+    up in the VTT download.
+    """
+    upload_response = await client.post(
+        "/uploads",
+        headers=auth_headers,
+        files={"file": ("conversation.mp4", CONVERSATION_CLIP.read_bytes(), "video/mp4")},
+    )
+    upload_id = upload_response.json()["id"]
+
+    for tool_type in ("transcribe", "diarize"):
+        job_response = await client.post(
+            f"/uploads/{upload_id}/jobs", headers=auth_headers, json={"tool_type": tool_type}
+        )
+        job_id = job_response.json()["id"]
+        await _run_burst_worker(session_factory)
+
+        jobs_response = await client.get(f"/uploads/{upload_id}/jobs", headers=auth_headers)
+        job = next(j for j in jobs_response.json() if j["id"] == job_id)
+        assert job["status"] == "succeeded", f"{tool_type}: {job['error_message']}"
+
+    vtt = await client.get(f"/uploads/{upload_id}/transcript.vtt", headers=auth_headers)
+    assert vtt.status_code == 200
+    assert "<v SPEAKER_00>" in vtt.text
+    assert "<v SPEAKER_01>" in vtt.text
+
