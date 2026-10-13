@@ -1,0 +1,75 @@
+{
+ "encoder": "e5-small",
+ "unit": {
+  "mode": "sentence",
+  "min_s": 2,
+  "max_s": 15,
+  "block_s": 10.0
+ },
+ "decode_product": {
+  "per_hour": 6,
+  "min_chapters": 3,
+  "max_chapters": null,
+  "min_len_s": 60,
+  "threshold": null
+ },
+ "baseline_window_units": 10,
+ "configs": {
+  "default": {
+   "epochs": 10,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "pos_weight": 10.0,
+   "neighbour_weight": 0.3,
+   "max_units": 2000,
+   "proj": 256,
+   "hidden": 128,
+   "layers": 2,
+   "dropout": 0.2,
+   "seed": 0
+  },
+  "pos5": {
+   "epochs": 10,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "pos_weight": 5.0,
+   "neighbour_weight": 0.3,
+   "max_units": 2000,
+   "proj": 256,
+   "hidden": 128,
+   "layers": 2,
+   "dropout": 0.2,
+   "seed": 0
+  },
+  "pos20": {
+   "epochs": 10,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "pos_weight": 20.0,
+   "neighbour_weight": 0.3,
+   "max_units": 2000,
+   "proj": 256,
+   "hidden": 128,
+   "layers": 2,
+   "dropout": 0.2,
+   "seed": 0
+  },
+  "big": {
+   "epochs": 10,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0001,
+   "pos_weight": 10.0,
+   "neighbour_weight": 0.3,
+   "max_units": 2000,
+   "proj": 384,
+   "hidden": 256,
+   "layers": 2,
+   "dropout": 0.2,
+   "seed": 0
+  }
+ }
+}

@@ -1,0 +1,22 @@
+{
+ "best_product": {
+  "method": "texttiling",
+  "encoder": "e5-small",
+  "unit": "block10",
+  "window_s": 120.0,
+  "oracle": false,
+  "F1@3s": 9.342,
+  "F1@5s": 12.404,
+  "P@5s": 23.417,
+  "R@5s": 8.436,
+  "F1@10s": 17.505,
+  "F1@30s": 34.173,
+  "tIoU-F1": 17.116,
+  "mean_tIoU": 54.223,
+  "Pk": 0.395,
+  "WindowDiff": 0.404,
+  "count_MAE": 5.467,
+  "pred_chapters_mean": 3.373,
+  "ref_chapters_mean": 8.733
+ }
+}

@@ -19,7 +19,14 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.config import get_settings
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
-EXPECTED_TABLES = {"users", "uploads", "jobs", "transcript_segments", "transcript_words"}
+EXPECTED_TABLES = {
+    "users",
+    "uploads",
+    "jobs",
+    "transcript_segments",
+    "transcript_words",
+    "chapters",
+}
 
 
 @pytest_asyncio.fixture(autouse=True)

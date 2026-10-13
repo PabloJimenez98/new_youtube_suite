@@ -1,0 +1,64 @@
+{
+ "candidates": 285498,
+ "selected": 11587,
+ "extraction": {
+  "kept|en": 11380,
+  "kept|es": 207
+ },
+ "summary": [
+  {
+   "lang": "en",
+   "split": "test",
+   "videos": 1480,
+   "hours": 1173,
+   "chapters_median": 8.0,
+   "sentences_median": 442.0,
+   "s_per_sentence_median": 5.062179679
+  },
+  {
+   "lang": "en",
+   "split": "train",
+   "videos": 9000,
+   "hours": 7207,
+   "chapters_median": 9.0,
+   "sentences_median": 443.5,
+   "s_per_sentence_median": 5.0299685571
+  },
+  {
+   "lang": "en",
+   "split": "val",
+   "videos": 900,
+   "hours": 716,
+   "chapters_median": 8.0,
+   "sentences_median": 425.0,
+   "s_per_sentence_median": 4.9739483374
+  },
+  {
+   "lang": "es",
+   "split": "es_test",
+   "videos": 77,
+   "hours": 47,
+   "chapters_median": 9.0,
+   "sentences_median": 140.0,
+   "s_per_sentence_median": 11.45
+  },
+  {
+   "lang": "es",
+   "split": "es_val",
+   "videos": 18,
+   "hours": 11,
+   "chapters_median": 9.0,
+   "sentences_median": 136.0,
+   "s_per_sentence_median": 8.8012590436
+  },
+  {
+   "lang": "es",
+   "split": "train",
+   "videos": 112,
+   "hours": 60,
+   "chapters_median": 8.0,
+   "sentences_median": 117.0,
+   "s_per_sentence_median": 13.8511124805
+  }
+ ]
+}

@@ -1,0 +1,5 @@
+# Bulk data lives on the second drive (YTS_EXPERIMENT_DATA); these are
+# safety nets in case something is written locally by mistake.
+*/data/
+*/checkpoints/
+.ipynb_checkpoints/

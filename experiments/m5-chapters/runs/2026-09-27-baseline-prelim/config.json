@@ -1,0 +1,37 @@
+{
+ "dataset": "prelim",
+ "n_videos": 300,
+ "unit_configs": {
+  "sentence": {
+   "mode": "sentence",
+   "min_s": 2,
+   "max_s": 15,
+   "block_s": 10.0
+  },
+  "block5": {
+   "mode": "block",
+   "min_s": 2.0,
+   "max_s": 15.0,
+   "block_s": 5
+  },
+  "block10": {
+   "mode": "block",
+   "min_s": 2.0,
+   "max_s": 15.0,
+   "block_s": 10
+  }
+ },
+ "encoders": [
+  "e5-small",
+  "minilm"
+ ],
+ "windows_s": [
+  60,
+  120,
+  240
+ ],
+ "decode_product": {
+  "per_hour": 6,
+  "min_len_s": 60
+ }
+}

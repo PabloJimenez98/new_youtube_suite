@@ -73,6 +73,40 @@
     font-size: 0.7rem;
   }
 
+  &__chapters {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-3);
+  }
+
+  &__chapters-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  &__copy {
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.7rem;
+  }
+
+  &__chapter-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: var(--space-1);
+    font-size: 0.8rem;
+  }
+
+  &__chapter-time {
+    display: inline-block;
+    min-width: 4.5rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-muted);
+  }
+
   &__run {
     padding: var(--space-1) var(--space-2);
     font-size: 0.75rem;

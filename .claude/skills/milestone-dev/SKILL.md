@@ -37,7 +37,10 @@ declared scope.
 4. **Testing sub-phase.** Write and run the tests from the plan,
    including a regression pass over prior milestones' tests (not just
    new tests for this milestone). A milestone is not done until this
-   passes.
+   passes. Run the suites through the `test-runner` subagent (standing
+   authorization from the project owner — no need to ask first) so
+   only its compact summary lands in the conversation; run a single
+   test directly only when iterating on one specific failure.
 
 5. **Mark progress.** Update the Progress table row for this milestone
    (`Not started` → `In progress` when starting, → `Done` once tests

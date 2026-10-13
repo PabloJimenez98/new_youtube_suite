@@ -1,0 +1,17 @@
+{
+ "cfg": {
+  "max_input_tokens": 256,
+  "max_target_tokens": 32,
+  "batch_size": 4,
+  "grad_accum": 4,
+  "lr": 0.001,
+  "epochs": 1,
+  "seed": 0,
+  "eval_every": 2000
+ },
+ "en_pairs": 60000,
+ "es_oversample": 8,
+ "n_train": 66760,
+ "n_val_en": 500,
+ "n_val_es": 117
+}

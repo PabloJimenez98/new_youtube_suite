@@ -55,4 +55,25 @@
       }
     </div>
   </div>
+
+  @if (chapters(); as list) {
+    @if (list.length) {
+      <section class="video-row__chapters" aria-label="Chapters">
+        <header class="video-row__chapters-header">
+          <span class="video-row__tool-label">Chapters · {{ list[0].model_version }}</span>
+          <button type="button" class="btn btn--ghost video-row__copy" (click)="copyChapters()">
+            {{ copied() ? 'Copied!' : 'Copy for YouTube' }}
+          </button>
+        </header>
+        <ol class="video-row__chapter-list">
+          @for (chapter of list; track chapter.order_index) {
+            <li>
+              <span class="video-row__chapter-time">{{ formatTimestamp(chapter.start_seconds, chaptersWithHours()) }}</span>
+              {{ chapter.title }}
+            </li>
+          }
+        </ol>
+      </section>
+    }
+  }
 </article>

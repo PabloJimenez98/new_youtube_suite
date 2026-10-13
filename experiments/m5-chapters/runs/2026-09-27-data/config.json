@@ -1,0 +1,16 @@
+{
+ "criteria": {
+  "min_minutes": 15,
+  "max_minutes": 120,
+  "min_chapters": 3,
+  "min_chapter_s": 10
+ },
+ "en_per_bucket": {
+  "train": 3000,
+  "val": 300,
+  "test": 500
+ },
+ "language": "fastText on ASR text (middle 60 sentences)",
+ "es_split": "by channel: es_test 40%, es_val 20%, train 40%",
+ "lid": "fastText lid.176.ftz"
+}

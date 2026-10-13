@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 
 import { TOKEN_STORAGE_KEY } from '../../auth/auth';
+import { ChapterOut, Chapters } from '../../chapters/chapters';
 import { JobOut } from '../../jobs/job.model';
 import { Jobs } from '../../jobs/jobs';
 import { Transcripts } from '../../transcripts/transcripts';
@@ -38,10 +39,12 @@ describe('VideoRow', () => {
   let fixture: ComponentFixture<VideoRow>;
   let jobsStub: { createJob: ReturnType<typeof vi.fn> };
   let transcriptsStub: { getSubtitle: ReturnType<typeof vi.fn> };
+  let chaptersStub: { getChapters: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     jobsStub = { createJob: vi.fn() };
     transcriptsStub = { getSubtitle: vi.fn() };
+    chaptersStub = { getChapters: vi.fn().mockReturnValue(of([])) };
     localStorage.setItem(TOKEN_STORAGE_KEY, 'fake-token');
 
     await TestBed.configureTestingModule({
@@ -49,6 +52,7 @@ describe('VideoRow', () => {
       providers: [
         { provide: Jobs, useValue: jobsStub },
         { provide: Transcripts, useValue: transcriptsStub },
+        { provide: Chapters, useValue: chaptersStub },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],
@@ -264,7 +268,84 @@ describe('VideoRow', () => {
       const disabled = (fixture.nativeElement as HTMLElement).querySelectorAll(
         '.video-row__run:disabled',
       );
-      expect(disabled.length).toBe(1);
+      expect(disabled.length).toBe(2); // Speakers and Chapters
+    });
+  });
+
+  describe('Chapters (M5)', () => {
+    const chapters: ChapterOut[] = [
+      { order_index: 0, start_seconds: 0, title: 'Intro', model_version: 'bilstm-v1' },
+      { order_index: 1, start_seconds: 605, title: 'Main topic', model_version: 'bilstm-v1' },
+    ];
+    const el = () => fixture.nativeElement as HTMLElement;
+    const chaptersButton = () =>
+      [...el().querySelectorAll('.video-row__tool')]
+        .find((c) => c.querySelector('.video-row__tool-label')?.textContent?.trim() === 'Chapters')
+        ?.querySelector<HTMLButtonElement>('.video-row__run') ?? null;
+
+    it('Run is disabled until a transcript exists', () => {
+      fixture.componentRef.setInput('jobs', []);
+      fixture.detectChanges();
+      expect(chaptersButton()?.disabled).toBe(true);
+      expect(chaptersButton()?.getAttribute('title')).toBe('Needs a transcript');
+    });
+
+    it('does not fetch chapters until a chapters job has succeeded', () => {
+      fixture.componentRef.setInput('jobs', [makeJob({ id: 3, tool_type: 'chapters', status: 'running' })]);
+      fixture.detectChanges();
+      expect(chaptersStub.getChapters).not.toHaveBeenCalled();
+      expect(el().querySelector('.video-row__chapters')).toBeNull();
+    });
+
+    it('fetches once per succeeded job and lists the chapters', () => {
+      chaptersStub.getChapters.mockReturnValue(of(chapters));
+      const done = makeJob({ id: 3, tool_type: 'chapters', status: 'succeeded' });
+      fixture.componentRef.setInput('jobs', [done]);
+      fixture.detectChanges();
+      // The parent's 3 s poll hands in an equal-but-new array: no refetch.
+      fixture.componentRef.setInput('jobs', [{ ...done }]);
+      fixture.detectChanges();
+
+      expect(chaptersStub.getChapters).toHaveBeenCalledTimes(1);
+      expect(chaptersStub.getChapters).toHaveBeenCalledWith(5);
+      const items = [...el().querySelectorAll('.video-row__chapter-list li')].map((li) =>
+        li.textContent?.replace(/\s+/g, ' ').trim(),
+      );
+      expect(items).toEqual(['00:00 Intro', '10:05 Main topic']);
+    });
+
+    it('refetches when a newer chapters job succeeds', () => {
+      chaptersStub.getChapters.mockReturnValue(of(chapters));
+      fixture.componentRef.setInput('jobs', [makeJob({ id: 3, tool_type: 'chapters', status: 'succeeded' })]);
+      fixture.detectChanges();
+      fixture.componentRef.setInput('jobs', [
+        makeJob({ id: 4, tool_type: 'chapters', status: 'succeeded', created_at: '2026-08-15T12:00:00Z' }),
+        makeJob({ id: 3, tool_type: 'chapters', status: 'succeeded' }),
+      ]);
+      fixture.detectChanges();
+      expect(chaptersStub.getChapters).toHaveBeenCalledTimes(2);
+    });
+
+    it('copies the YouTube description block', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      chaptersStub.getChapters.mockReturnValue(of(chapters));
+      fixture.componentRef.setInput('jobs', [makeJob({ id: 3, tool_type: 'chapters', status: 'succeeded' })]);
+      fixture.detectChanges();
+
+      el().querySelector<HTMLButtonElement>('.video-row__copy')!.click();
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      expect(writeText).toHaveBeenCalledWith('00:00 Intro\n10:05 Main topic');
+      expect(el().querySelector('.video-row__copy')?.textContent?.trim()).toBe('Copied!');
+    });
+
+    it('shows nothing if the fetch fails', () => {
+      chaptersStub.getChapters.mockReturnValue(throwError(() => new Error('boom')));
+      fixture.componentRef.setInput('jobs', [makeJob({ id: 3, tool_type: 'chapters', status: 'succeeded' })]);
+      fixture.detectChanges();
+      expect(el().querySelector('.video-row__chapters')).toBeNull();
     });
   });
 

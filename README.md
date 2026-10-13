@@ -133,6 +133,23 @@ index (set at the top of `requirements.txt`), the last build that still
 supports Pascal GPUs like the GTX 1060. See
 [`docs/decisions/0008-speaker-diarization.md`](docs/decisions/0008-speaker-diarization.md).
 
+**Chapter models (M5).** Chapters come from models trained locally in
+the experiment [`experiments/m5-chapters/`](experiments/m5-chapters/README.md):
+- a frozen multilingual sentence encoder feeding a BiLSTM (or the
+  unsupervised TextTiling baseline) for boundaries;
+- mT5-small for titles.
+
+The weights are **not in git**. `experiments/m5-chapters/05_eval.ipynb`
+exports a versioned bundle to `backend/models/chapters/<version>/`,
+with `current` pointing at the one to serve.
+- **Setup:** set `CHAPTERS_MODEL_DIR=models/chapters/current` in
+  `backend/.env`.
+- **Runtime:** inference runs on CPU and does not touch the GPU.
+- **Without a bundle:** `chapters` jobs fail with a clear message, and
+  the other tools are unaffected.
+
+See [`docs/decisions/0009-chapter-generator-local-models.md`](docs/decisions/0009-chapter-generator-local-models.md).
+
 The API alone: `POST /auth/login` (form fields `username`/`password`)
 for a token, `POST /uploads` (multipart, bearer token) to upload a
 file, `GET /uploads` to list them.
@@ -171,6 +188,14 @@ headless — no Chrome/browser install required).
 - Speaker diarization: [pyannote.audio](https://github.com/pyannote/pyannote-audio)
   (MIT) with the `pyannote/speaker-diarization-community-1` pipeline,
   whose weights are licensed **CC-BY-4.0**.
+- Chapters (M5), trained by us on
+  [VidChapters-7M](https://antoyang.github.io/vidchapters.html) (code MIT;
+  YouTube-derived data, rights with the original holders, used for
+  training only, never redistributed) via the
+  [Chapter-Llama](https://github.com/lucas-ventura/chapter-llama) JSON
+  mirror (MIT), on top of `intfloat/multilingual-e5-small` (MIT) and
+  `google/mt5-small` (Apache-2.0). Language ID in the experiment:
+  fastText `lid.176` (CC BY-SA 3.0).
 - Test/healthcheck audio: LibriSpeech (CC BY 4.0). See
   `backend/tests/fixtures/ATTRIBUTION.md` and
   `backend/app/assets/ATTRIBUTION.md`.

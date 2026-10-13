@@ -1,0 +1,55 @@
+{
+ "winner": "qwen3.5-4b",
+ "sample": "05 draws (Random(1), <=800 per split), first 150 of each",
+ "test": [
+  {
+   "method": "mt5-small",
+   "set": "test",
+   "n": 150,
+   "B1": 18.9461883408,
+   "B4": 7.9021790443,
+   "CIDEr": 90.5265899329,
+   "lang_ok": 100.0,
+   "repeats": 5.3333333333,
+   "words": 5.6866666667
+  },
+  {
+   "method": "mt5-small",
+   "set": "es_test",
+   "n": 150,
+   "B1": 9.7625329815,
+   "B4": 5.5661349145,
+   "CIDEr": 49.6285374044,
+   "lang_ok": 88.0,
+   "repeats": 6.6666666667,
+   "words": 5.0666666667
+  },
+  {
+   "method": "qwen3.5-4b",
+   "set": "test",
+   "n": 150,
+   "B1": 18.2300884956,
+   "B4": 5.434272147,
+   "CIDEr": 76.8764755587,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 7.2666666667
+  },
+  {
+   "method": "qwen3.5-4b",
+   "set": "es_test",
+   "n": 150,
+   "B1": 9.5310136157,
+   "B4": 2.8033421819,
+   "CIDEr": 34.1630718702,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 8.7533333333
+  }
+ ],
+ "fallback": {
+  "test": 0.0,
+  "es_test": 0.0
+ },
+ "s_per_chapter": 14.895602464675903
+}

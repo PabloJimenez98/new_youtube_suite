@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     # fails, only `diarize` jobs degrade (they fail fast with the reason).
     diarization_healthcheck: bool = True
 
+    # Chapter generation (M5) -- see docs/decisions/0009-chapter-generator-local-models.md.
+    # Directory of a model bundle exported by experiments/m5-chapters/05_eval
+    # (gitignored). Unset -> `chapters` jobs fail fast with a clear message.
+    chapters_model_dir: Path | None = None
+    chapters_device: str = "cpu"
+    # CPU threads for the bundle's title LLM, if it has one (0010 §4).
+    chapters_llm_threads: int = 6
+
 
 @lru_cache
 def get_settings() -> Settings:

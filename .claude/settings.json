@@ -13,9 +13,16 @@
       "Bash(docker compose*)",
       "Bash(git status*)",
       "Bash(git diff*)",
-      "Bash(git log*)"
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git remote -v)",
+      "Bash(git fetch*)",
+      "Bash(.venv/bin/python -m pytest*)",
+      "Bash(.venv/bin/pytest*)",
+      "Agent(test-runner)"
     ],
-    "deny": ["Bash(rm -rf*)", "Write(.env)"]
+    "deny": ["Bash(rm -rf*)", "Edit(**/.env)"]
   },
   "hooks": {
     "PostToolUse": [

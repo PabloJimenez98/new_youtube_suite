@@ -116,3 +116,93 @@ Deferred / noted, not built in M4:
   `process_job` and exit the worker so a supervisor restarts it, or run
   GPU work in a child process.
 
+
+## 2026-09-27 — M5 planning (chapter generator): scope change in progress
+Decided with the project owner during M5 planning. The formal record
+goes into `docs/decisions/0009-…` once the research pass lands.
+- **No Claude API for chaptering.** The owner wants everything to run
+  locally, so spec §2.3/§5 ("Claude API", "Claude Sonnet") is being
+  replaced for M5. **Still open:** whether M6 (show notes) also goes
+  local. It is not decided, so don't assume it.
+- **The owner chose to train their own models.** Two of them:
+  - **Boundary model:** frozen multilingual sentence embeddings feeding
+    a small sequence head, trained on VidChapters-7M.
+  - **Title model:** a fine-tuned small multilingual seq2seq.
+- **An unsupervised baseline stays** (TextTiling / change-point over the
+  same embeddings). It is the fallback and the eval reference, the same
+  pattern as M7 vs. M15.
+- **Granularity:** few, broad chapters (~5–8 per hour).
+- **Language:** English and Spanish (varies per episode), so all models
+  must be multilingual.
+- **Frontend is minimal:** `GET /uploads/{id}/chapters`, plus a chapter
+  list with a "Copy for YouTube" button in Manage.
+- **Estimate grows** from 3–4 days to ~2–3 weeks. The TF-IDF
+  realignment step no longer applies, since boundaries are predicted on
+  real segments. `docs/development-plan.md` M5 is to be updated.
+- **Research pass** is running (`docs/research/m5-chapter-model.md`).
+- **Model development is run as an experiment** (owner's request,
+  2026-09-27). It lives in `experiments/m5-chapters/`, separate from
+  the backend:
+  - **Notebooks:** numbered `.ipynb` files (data → baseline →
+    boundaries → titles → eval), committed **with outputs** so the git
+    history shows how it developed.
+  - **Tested code:** shared code goes in `lib/` with unit tests
+    (metrics, boundary decoding).
+  - **Tracking:** plain JSON per run (`runs/<date>-<name>/`, with
+    config, metrics and plots) plus a dated log in the experiment's
+    `README.md`. No MLflow or TensorBoard.
+  - **Environment:** its own venv (`experiments/.venv`). The backend
+    only gets the minimal inference deps; the production handler only
+    *loads* an exported model.
+  - **Open:** a second venv with torch cu126 costs ~4 GB against
+    ~11 GB of free disk. Decide at design time whether to reuse the
+    torch install or free up disk.
+- **Planning closed (2026-09-27):**
+  `docs/decisions/0009-chapter-generator-local-models.md`. Decided with
+  the owner:
+  - **Spanish:** cross-lingual transfer, measured on a Spanish-only
+    test set.
+  - **Fallback:** the trained boundary model ships only if it beats the
+    baseline on validation F1@5s.
+  - **Traceability:** a `chapters.model_version` column.
+  - **Bulk experiment data** (datasets, embeddings, checkpoints) goes on
+    the second drive, `/mnt/d` (NTFS, 801 GB free). venvs, Docker and
+    the production bundle stay on the SSD.
+- **Open, not decided:**
+  - **Title fallback.** Nothing is defined if mT5-small's titles prove
+    unusable. Raise it with the owner before building one.
+    **Update 2026-09-28: being resolved.** 05 showed mT5's Spanish
+    titles are unusable on the owner's episode.
+    - **The owner approved** an experiment comparing local pretrained
+      instruction LLMs (llama.cpp, CPU-sized), with mT5 as the
+      fallback.
+    - **Plan:** `experiments/m5-chapters/README.md`, "plan for 06".
+    - **Outcome:** goes into `docs/decisions/0010-…`, amending 0009.
+    - **Resolved 2026-09-28** (`docs/decisions/0010-chapter-titles-local-llm.md`):
+      titles come from **Qwen3.5-4B** (GGUF, llama.cpp, CPU), with mT5
+      as the per-chapter fallback.
+      - The owner's blind review preferred qwen3.5-9b for all 6
+        chapters, but it fails the CIDEr en and RAM gates. **Revisit
+        the 9B** if the RAM budget changes.
+      - The episode language comes from fastText LID in the chapters
+        pipeline, because Whisper's detected language isn't persisted
+        (see the M3 note above on `uploads.language`).
+  - **Whether M6 (show notes) also goes local.** Spec §2.6 still says
+    Claude API.
+  - **Hierarchical chapters** (TreeSeg / ARC-Chapter style): out of
+    scope for v1.
+
+- **Worker memory after M5 (2026-10-13), open:** once a `chapters` job
+  has run, the arq worker stays at ~6.8 GB RSS (1.6 GB idle; the chapter
+  bundle stays loaded per process). On the 16 GB dev machine that leaves
+  little room for later tools that load their own models (M7 relevance,
+  M8 shorts). Options to weigh when those milestones are planned:
+  unload the bundle after each job, a separate worker/queue for
+  heavy-model tools, or accept it. Not decided.
+
+- **torchcodec / torch mismatch (2026-10-13), open:** in the backend
+  venv pyannote warns "torchcodec is not installed correctly"
+  (`libtorchcodec_image.so: undefined symbol: torch_list_size`). No test
+  fails and diarization works (we hand pyannote decoded audio), but
+  pyannote's built-in file decoding would fail. Pin a torchcodec that
+  matches the installed torch next time the backend deps are touched.

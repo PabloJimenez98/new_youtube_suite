@@ -1,0 +1,15 @@
+{
+ "models": {
+  "qwen3.5-2b": "Qwen3.5-2B-Q4_K_M.gguf",
+  "qwen3.5-4b": "Qwen3.5-4B-Q4_K_M.gguf",
+  "gemma4-e2b": "gemma-4-E2B-it-Q4_K_M.gguf",
+  "gemma4-e4b": "gemma-4-E4B-it-Q4_K_M.gguf",
+  "salamandra-7b": "salamandra-7b-instruct-2606.Q4_K_M.gguf",
+  "qwen3.5-9b": "Qwen3.5-9B-Q4_K_M.gguf"
+ },
+ "threads": 6,
+ "max_words": 900,
+ "n_val_en": 150,
+ "n_val_es": 117,
+ "prompt_version": "v1"
+}

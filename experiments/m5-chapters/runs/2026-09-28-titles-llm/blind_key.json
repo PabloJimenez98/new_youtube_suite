@@ -1,0 +1,56 @@
+{
+ "0": {
+  "A": "salamandra-7b",
+  "B": "qwen3.5-9b",
+  "C": "gemma4-e4b",
+  "D": "mt5-small",
+  "E": "gemma4-e2b",
+  "F": "qwen3.5-2b",
+  "G": "qwen3.5-4b"
+ },
+ "1": {
+  "A": "gemma4-e2b",
+  "B": "qwen3.5-9b",
+  "C": "salamandra-7b",
+  "D": "qwen3.5-2b",
+  "E": "mt5-small",
+  "F": "gemma4-e4b",
+  "G": "qwen3.5-4b"
+ },
+ "2": {
+  "A": "qwen3.5-4b",
+  "B": "salamandra-7b",
+  "C": "gemma4-e4b",
+  "D": "qwen3.5-2b",
+  "E": "mt5-small",
+  "F": "qwen3.5-9b",
+  "G": "gemma4-e2b"
+ },
+ "3": {
+  "A": "gemma4-e2b",
+  "B": "salamandra-7b",
+  "C": "qwen3.5-4b",
+  "D": "qwen3.5-2b",
+  "E": "qwen3.5-9b",
+  "F": "gemma4-e4b",
+  "G": "mt5-small"
+ },
+ "4": {
+  "A": "qwen3.5-2b",
+  "B": "qwen3.5-4b",
+  "C": "salamandra-7b",
+  "D": "mt5-small",
+  "E": "gemma4-e2b",
+  "F": "qwen3.5-9b",
+  "G": "gemma4-e4b"
+ },
+ "5": {
+  "A": "salamandra-7b",
+  "B": "qwen3.5-9b",
+  "C": "mt5-small",
+  "D": "gemma4-e2b",
+  "E": "qwen3.5-4b",
+  "F": "qwen3.5-2b",
+  "G": "gemma4-e4b"
+ }
+}

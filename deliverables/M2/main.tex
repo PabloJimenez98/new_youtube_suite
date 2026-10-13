@@ -1,0 +1,248 @@
+\documentclass[ENG]{TFUOC}
+
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{tikz}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usetikzlibrary{arrows.meta,shapes.geometric,positioning,fit,backgrounds,calc}
+
+%Introduce Work Data
+\title{Analítica avanzada sobre datos de plataformas VOD y generadores de contenidos en redes sociales}
+\titcrt{Analítica de plataformas VOD} %Short title to appear in header
+\author{Pablo Jiménez Cruz}
+\date{October 2026}
+
+
+\nomPDC{Francesc Julbe López}
+\nomPRA{Appoint Responsible Teaching Staff}
+\titulac{Master in Data Science}
+\area{Data Science}
+\idioma{English}
+\credits{12}
+\parcla{artificial intelligence, video podcasts, YouTube analytics, automatic speech recognition, speaker diarization, video chaptering, highlight detection, local machine learning}
+
+\licenc{ccBy}
+
+%%%%%%%%%%
+% Summary in language
+
+\abstractenglish{
+This Final Master's Project proposes the design and evaluation of a self-hosted platform that assists producers of YouTube video podcasts. The platform will automate post-production tasks (transcription, speaker identification, chapters, descriptions and short clips) and will support editorial decisions, such as choosing clips, titles and thumbnails, with models trained on real audience data obtained from the official YouTube APIs. All models will run locally on consumer hardware. The project will evaluate whether these trained models improve on simple baseline methods.
+}
+
+\begin{document}
+
+\estructura
+
+\tableofcontents
+
+\renewcommand{\thesection}{\arabic{section}}
+
+
+%==========================================================
+\section{State of the art}
+\label{s:soa}
+%==========================================================
+
+YouTube Suite combines several tasks that are usually studied separately. This section goes through them in the same order as the processing pipeline: the data available from YouTube, transcription, diarization, chapters, clip selection, title/thumbnail and hook scoring, and text generation. For each one it describes what is available today, what can be reused and what is missing. It ends with a comparison of existing tools and a summary of the gaps that the project addresses.
+
+The sources were mainly conference and journal papers (ACL, CVPR, NeurIPS, ICML, Interspeech, ACM), arXiv preprints for recent models, and the official YouTube API documentation. Open-source projects and commercial products were also reviewed, since much of the practical work in this area happens outside academia; they are referenced with links in footnotes.
+
+%--------------------------------------------------
+\subsection{YouTube data and audience signals}
+\label{ss:soa-data}
+
+YouTube's recommender is a two-stage deep network (candidate generation and ranking) trained to predict expected watch time, not just clicks \cite{recommender_systems_streaming}. In practice this means that two signals decide the reach of a video: the \textbf{click-through rate} (CTR), which mostly depends on the title and thumbnail, and \textbf{retention}, which depends on the content and on how well the first seconds hold the viewer.
+
+YouTube provides three official APIs to access these signals \cite{yt_data_api}:
+\begin{itemize}
+\item \textbf{Data API v3}: public metadata and statistics (views, likes, comments) of any video or channel. Default quota of 10{,}000 units per day; \texttt{videos.list} costs 1 unit and accepts 50 IDs per call, while \texttt{search.list} costs 100 units. Each channel also has a free RSS feed with its latest uploads, useful to detect new videos without spending quota.
+\item \textbf{Analytics API v2}: private metrics of a channel the user owns (OAuth), including watch time and audience-retention curves. It does not return impressions or CTR.
+\item \textbf{Reporting API v1}: asynchronous bulk CSV reports, delivered with a delay. It is the only official source of thumbnail impressions and real CTR.
+\end{itemize}
+
+Large public datasets have been built from the Data API, such as YouNiverse \cite{ribeiro2021youniverse} (136{,}000 channels and 72.9 million videos with weekly view and subscriber series). None of them includes CTR, because YouTube only exposes it to the owner of the channel.
+
+\textbf{Takeaway.} Real CTR and retention can only be obtained for the operator's own channel. Data from other channels can only be used as an engagement proxy (views, likes, comments normalised by channel size). This shapes the design of every model that predicts audience behaviour.
+
+%--------------------------------------------------
+\subsection{Transcription}
+\label{ss:soa-asr}
+
+The transcript is the input of almost every other tool, so its quality and timing matter. The reference model today is \textbf{Whisper} \cite{radford2023whisper}, an encoder--decoder Transformer trained on 680{,}000 hours of weakly labelled multilingual audio. It works out of the box across accents, noise conditions and languages, detects the language and outputs punctuated text with timestamps. The \texttt{large-v3-turbo} variant cuts the decoder from 32 to 4 layers, which makes it much faster at a small cost in accuracy.
+
+Two open-source projects make Whisper practical on small hardware:
+\begin{itemize}
+\item \textbf{faster-whisper} \cite{fasterwhisper} reimplements inference on CTranslate2 with 8-bit quantisation, reducing memory and increasing speed, and adds word-level timestamps.
+\item \textbf{WhisperX} \cite{bain2023whisperx} adds voice-activity segmentation to transcribe long audio in batches, refines word timestamps with forced phoneme alignment, and plugs in speaker diarization.
+\end{itemize}
+
+Quality is measured with the word error rate (WER: substitutions, deletions and insertions divided by the number of reference words). For subtitles, chapters and clips, timestamp accuracy is just as important, since a one-second error moves a cut or a chapter start.
+
+Two known limitations need to be handled. Whisper sometimes \textbf{hallucinates} sentences that were never said, mostly during long silences \cite{koenecke2024careless}; removing non-speech segments before decoding reduces the problem. And ASR accuracy is \textbf{not uniform across speakers}: five commercial systems showed an average WER of 0.35 for Black speakers versus 0.19 for white speakers \cite{koenecke2020racial}. Similar gaps appear for accents and less-resourced languages, so results should be checked per language.
+
+\textbf{Takeaway.} Transcription is a solved problem in terms of models. The engineering work is running it efficiently on a small GPU, with word timestamps and silence filtering.
+
+%--------------------------------------------------
+\subsection{Speaker diarization}
+\label{ss:soa-diar}
+
+Diarization answers ``who spoke when''. The field has moved from clustering hand-crafted features to neural speaker embeddings and end-to-end models that also handle overlapping speech \cite{park2022diarization}. It is evaluated with the diarization error rate (DER), the fraction of speech time that is missed, falsely detected or assigned to the wrong speaker.
+
+The standard open-source toolkit is \textbf{pyannote.audio} \cite{bredin2020pyannote}. Its current pipelines segment short windows with a ``powerset'' model, which treats every combination of active speakers as a class so that overlaps are handled naturally \cite{plaquet2023powerset}, and then cluster speaker embeddings across the whole recording. Podcasts (two to four speakers, good audio) are a favourable case; the remaining errors come mostly from overlaps and short interjections.
+
+To get speaker-labelled text, each word from the ASR is assigned to the speaker turn that overlaps it most \cite{bain2023whisperx}. This is simple but depends on accurate word timestamps. Diarization only separates voices inside one recording: it does not identify people, and doing so would mean processing biometric data.
+
+\textbf{Takeaway.} pyannote is mature and can be reused as is. The work is in sharing GPU memory with the ASR and aligning speakers with words and subtitles.
+
+%--------------------------------------------------
+\subsection{Chapter generation}
+\label{ss:soa-chapters}
+
+YouTube chapters are timestamps with a title that split a video into sections. Generating them means solving two problems: finding where the topic changes, and naming each segment.
+
+\textbf{Topic segmentation} has three families of methods, all still in use:
+\begin{itemize}
+\item \textbf{Unsupervised, similarity-based.} TextTiling \cite{hearst1997texttiling} compares adjacent blocks of text and places boundaries where similarity drops. Replacing word overlap with sentence embeddings, such as Sentence-BERT \cite{reimers2019sbert} or multilingual E5 \cite{wang2024me5}, makes it robust to paraphrasing and usable in several languages. It needs no training data, which makes it a good baseline.
+\item \textbf{Supervised sequence labelling.} Each sentence is classified as ``starts a new segment'' or not. Koshorek et al.\ \cite{koshorek2018textseg} did this with a bidirectional LSTM over sentence representations and showed that supervised models beat unsupervised ones when there is enough in-domain training data.
+\item \textbf{Large language models.} The transcript is given to an LLM that returns chapters with timestamps and titles.
+\end{itemize}
+
+Boundaries are evaluated with $P_k$ \cite{beeferman1999pk} and WindowDiff \cite{pevzner2002windowdiff}, which measure errors over text windows (lower is better), and with time-based F1: a predicted boundary is correct if it falls within $k$ seconds of a reference one (F1@3s, F1@5s) \cite{ventura2025chapterllama}. The time-based version is easier to interpret for a video.
+
+\textbf{Video chaptering} has had a large public dataset since \textbf{VidChapters-7M} \cite{yang2023vidchapters}: 817{,}000 YouTube videos with user-written chapters (7 million in total) and Whisper transcripts. The current state of the art on hour-long videos is \textbf{Chapter-Llama} \cite{ventura2025chapterllama}, which fine-tunes an 8-billion-parameter LLM on transcripts plus captions of a few frames selected using the speech. Its results show that the transcript alone already carries most of the signal for long videos.
+
+Chapter titles can be generated with a fine-tuned sequence-to-sequence model or with an instruction-tuned LLM. Automatic metrics such as CIDEr only partly reflect whether a title is useful, so manual review is still needed.
+
+\textbf{Takeaway.} Good results exist, but they rely on LLMs that need a large GPU. There is no published evaluation of how far a small model trained on VidChapters can get on consumer hardware, and no evaluation in Spanish, a language that is underrepresented in the dataset.
+
+%--------------------------------------------------
+\subsection{Clip selection (highlight detection)}
+\label{ss:soa-highlights}
+
+The Shorts generator needs to find moments of an episode that work as standalone clips. In the literature this is \textbf{highlight detection}: giving each segment of a video a score of how interesting it is. It is closely related to video summarisation \cite{apostolidis2021survey} and to moment retrieval, which finds the segment that matches a text query \cite{lei2021qvhighlights}.
+
+Most methods are \textbf{visual}: they score frames or shots with recurrent or Transformer networks \cite{apostolidis2021survey}. A useful idea from this field is to train with \textbf{pairwise ranking} (``segment A is a better highlight than B'') instead of absolute scores, which is easier to label and more robust \cite{yao2016pairwise}. In a podcast, however, the image barely changes and the content is in the speech, so visual models do not apply directly. The closest text-based work is extractive summarisation, which scores sentences by importance, but it is trained on news or meetings to build summaries, not to find moments that an audience will enjoy.
+
+The main problem is \textbf{labels}. Table~\ref{tab:highlight-datasets} lists the most relevant public datasets.
+
+\begin{table}[H]
+\centering
+\caption{Public datasets for highlight detection and their fit for this project.}
+\label{tab:highlight-datasets}
+\small
+\begin{tabular}{@{}p{2.6cm}p{2.8cm}p{4.8cm}p{5.3cm}@{}}
+\toprule
+\textbf{Dataset} & \textbf{Size} & \textbf{Labels} & \textbf{Fit for this project} \\
+\midrule
+TVSum \cite{song2015tvsum} & 50 videos & Crowd-sourced importance per 2-second shot & Too small; visual; not talk content \\
+QVHighlights \cite{lei2021qvhighlights} & 10{,}310 queries & Relevant moments and saliency per text query & Depends on a query; short clips \\
+QMSum \cite{zhong2021qmsum} & 232 meetings & Topic segments and query-relevant transcript spans & Text-based, but small and meeting domain \\
+Mr.~HiSum \cite{sul2023mrhisum} & 31{,}892 videos & ``Most replayed'' statistics from 50{,}000+ viewers per video & Large and based on real audience behaviour, but visual features and general domain \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Mr.~HiSum is the most interesting case: instead of human annotation, it uses aggregated audience replay data as labels, which allowed a dataset hundreds of times larger than the classic ones. The same idea can be applied to the operator's own episodes using retention curves from the Analytics API. Still, no public dataset combines long-form talk content, transcripts, continuous scores and a large size.
+
+Once a moment is selected, producing the clip is a mechanical step: cut with FFmpeg, detect the person or face in sampled frames, smooth the track and crop to 9:16, and optionally burn in captions from the word timestamps. Several open-source tools already implement this\footnote{For example \url{https://github.com/kamilstanuch/Autocrop-vertical} and \url{https://github.com/KazKozDev/auto-vertical-reframe}.}.
+
+\textbf{Takeaway.} Cropping and captioning are solved. Scoring transcript segments by relevance is not: there is no model or dataset for it, so the relevance model has to start from heuristic or zero-shot labels and learn from the channel's own retention data over time.
+
+%--------------------------------------------------
+\subsection{Title/thumbnail CTR and hook scoring}
+\label{ss:soa-ctr}
+
+\textbf{CTR prediction} is a mature field in advertising, where models combine image and text features to predict clicks. On video platforms, research focuses on popularity and engagement instead. For example, large multimodal models have been used to predict the engagement of short videos, with audio improving the results \cite{sun2025engagement}. Pretrained image--text encoders such as SigLIP~2 \cite{tschannen2025siglip2} give good thumbnail and title representations that can be used frozen, which matters when labelled data is scarce.
+
+Two issues make CTR prediction hard here: public data has no CTR, and absolute performance depends heavily on things unrelated to the title and thumbnail (channel size, topic, promotion). \textbf{Learning to rank} handles both. Pairwise methods such as RankNet \cite{burges2005ranknet} learn from pairs where one item beat another. Comparing candidates of the \emph{same} video cancels channel and topic effects, and $N$ candidates give $\mathcal{O}(N^2)$ training pairs. For small tabular datasets, gradient-boosted trees such as LightGBM \cite{ke2017lightgbm}, which support ranking objectives, are a strong and data-efficient option.
+
+\textbf{Hook scoring} (how well the first seconds of a clip hold the viewer) has no published model or dataset. The closest academic work looks at the virality of whole short videos, using hand-labelled features such as shot type, captions or follower count \cite{ling2022tiktok}. Industry tools claim hook or ``virality'' scores but do not publish how they work. The reason is structural: retention curves, the natural label, are private to each channel.
+
+\textbf{Takeaway.} The CTR model should be a ranking model that compares candidates of the same video, trained on engagement proxies and calibrated with the channel's real CTR. The hook scorer has to start from interpretable heuristics (a question in the first sentence, direct address, speaking pace, numbers) and be calibrated with retention data once it is available.
+
+%--------------------------------------------------
+\subsection{Text generation with local LLMs}
+\label{ss:soa-llm}
+
+LLMs are now the standard tool to write summaries, descriptions and titles. Two of their limitations are relevant for show notes:
+\begin{itemize}
+\item \textbf{Hallucinations}: they can produce content not supported by the input \cite{ji2023hallucination}, such as invented names or claims. Outputs need to be validated.
+\item \textbf{Long contexts}: performance drops when the relevant information is in the middle of a long input \cite{liu2024lostmiddle}. One- or two-hour transcripts should be summarised in parts and then combined.
+\end{itemize}
+
+Most products call cloud APIs. The alternative is to run open-weight models locally: engines such as llama.cpp \cite{llamacpp} run 4-bit quantised models of 2 to 9 billion parameters on a normal CPU, fast enough for offline jobs. Quality is below the largest cloud models, but recordings stay private and there is no per-use cost.
+
+\textbf{Takeaway.} Local LLMs are good enough for drafts of descriptions and titles, as long as the output format, language and content are checked automatically.
+
+%--------------------------------------------------
+\subsection{Existing tools}
+\label{ss:soa-solutions}
+
+Table~\ref{tab:solutions} compares the main families of existing tools with the requirements of this project.
+
+\begin{table}[H]
+\centering
+\caption{Existing tools compared with the requirements of the project. \checkmark: yes; $\sim$: partially; --: no; ?: not published.}
+\label{tab:solutions}
+\small
+\begin{tabular}{@{}p{5.4cm}ccccc@{}}
+\toprule
+\textbf{Tool} & \textbf{Integrated} & \textbf{Runs} & \textbf{Trained} & \textbf{Learns from} & \textbf{Open} \\
+ & \textbf{workflow} & \textbf{locally} & \textbf{relevance} & \textbf{own data} & \textbf{method} \\
+\midrule
+Clipping services (OpusClip, Klap, Vizard)\footnotemark & $\sim$ & -- & ? & -- & -- \\
+Editing / show-notes services (Descript, Castmagic) & $\sim$ & -- & -- & -- & -- \\
+Thumbnail tools (TubeBuddy, VidIQ) & -- & -- & -- & $\sim$ & -- \\
+Open-source clippers with LLM selection & $\sim$ & $\sim$ & -- & -- & \checkmark \\
+ClipsAI (TextTiling segmentation) & -- & \checkmark & -- & -- & \checkmark \\
+Open-source chaptering scripts & -- & $\sim$ & -- & -- & \checkmark \\
+\midrule
+\textbf{YouTube Suite} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table}
+\footnotetext{\url{https://www.opus.pro}, \url{https://klap.app}, \url{https://vizard.ai}, \url{https://www.descript.com}, \url{https://www.castmagic.io}, \url{https://www.tubebuddy.com}, \url{https://vidiq.com}.}
+
+\textbf{Commercial services} select moments, crop them and add captions in one step, and some give each clip a ``virality'' score. Their methods and accuracy are not published. TubeBuddy runs live A/B tests of thumbnails on real traffic, which gives real CTR but only after publishing. All of them require uploading the recordings and charge per use or by subscription.
+
+\textbf{Open-source projects}\footnote{For example \url{https://github.com/SamurAIGPT/AI-Youtube-Shorts-Generator}, \url{https://github.com/mutonby/openshorts} and \url{https://github.com/ClipsAI/clipsai}.} follow the same pattern: transcribe with Whisper, ask a general LLM (often a cloud API) for the best moments, and crop with face tracking. ClipsAI uses TextTiling to find topic boundaries but does not rank segments. None of them trains a model to score transcript segments, learns from the creator's audience data, or connects chapters, show notes, clips and title/thumbnail scoring in a shared data model.
+
+%--------------------------------------------------
+\subsection{Summary and gaps}
+\label{ss:soa-conclusions}
+
+Table~\ref{tab:soa-summary} summarises the state of the art for each task and the gap that the project addresses.
+
+\begin{table}[H]
+\centering
+\caption{State of the art per task and gap addressed by the project.}
+\label{tab:soa-summary}
+\small
+\begin{tabular}{@{}p{2.4cm}p{4.4cm}p{3.2cm}p{5.5cm}@{}}
+\toprule
+\textbf{Task} & \textbf{Reference approaches} & \textbf{Metrics} & \textbf{Gap addressed} \\
+\midrule
+Transcription & Whisper, faster-whisper, WhisperX & WER, timestamp error & Efficient execution on a 3\,GB GPU \\
+Diarization & pyannote.audio & DER & Sharing the GPU with ASR; alignment with words and subtitles \\
+Chapters & TextTiling + embeddings; supervised BiLSTM; fine-tuned LLMs & $P_k$, WindowDiff, F1@3s/5s & Small model on consumer hardware; evaluation in Spanish \\
+Clip selection & Visual highlight detection; LLM prompting in open-source tools & Correlation with human or replay scores & Trained text-only relevance model with retention labels \\
+Title/thumbnail CTR & Multimodal fusion; ranking models; A/B testing & Ranking accuracy & Ranking candidates of the same video, calibrated with real CTR \\
+Hook strength & No published model & -- & Interpretable scorer calibrated with own retention \\
+Show notes & Instruction-tuned LLMs, quantised local inference & Manual review, validity rate & Fully local generation with output validation \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In short: the speech-processing building blocks are mature and can be reused; chaptering with small models is feasible but not yet evaluated on consumer hardware or in Spanish; and the models that depend on audience behaviour (relevance, CTR, hook) have no public labels, so they must start from baselines and heuristics and improve with the channel's own data. No existing tool covers this combination, which confirms the approach of the project.
+
+%==========================================================
+% Bibliography (numeric, by order of appearance)
+%==========================================================
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

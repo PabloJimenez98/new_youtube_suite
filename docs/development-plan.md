@@ -30,7 +30,7 @@ Updated as milestones complete — this table is the source of truth for
 | M2 — Async job pipeline | Done |
 | M3 — Transcript/subtitle generator | Done |
 | M4 — Speaker diarization | Done |
-| M5 — Chapter generator | Not started |
+| M5 — Chapter generator | Done |
 | M6 — Show notes & metadata generator | Not started |
 | M7 — Relevance-detection model v0 | Not started |
 | M8 — Shorts generator | Not started |
@@ -91,10 +91,51 @@ Updated as milestones complete — this table is the source of truth for
 
 ### M5 — Chapter generator
 - **Depends on:** M3
-- **Estimate:** 3–4 days
-- **1. Planning:** Confirm the LLM choice (Claude API) and prompt contract (input: transcript chunk; output: boundary phrase + title). Plan the TF-IDF lexical-realignment step explicitly as its own tested unit, since Phase 3 flagged this as the most common DIY chaptering bug.
-- **2. Development:** chaptering LLM call, TF-IDF realignment/timestamp-snap logic, `chapters` persistence.
-- **3. Testing:** unit test the realignment logic in isolation with synthetic paraphrased boundary text against known-good source text; manual QA on a real podcast transcript.
+- **Estimate:** ~2–3 weeks. This was 3–4 days while the plan assumed
+  an LLM API call; it was re-planned on 2026-09-27, see below.
+- **Note (2026-09-27):** re-planned with the owner to run **entirely
+  locally, with models we train ourselves**, developed as a documented
+  experiment. See `docs/decisions/0009-chapter-generator-local-models.md`
+  and `docs/research/m5-chapter-model.md`.
+  - **The Claude API call is gone.** So is the TF-IDF realignment step:
+    boundaries are now predicted directly on real transcript units.
+- **1. Planning:** done in 0009:
+  - data: a VidChapters-7M subset, en + all usable es
+  - a unit normalisation shared by training and inference
+  - the boundary model (a frozen multilingual encoder + a BiLSTM),
+    with an unsupervised TextTiling-style baseline as the fallback and
+    the eval reference
+  - the title model (mT5-small, embeddings frozen). **Amended
+    2026-09-28 by `docs/decisions/0010-chapter-titles-local-llm.md`:**
+    titles come from a local pretrained LLM (Qwen3.5-4B, GGUF Q4_K_M,
+    llama.cpp on CPU), with mT5-small as the per-chapter fallback and
+    fastText LID for the episode language (experiment 06)
+  - the fallback rule, `chapters.model_version`, and the test plan
+- **2. Development:**
+  - the experiment in `experiments/m5-chapters/` (notebooks 01–06 with
+    outputs, a tested `lib/`, `runs/` log), which exports a versioned
+    model bundle
+  - the backend: `app/chapters/`, a real `chapters` handler (CPU),
+    migration `0006` (`chapters` + `model_version`) and
+    `GET /uploads/{id}/chapters`
+  - in Manage: the chapter list plus "Copy for YouTube"
+- **3. Testing:**
+  - `lib/` unit tests: metrics, units, decoding, baseline
+  - notebook evaluation: trained model vs. baseline on validation, then
+    test EN and test ES, reporting F1@5s (primary), F1@3s, tIoU-F1,
+    Pk/WindowDiff, count error, and CIDEr/BLEU for titles; 06 compares
+    the LLM candidates against mT5 (validation gates, then one test run)
+  - backend: unit, handler (fake bundle), migration, API and
+    integration tests
+  - frontend: component tests
+  - manual QA on the owner's 64-min episode
+  - the full M0–M4 regression pass
+- **Risk note:** there is no guarantee the trained boundary model
+  beats the unsupervised baseline, and Spanish training data is scarce
+  (~0.85–1.7k long videos). The fallback rule applies: the trained
+  model only ships if it wins on validation F1@5s. Otherwise the
+  baseline ships and M5 still closes, with the outcome documented.
+  - **Budget:** at least one extra train → evaluate → adjust cycle.
 
 ### M6 — Show notes & metadata generator
 - **Depends on:** M3 (M5 optional input)

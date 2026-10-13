@@ -32,3 +32,13 @@ pyannote.audio==4.0.7
 # pyannote's own decoder (torchcodec) can't load here, so the WAV is read
 # with soundfile and passed in preloaded.
 soundfile==0.14.0
+
+# Chapter generation (M5): frozen sentence encoder + mT5-small titles,
+# CPU inference on the torch above. See docs/decisions/0009.
+transformers==5.17.0
+sentencepiece==0.2.1
+# Chapter titles from a local LLM + episode language ID (docs/decisions/0010).
+# llama-cpp-python is built CPU-only from source (AVX2):
+#   CMAKE_ARGS="-DGGML_NATIVE=on" pip install llama-cpp-python==0.3.35
+llama-cpp-python==0.3.35
+fasttext-numpy2-wheel==0.9.2

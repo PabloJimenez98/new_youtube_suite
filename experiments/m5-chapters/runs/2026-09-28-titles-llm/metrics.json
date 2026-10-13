@@ -1,0 +1,237 @@
+{
+ "val": [
+  {
+   "method": "mt5-small",
+   "set": "val_en",
+   "B1": 12.9220023283,
+   "B4": 3.1029742059,
+   "CIDEr": 65.8524213888,
+   "lang_ok": 99.3333333333,
+   "repeats": 6.0,
+   "words": 5.5933333333
+  },
+  {
+   "method": "lead-8",
+   "set": "val_en",
+   "B1": 7.2586872587,
+   "B4": 2.1217808153,
+   "CIDEr": 31.9495124116,
+   "lang_ok": 100.0,
+   "repeats": 7.3333333333,
+   "words": 7.9933333333
+  },
+  {
+   "method": "mt5-small",
+   "set": "val_es",
+   "B1": 12.3050259965,
+   "B4": 6.1052919563,
+   "CIDEr": 49.9928702435,
+   "lang_ok": 90.5982905983,
+   "repeats": 6.8376068376,
+   "words": 4.811965812
+  },
+  {
+   "method": "lead-8",
+   "set": "val_es",
+   "B1": 7.8807241746,
+   "B4": 2.1305974001,
+   "CIDEr": 32.7502357041,
+   "lang_ok": 87.1794871795,
+   "repeats": 24.7863247863,
+   "words": 8.0
+  },
+  {
+   "method": "qwen3.5-2b",
+   "set": "val_en",
+   "B1": 16.644295302,
+   "B4": 3.6420919024,
+   "CIDEr": 57.8253503297,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 4.68
+  },
+  {
+   "method": "qwen3.5-2b",
+   "set": "val_es",
+   "B1": 11.9584055459,
+   "B4": 3.7079792389,
+   "CIDEr": 47.6016602466,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 4.8888888889
+  },
+  {
+   "method": "qwen3.5-4b",
+   "set": "val_en",
+   "B1": 13.7598597721,
+   "B4": 2.6126138838,
+   "CIDEr": 55.9435542049,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 7.3266666667
+  },
+  {
+   "method": "qwen3.5-4b",
+   "set": "val_es",
+   "B1": 10.5210420842,
+   "B4": 2.4509616708,
+   "CIDEr": 44.4602308383,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 8.4957264957
+  },
+  {
+   "method": "gemma4-e2b",
+   "set": "val_en",
+   "B1": 13.4,
+   "B4": 1.8951078223,
+   "CIDEr": 47.7491500097,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 6.4733333333
+  },
+  {
+   "method": "gemma4-e2b",
+   "set": "val_es",
+   "B1": 7.7077077077,
+   "B4": 0.0001516475,
+   "CIDEr": 27.9180993887,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 8.5213675214
+  },
+  {
+   "method": "gemma4-e4b",
+   "set": "val_en",
+   "B1": 13.1797235023,
+   "B4": 2.3242495252,
+   "CIDEr": 49.2588879177,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 7.02
+  },
+  {
+   "method": "gemma4-e4b",
+   "set": "val_es",
+   "B1": 11.8390804598,
+   "B4": 3.1011218818,
+   "CIDEr": 53.8206981492,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 7.4017094017
+  },
+  {
+   "method": "salamandra-7b",
+   "set": "val_en",
+   "B1": 12.3654409145,
+   "B4": 3.6644347672,
+   "CIDEr": 51.6050004071,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 3.82
+  },
+  {
+   "method": "salamandra-7b",
+   "set": "val_es",
+   "B1": 12.1993127148,
+   "B4": 2.60537029,
+   "CIDEr": 47.237704643,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 4.9487179487
+  },
+  {
+   "method": "qwen3.5-9b",
+   "set": "val_en",
+   "B1": 12.7737226277,
+   "B4": 0.0002811671,
+   "CIDEr": 46.0751285392,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 7.0866666667
+  },
+  {
+   "method": "qwen3.5-9b",
+   "set": "val_es",
+   "B1": 11.0576923077,
+   "B4": 2.723309231,
+   "CIDEr": 54.5435913711,
+   "lang_ok": 100.0,
+   "repeats": 0.0,
+   "words": 7.094017094
+  }
+ ],
+ "speed": {
+  "qwen3.5-2b": {
+   "s_per_chapter": 6.338469982147217,
+   "prompt_tokens": 405.0,
+   "rss_gb": 3.959201792,
+   "load_s": 1.3019216060638428,
+   "fallback_val_en": 0.0,
+   "fallback_val_es": 0.0
+  },
+  "qwen3.5-4b": {
+   "s_per_chapter": 16.01946234703064,
+   "prompt_tokens": 405.0,
+   "rss_gb": 6.429401088,
+   "load_s": 35.6065833568573,
+   "fallback_val_en": 0.0,
+   "fallback_val_es": 0.0
+  },
+  "gemma4-e2b": {
+   "s_per_chapter": 8.25826358795166,
+   "prompt_tokens": 398.0,
+   "rss_gb": 5.388591104,
+   "load_s": 5.74540638923645,
+   "fallback_val_en": 0.0,
+   "fallback_val_es": 0.0
+  },
+  "gemma4-e4b": {
+   "s_per_chapter": 15.468485355377197,
+   "prompt_tokens": 398.0,
+   "rss_gb": 8.573341696,
+   "load_s": 28.298909187316895,
+   "fallback_val_en": 0.0,
+   "fallback_val_es": 0.0
+  },
+  "salamandra-7b": {
+   "s_per_chapter": 20.4771568775177,
+   "prompt_tokens": 412.0,
+   "rss_gb": 10.128801792,
+   "load_s": 40.74392628669739,
+   "fallback_val_en": 0.0,
+   "fallback_val_es": 0.0
+  },
+  "qwen3.5-9b": {
+   "s_per_chapter": 26.24454164505005,
+   "prompt_tokens": 405.0,
+   "rss_gb": 10.370637824,
+   "load_s": 32.26722168922424,
+   "fallback_val_en": 0.0,
+   "fallback_val_es": 0.0
+  }
+ },
+ "episode": {
+  "mt5-small": {
+   "seconds": null
+  },
+  "qwen3.5-2b": {
+   "seconds": 116.20043325424194
+  },
+  "qwen3.5-4b": {
+   "seconds": 277.70456624031067
+  },
+  "gemma4-e2b": {
+   "seconds": 150.67977690696716
+  },
+  "gemma4-e4b": {
+   "seconds": 282.9483919143677
+  },
+  "salamandra-7b": {
+   "seconds": 308.1828474998474
+  },
+  "qwen3.5-9b": {
+   "seconds": 416.69555044174194
+  }
+ }
+}

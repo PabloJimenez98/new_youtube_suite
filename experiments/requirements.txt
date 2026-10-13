@@ -1,0 +1,17 @@
+# Experiment-only dependencies (docs/decisions/0009 §6).
+# torch 2.8 cu126 is NOT installed here: experiments/.venv reuses
+# backend/.venv's site-packages through a .pth file (see README).
+transformers==5.17.0
+sentencepiece==0.2.1
+protobuf
+ijson==3.4.0
+fasttext-numpy2-wheel==0.9.2  # fastText LID; the plain `fasttext` wheel breaks on numpy 2
+numpy
+pandas
+matplotlib
+jupyterlab
+ipykernel
+nbconvert
+python-dotenv
+pytest==8.3.3
+pycocoevalcap==1.2  # CIDEr/BLEU for titles (VidChapters' metrics); used without its Java tokenizer
