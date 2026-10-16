@@ -6,6 +6,13 @@ window (base blocks i, i+1) overlaps at most two LLM blocks; its score
 is their overlap-weighted mean. A batch that fails every attempt leaves
 its blocks unscored (None): the window then falls back to the
 heuristic alone.
+
+Since `relevance-p2` (M9, docs/decisions/0014 §3) there are two passes:
+the second pairs the base blocks shifted by one (1-2, 3-4, ...). Every
+window then lines up exactly with a block of one pass and overlaps two
+of the other, and its LLM score is the mean of both passes. Single
+zero-shot readings move by several points with tiny numeric changes
+(CPU vs GPU prefill: Spearman ~0.74); averaging two readings steadies them.
 """
 
 import json
@@ -16,7 +23,8 @@ from app.relevance.windows import Block
 
 log = logging.getLogger(__name__)
 
-PROMPT_VERSION = "relevance-p1"
+PROMPT_VERSION = "relevance-p2"  # the prompt is p1's; the version marks the two passes
+PASS_OFFSETS = (0, 1)  # base-block offset of each pass
 BATCH = 20
 MAX_BLOCK_WORDS = 80
 ATTEMPTS = ((0.0, 0), (0.7, 1), (0.7, 2))  # (temperature, seed), as 0011 §4
@@ -57,10 +65,10 @@ def schema(n: int) -> dict:
     }
 
 
-def llm_blocks(blocks: list[Block]) -> list[tuple[str, float]]:
-    """Base blocks paired into 15 s LLM blocks: (text, start)."""
+def llm_blocks(blocks: list[Block], offset: int = 0) -> list[tuple[str, float]]:
+    """Base blocks paired into 15 s LLM blocks, starting at base block `offset`: (text, start)."""
     out = []
-    for j in range(0, len(blocks), 2):
+    for j in range(offset, len(blocks), 2):
         pair = blocks[j : j + 2]
         words = [w.text.strip() for b in pair for w in b.words if w.text.strip()]
         out.append((" ".join(words[:MAX_BLOCK_WORDS]), pair[0].start))
@@ -104,9 +112,9 @@ def score_batch(llm: ChatLLM, texts: list[str], lang: str, chapters: list[str | 
 
 
 def block_scores(llm: ChatLLM, blocks: list[Block], lang: str,
-                 chapter_at=lambda start: None) -> tuple[list[float | None], int, int]:
-    """Score every 15 s LLM block: (scores, batches run, batches failed). Empty blocks score 0 without a call."""
-    pairs = llm_blocks(blocks)
+                 chapter_at=lambda start: None, offset: int = 0) -> tuple[list[float | None], int, int]:
+    """Score every 15 s LLM block of one pass: (scores, batches run, batches failed). Empty blocks score 0 without a call."""
+    pairs = llm_blocks(blocks, offset)
     scores: list[float | None] = [0.0 if not t else None for t, _ in pairs]
     todo = [j for j, (t, _) in enumerate(pairs) if t]
     batches = failed = 0
@@ -122,13 +130,29 @@ def block_scores(llm: ChatLLM, blocks: list[Block], lang: str,
     return scores, batches, failed
 
 
-def window_llm_scores(block_llm: list[float | None], n_windows: int) -> list[float | None]:
-    """Window i covers base blocks i, i+1: LLM block i/2 when i is even, else the mean of its two neighbours."""
+def window_llm_scores(block_llm: list[float | None], n_windows: int, offset: int = 0) -> list[float | None]:
+    """Window i covers base blocks i, i+1; LLM block j of a pass covers base blocks offset+2j, offset+2j+1.
+
+    Aligned windows take their block; the others the mean of the two blocks they overlap.
+    """
+    def block(j: int) -> float | None:
+        return block_llm[j] if 0 <= j < len(block_llm) else None
+
     out: list[float | None] = []
     for i in range(n_windows):
-        if i % 2 == 0:
-            out.append(block_llm[i // 2] if i // 2 < len(block_llm) else None)
+        k = i - offset
+        if k % 2 == 0:
+            out.append(block(k // 2))
             continue
-        parts = [block_llm[j] for j in ((i - 1) // 2, (i + 1) // 2) if j < len(block_llm) and block_llm[j] is not None]
+        parts = [s for s in (block((k - 1) // 2), block((k + 1) // 2)) if s is not None]
         out.append(sum(parts) / len(parts) if parts else None)
+    return out
+
+
+def mean_of_passes(passes: list[list[float | None]]) -> list[float | None]:
+    """Per window, the mean of the passes that scored it."""
+    out: list[float | None] = []
+    for values in zip(*passes, strict=True):
+        known = [v for v in values if v is not None]
+        out.append(sum(known) / len(known) if known else None)
     return out

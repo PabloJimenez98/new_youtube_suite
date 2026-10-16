@@ -7,10 +7,15 @@ every call.
 """
 
 import json
+import logging
+import time
 from typing import Protocol
+
 
 from app.chapters.llm_titles import render_prompt
 from app.llm import runtime
+
+log = logging.getLogger(__name__)
 
 
 class ChatLLM(Protocol):
@@ -18,6 +23,7 @@ class ChatLLM(Protocol):
 
     def complete(self, messages: list[dict], *, max_tokens: int, temperature: float = 0.0, seed: int = 0,
                  json_schema: dict | None = None) -> str: ...
+
 
 
 class LlamaChat:
@@ -33,6 +39,7 @@ class LlamaChat:
 
     def complete(self, messages: list[dict], *, max_tokens: int, temperature: float = 0.0, seed: int = 0,
                  json_schema: dict | None = None) -> str:
+        runtime.cuda_libs.preload()
         from llama_cpp import LlamaGrammar
 
         prompt = render_prompt(self.template, messages, self.bos, self.eos)
@@ -42,6 +49,11 @@ class LlamaChat:
             ids = self.llm.tokenize(prompt.encode(), add_bos=False, special=True)
             if len(ids) + max_tokens > self.n_ctx:
                 raise ValueError(f"prompt of {len(ids)} tokens + {max_tokens} doesn't fit n_ctx={self.n_ctx}")
+            t0 = time.perf_counter()
             out = self.llm.create_completion(ids, max_tokens=max_tokens, temperature=temperature, seed=seed,
                                              grammar=grammar)
+            elapsed = time.perf_counter() - t0
+        log.info("llm call: %d prompt + %d completion tokens in %.1fs", len(ids),
+                 out.get("usage", {}).get("completion_tokens", 0), elapsed)
         return out["choices"][0]["text"]
+

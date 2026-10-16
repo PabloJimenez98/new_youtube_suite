@@ -1,6 +1,7 @@
 """Audio extraction via the system `ffmpeg` binary."""
 
 import asyncio
+import wave
 from pathlib import Path
 
 # Whisper's expected input: 16kHz mono 16-bit PCM.
@@ -30,3 +31,9 @@ async def extract_audio(source: Path, dest: Path) -> None:
     if proc.returncode != 0:
         tail = stderr.decode(errors="replace").strip()[-_STDERR_TAIL_CHARS:]
         raise AudioExtractionError(f"ffmpeg exited with {proc.returncode}: {tail}")
+
+
+def wav_duration(path: Path) -> float:
+    """Length of a WAV in seconds, from its header (no decoding)."""
+    with wave.open(str(path), "rb") as w:
+        return w.getnframes() / w.getframerate()

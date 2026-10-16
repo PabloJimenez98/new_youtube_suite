@@ -9,7 +9,10 @@ from tests.fixtures import CONVERSATION_CLIP, FIXTURE_CLIP
 from app.models.job import Job
 from app.models.upload import Upload
 from app.worker import handlers
-from app.worker.tasks import process_job
+from arq import Retry
+from sqlalchemy.exc import OperationalError
+
+from app.worker.tasks import MAX_TRIES, fail_interrupted_jobs, is_transient, process_job
 
 settings = get_settings()
 
@@ -72,6 +75,95 @@ async def test_process_job_missing_job_is_a_noop(
 ) -> None:
     # Upload/job deleted between enqueue and pickup -- shouldn't raise.
     await process_job({"session_factory": session_factory}, 999999)
+
+
+# ---- Retry policy (M9, docs/decisions/0014) ----
+
+
+@pytest.mark.parametrize(
+    "exc,transient",
+    [
+        (OperationalError("SELECT 1", {}, Exception("server closed the connection")), True),
+        (ConnectionError("redis down"), True),
+        (RuntimeError("CUDA out of memory. Tried to allocate 20.00 MiB"), True),
+        (RuntimeError("CUDA failed with error out of memory"), True),  # ctranslate2, season-1 run
+        (ValueError("Failed to create llama_context"), True),
+        (RuntimeError("No relevance scores for this upload -- run Relevance first"), False),
+        (ValueError("bad input"), False),
+    ],
+)
+def test_transient_failures_are_recognised(exc: Exception, transient: bool) -> None:
+    assert is_transient(exc) is transient
+
+
+async def test_transient_failure_requeues_and_asks_arq_to_retry(
+    db_session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job = await _create_job(db_session)
+
+    async def _oom(_job: Job, _db: AsyncSession) -> None:
+        raise RuntimeError("CUDA out of memory")
+
+    monkeypatch.setitem(handlers.HANDLERS, job.tool_type, _oom)
+    with pytest.raises(Retry):
+        await process_job({"session_factory": session_factory, "job_try": 1}, job.id)
+    await db_session.refresh(job)
+    assert job.status == "queued" and job.error_message.startswith("Retrying (attempt 1/")
+
+    # The last attempt fails for good.
+    with pytest.raises(RuntimeError):
+        await process_job({"session_factory": session_factory, "job_try": MAX_TRIES}, job.id)
+    await db_session.refresh(job)
+    assert job.status == "failed" and job.error_message == "CUDA out of memory"
+
+
+async def test_a_retry_that_succeeds_clears_the_error(
+    db_session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job = await _create_job(db_session)
+    calls = []
+
+    async def _flaky(_job: Job, _db: AsyncSession) -> None:
+        calls.append(1)
+        if len(calls) == 1:
+            raise ConnectionError("redis down")
+
+    monkeypatch.setitem(handlers.HANDLERS, job.tool_type, _flaky)
+    with pytest.raises(Retry):
+        await process_job({"session_factory": session_factory, "job_try": 1}, job.id)
+    await process_job({"session_factory": session_factory, "job_try": 2}, job.id)
+    await db_session.refresh(job)
+    assert job.status == "succeeded" and job.error_message is None
+
+
+async def test_non_transient_failures_are_not_retried(
+    db_session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job = await _create_job(db_session)
+
+    async def _precondition(_job: Job, _db: AsyncSession) -> None:
+        raise LookupError("run Transcript first")
+
+    monkeypatch.setitem(handlers.HANDLERS, job.tool_type, _precondition)
+    with pytest.raises(LookupError):
+        await process_job({"session_factory": session_factory, "job_try": 1}, job.id)
+    await db_session.refresh(job)
+    assert job.status == "failed"
+
+
+async def test_startup_fails_jobs_left_running(
+    db_session: AsyncSession, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    running = await _create_job(db_session)
+    running.status = "running"
+    queued = await _create_job(db_session)
+    await db_session.commit()
+
+    assert await fail_interrupted_jobs(session_factory) == 1
+    await db_session.refresh(running)
+    await db_session.refresh(queued)
+    assert running.status == "failed" and "Interrupted" in running.error_message
+    assert queued.status == "queued"
 
 
 # ---- Integration: real enqueue (via the HTTP API) + a real arq worker ----

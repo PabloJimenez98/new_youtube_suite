@@ -1,7 +1,9 @@
 # Decision: Relevance Model v0, Heuristics + Batched Local LLM (M7)
 
 **Date:** 2026-10-16
-**Status:** Implemented (M7 done, 2026-10-16).
+**Status:** Implemented (M7 done, 2026-10-16). §3 amended by
+`0014-m9-performance.md` §3 (M9): two averaged passes, version
+`relevance-p2`.
 
 ## Context
 

@@ -16,6 +16,7 @@ ANALYSIS_WIDTH = 320
 DETECT_EVERY = 5
 FACE_SCORE = 0.6
 CUT_THRESHOLD = 0.25
+MIN_SHOT_S = 0.5  # cuts closer than this are one transition (fades, flashes)
 EDGE_PENALTY = 0.5
 EDGE_BAND = 0.03  # of the frame width: a box this close to a side counts as "at the edge"
 SCORE_POWER = 4  # confidence counts heavily: foreground hands are big but unsure (~0.65 vs ~0.93)
@@ -105,9 +106,20 @@ def geometry(width: int, height: int, aspect: str) -> tuple[int, int, int]:
 
 def shots_from_diffs(frame_times: list[float], diffs: list[float], duration: float,
                      threshold: float = CUT_THRESHOLD) -> list[tuple[float, float]]:
-    """Frames whose distance to the previous one is above the threshold start a new shot."""
-    cuts = [t for t, d in zip(frame_times, diffs, strict=True) if d > threshold and t > 0]
-    edges = [0.0, *cuts, duration]
+    """Frames whose distance to the previous one is above the threshold start a new shot.
+
+    A fade or a flash crosses the threshold on several frames in a row;
+    cuts less than MIN_SHOT_S after the previous one are dropped, so it
+    counts as one cut, and no shot is shorter than MIN_SHOT_S (season-1
+    run, 1x30: a closing fade made 16 shots of 1-4 frames).
+    """
+    edges = [0.0]
+    for t, d in zip(frame_times, diffs, strict=True):
+        if d > threshold and t > 0 and t - edges[-1] >= MIN_SHOT_S:
+            edges.append(t)
+    if len(edges) > 1 and duration - edges[-1] < MIN_SHOT_S:
+        edges.pop()
+    edges.append(duration)
     return [(a, b) for a, b in zip(edges, edges[1:], strict=False) if b > a]
 
 
@@ -209,6 +221,10 @@ def crop_commands(p: Plan, run: Shot, fps: float) -> str:
             continue
         x = interpolate(pts, t)
         lines.append(f"{k / fps:.4f} crop x {x};")
+    if not lines:
+        # sendcmd refuses an empty file: hold the run's first track position.
+        x0 = next((q["x"] for q in p.track if run.start <= q["t"] < run.end), 0)
+        lines.append(f"0.0000 crop x {x0};")
     return "\n".join(lines) + "\n"
 
 

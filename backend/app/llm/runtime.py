@@ -10,6 +10,8 @@ jobs at once (`max_jobs` defaults to 10), so every inference call takes
 import threading
 from pathlib import Path
 
+from app.llm import cuda_libs
+
 _cache: dict[tuple[str, int], object] = {}
 _load_lock = threading.Lock()
 # Held around every generate/complete call on a shared instance.
@@ -17,8 +19,13 @@ llm_lock = threading.Lock()
 
 
 def _load(path: Path, n_ctx: int, n_threads: int):
+    cuda_libs.preload()
     from llama_cpp import Llama
 
+    # n_gpu_layers=0: the weights stay in RAM. With the CUDA build,
+    # llama.cpp still runs large prompt batches (the prefill) on the GPU,
+    # ~13x faster than the CPU here, using little VRAM; generation stays
+    # on the CPU. See docs/decisions/0014 §2.
     return Llama(model_path=str(path), n_ctx=n_ctx, n_threads=n_threads, n_gpu_layers=0, verbose=False)
 
 
@@ -29,6 +36,32 @@ def get_llama(path: Path, n_ctx: int = 4096, n_threads: int = 6):
         if key not in _cache:
             _cache[key] = _load(Path(path), n_ctx, n_threads)
         return _cache[key]
+
+
+# Callbacks that drop objects holding a cached `Llama` (scorers, generators).
+_release_hooks: list = []
+
+
+def on_release(fn) -> None:
+    """Register `fn` to run when the shared models are released."""
+    _release_hooks.append(fn)
+
+
+def release_all() -> None:
+    """Close every loaded `Llama` and let holders rebuild on next use (M9, 0014 §2).
+
+    With the CUDA build a llama.cpp context keeps ~1 GB of VRAM while it
+    exists, which left too little room for batched Whisper on the 3 GB
+    GPU (season-1 run: CUDA OOM). The LLM handlers call this at the end
+    of each job; reloading costs a few seconds (the GGUF is in the page
+    cache).
+    """
+    with _load_lock, llm_lock:
+        for llm in _cache.values():
+            llm.close()
+        _cache.clear()
+    for fn in _release_hooks:
+        fn()
 
 
 def chat_tokens(llm) -> tuple[str, str, str]:

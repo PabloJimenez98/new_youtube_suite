@@ -13,7 +13,7 @@ from app.relevance.heuristics import (
     question_answer,
     speaker_changes,
 )
-from app.relevance.llm_scoring import block_scores, parse_scores, window_llm_scores
+from app.relevance.llm_scoring import block_scores, mean_of_passes, parse_scores, window_llm_scores
 from app.relevance.pipeline import RelevanceGenerationError, RelevanceScorer, combine
 from app.relevance.windows import Block, Window, Word, build_blocks, build_windows
 
@@ -197,6 +197,32 @@ def test_window_scores_average_the_overlapping_blocks() -> None:
     assert window_llm_scores([0.2, 0.6, None], 5) == [0.2, pytest.approx(0.4), 0.6, 0.6, None]
 
 
+def test_the_shifted_pass_pairs_blocks_from_the_second_one() -> None:
+    llm = FakeLLM()
+    scores, batches, _ = block_scores(llm, blocks_with_text(5), "en", offset=1)
+    assert len(scores) == 2 and batches == 1  # blocks 1-2 and 3-4
+    assert "[1] word1 word2" in llm.calls[0]["messages"][-1]["content"]
+
+
+def test_shifted_windows_line_up_with_odd_windows() -> None:
+    # Pass 1 blocks cover base blocks (1,2), (3,4): windows 1 and 3 are exact, 2 averages.
+    assert window_llm_scores([0.2, 0.6], 5, offset=1) == [0.2, 0.2, pytest.approx(0.4), 0.6, 0.6]
+
+
+def test_passes_are_averaged_where_both_scored() -> None:
+    assert mean_of_passes([[0.2, None, 0.5], [0.4, 0.6, None]]) == [pytest.approx(0.3), 0.6, 0.5]
+    assert mean_of_passes([[None], [None]]) == [None]
+
+
+def test_scorer_averages_the_two_passes() -> None:
+    words = [Word(i * 0.3, f"w{i}") for i in range(100)]  # 30 s -> 4 base blocks, 3 windows
+    llm = FakeLLM([json.dumps({"scores": [20, 60]}), json.dumps({"scores": [80, 40]})])
+    r = RelevanceScorer(llm, FakeLid(), "v").run(words, 30.0, [])
+    # pass 0 blocks (0,1)=.2 (2,3)=.6; pass 1 blocks (1,2)=.8 (3)=.4
+    assert [s.llm for s in r.scores] == [pytest.approx((0.2 + 0.8) / 2), pytest.approx((0.4 + 0.8) / 2),
+                                         pytest.approx((0.6 + 0.6) / 2)]
+
+
 def test_combine_weights_and_fallback() -> None:
     assert combine(0.5, 1.0) == pytest.approx(0.4 * 0.5 + 0.6 * 1.0)
     assert combine(0.5, None) == 0.5
@@ -215,10 +241,10 @@ def test_scorer_end_to_end_with_fakes() -> None:
     r = RelevanceScorer(FakeLLM(), FakeLid("es"), "v").run(words, 60.0, [(0.0, "Intro")])
     assert r.language == "es" and len(r.scores) == 7  # 8 blocks -> 7 windows
     assert all(s.llm == 0.5 and 0 <= s.score <= 1 for s in r.scores)
-    assert (r.batches, r.failed_batches) == (1, 0)
+    assert (r.batches, r.failed_batches) == (2, 0)  # one batch per pass
 
 
 def test_scorer_fails_when_every_batch_fails() -> None:
     words = [Word(i * 0.3, "word") for i in range(100)]
     with pytest.raises(RelevanceGenerationError, match="every LLM batch failed"):
-        RelevanceScorer(FakeLLM(["x"] * 3), FakeLid(), "v").run(words, 30.0, [])
+        RelevanceScorer(FakeLLM(["x"] * 6), FakeLid(), "v").run(words, 30.0, [])  # 3 attempts x 2 passes

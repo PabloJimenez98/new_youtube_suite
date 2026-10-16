@@ -225,3 +225,43 @@ def test_words_without_any_labels_behave_like_m3() -> None:
     seg = _seg(("plain", 0.0, None), ("text", 0.5, None))
     assert to_srt([seg]) == "1\n00:00:00,000 --> 00:00:05,000\nplain text\n"
 
+
+
+# --- long cues (M9, docs/decisions/0014 §1): batched Whisper gives ~30 s segments ---
+
+
+def _long_segment(n: int = 60, step: float = 0.5, speaker: str | None = None) -> Seg:
+    words = [W(f"pal{i}" + ("." if i % 12 == 11 else ""), i * step, i * step + 0.4, speaker) for i in range(n)]
+    return Seg(0.0, n * step, " ".join(w.word for w in words), speaker, words)
+
+
+def test_a_long_segment_is_split_into_short_cues() -> None:
+    srt = to_srt([_long_segment()])
+    blocks = [b for b in srt.split("\n\n") if b.strip()]
+    assert len(blocks) > 4
+    for b in blocks:
+        _, times, text = b.split("\n", 2)
+        start, end = (sum(float(x) * f for x, f in zip(t.replace(",", ".").split(":"), (3600, 60, 1))) for t in times.split(" --> "))
+        assert len(text.strip()) <= 84 and end - start <= 7.0 + 1e-6
+    # Every word survives, in order.
+    assert " ".join(b.split("\n", 2)[2].strip() for b in blocks) == _long_segment().text
+
+
+def test_long_cues_prefer_to_break_after_punctuation() -> None:
+    texts = [b.split("\n", 2)[2].strip() for b in to_srt([_long_segment()]).split("\n\n") if b.strip()]
+    assert sum(t.endswith(".") for t in texts) >= len(texts) // 2
+
+
+def test_long_cues_keep_the_speaker_label() -> None:
+    vtt = to_vtt([_long_segment(speaker="SPEAKER_01")])
+    cues = [c for c in vtt.split("\n\n")[1:] if c.strip()]
+    assert len(cues) > 4 and all("<v SPEAKER_01>" in c for c in cues)
+
+
+def test_a_short_segment_is_untouched() -> None:
+    seg = Seg(1.0, 3.0, "Hola, ¿qué tal?", None, [W("Hola,", 1.0, 1.4, None), W("¿qué", 1.5, 1.8, None), W("tal?", 1.9, 2.5, None)])
+    assert to_srt([seg]) == "1\n00:00:01,000 --> 00:00:03,000\nHola, ¿qué tal?\n"
+
+
+def test_a_long_segment_without_words_stays_one_cue() -> None:
+    assert to_srt([Seg(0.0, 30.0, "x " * 100)]).count("-->") == 1

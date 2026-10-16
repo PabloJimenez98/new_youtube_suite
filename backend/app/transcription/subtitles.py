@@ -12,6 +12,11 @@ Whisper kept inside one segment) is split into one cue per speaker run,
 using the per-word labels -- otherwise the whole cue would show only the
 majority speaker. Runs shorter than `MIN_RUN_WORDS` are folded into a
 neighbour so a single mislabelled word doesn't become its own cue.
+
+A cue longer than `MAX_CUE_CHARS` characters or `MAX_CUE_S` seconds is
+split on its word timestamps, preferably after punctuation (M9,
+docs/decisions/0014 §1): batched Whisper returns ~30 s segments, which
+would otherwise be 30 s cues.
 """
 
 from collections import Counter
@@ -19,6 +24,9 @@ from collections.abc import Iterable, Sequence
 from typing import Protocol
 
 MIN_RUN_WORDS = 2
+MAX_CUE_CHARS = 84  # two lines of ~42
+MAX_CUE_S = 7.0
+_BREAK_AFTER = (".", "?", "!", "…", ",", ";", ":")
 
 
 class CueWord(Protocol):
@@ -94,6 +102,35 @@ def _first_start(run: Sequence[CueWord]) -> float | None:
     return next((w.start_seconds for w in run if w.start_seconds is not None), None)
 
 
+def _split_long(start: float, end: float, text: str, words: Sequence[CueWord]
+                ) -> Iterable[tuple[float, float, str]]:
+    """Cut a cue that is too long into pieces on its timed words; short ones pass unchanged."""
+    if (len(text) <= MAX_CUE_CHARS and end - start <= MAX_CUE_S) or not words:
+        yield start, end, text
+        return
+    pieces: list[list[CueWord]] = [[]]
+    for w in words:
+        cur = pieces[-1]
+        if cur:
+            chars = len(" ".join(x.word.strip() for x in [*cur, w]))
+            first = _first_start(cur)
+            span = (w.end_seconds or w.start_seconds or 0.0) - (first if first is not None else start)
+            text_so_far = " ".join(x.word.strip() for x in cur)
+            soft = len(text_so_far) >= MAX_CUE_CHARS // 2 and cur[-1].word.strip().endswith(_BREAK_AFTER)
+            if chars > MAX_CUE_CHARS or span > MAX_CUE_S or soft:
+                pieces.append([])
+        pieces[-1].append(w)
+    starts = [start] + [_first_start(piece) for piece in pieces[1:]]
+    for i, piece in enumerate(pieces):
+        piece_text = " ".join(w.word.strip() for w in piece if w.word.strip())
+        if not piece_text:
+            continue
+        s = starts[i] if starts[i] is not None else start
+        e = next((x for x in starts[i + 1:] if x is not None), end)
+        s = min(max(s, start), end)
+        yield s, min(max(e, s), end), piece_text
+
+
 def _cues(segments: Iterable[Cue]) -> Iterable[tuple[float, float, str, str | None]]:
     for seg in segments:
         text = _clean_text(seg.text)
@@ -104,8 +141,10 @@ def _cues(segments: Iterable[Cue]) -> Iterable[tuple[float, float, str, str | No
 
         runs = _speaker_runs(seg.words) if seg.words else []
         if len(runs) < 2:
-            # One speaker (or no word labels): the segment is the cue, as in M3.
-            yield seg_start, seg_end, text, seg.speaker_label
+            # One speaker (or no word labels): the segment is the cue, as in M3,
+            # cut into pieces only when it is too long.
+            for s, e, piece in _split_long(seg_start, seg_end, text, seg.words or []):
+                yield s, e, piece, seg.speaker_label
             continue
 
         # Each run's cue lasts until the next run's first timed word.
@@ -117,7 +156,9 @@ def _cues(segments: Iterable[Cue]) -> Iterable[tuple[float, float, str, str | No
             end = min(max(end, start), seg_end)
             run_text = " ".join(w.word.strip() for w in run if w.word.strip())
             if run_text:
-                yield start, end, run_text, _run_speaker(run)
+                speaker = _run_speaker(run)
+                for s, e, piece in _split_long(start, end, run_text, run):
+                    yield s, e, piece, speaker
 
 
 def to_srt(segments: Iterable[Cue]) -> str:

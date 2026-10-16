@@ -158,3 +158,21 @@ def test_words_from_a_segment_without_words() -> None:
     seg = TranscriptSegment(segment_index=0, start_seconds=1.0, end_seconds=2.0, text="whole", words=[],
                             speaker_label="S")
     assert words_from_segments([seg]) == [Word(1.0, "whole", "S")]
+
+
+async def test_the_llm_is_released_after_the_job_even_on_failure(
+    db_session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Season-1 regression (0014 §2): the LLM's VRAM is freed for Whisper after every LLM job."""
+    from app.llm import runtime
+
+    released = []
+    monkeypatch.setattr(runtime, "release_all", lambda: released.append(1))
+
+    def _boom(words, duration, chapters):
+        raise RuntimeError("llama exploded")
+
+    monkeypatch.setattr(pipeline, "score_relevance", _boom)
+    upload = await _transcribed_upload(db_session)
+    await _run_job(db_session, session_factory, upload, raises=RuntimeError)
+    assert released == [1]

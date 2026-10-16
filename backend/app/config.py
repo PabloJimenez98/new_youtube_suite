@@ -41,7 +41,12 @@ class Settings(BaseSettings):
     whisper_model: str = "large-v3-turbo"
     whisper_device: str = "cuda"
     whisper_compute_type: str = "int8"
-    whisper_beam_size: int = 5
+    # M9 (docs/decisions/0014 §1): batched decoding, 4 VAD chunks at a time,
+    # greedy. 2.1x faster than sequential beam 5 on a 64-min episode, and no
+    # further from a large-v3 reference. Batch 8 runs out of the 3 GB VRAM.
+    # `WHISPER_BATCH_SIZE=0` restores sequential decoding.
+    whisper_beam_size: int = 1
+    whisper_batch_size: int = 4
     whisper_vad_filter: bool = True
 
     # Speaker diarization (M4) -- see docs/decisions/0008-speaker-diarization.md.

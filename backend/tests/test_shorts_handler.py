@@ -165,6 +165,29 @@ async def test_a_failed_render_keeps_the_previous_clips(
     assert set(storage.base_path.iterdir()) == files_before  # the partial file was removed
 
 
+async def test_a_cancelled_job_removes_its_partial_files(
+    db_session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], fake_make_clip, face_model,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """M9 season-run regression: stopping the worker mid-render left orphan clip files."""
+    import asyncio
+
+    upload = await _scored_upload(db_session)
+    files_before = set(storage.base_path.iterdir())
+
+    def _cancelled(src, span, words, params, model, out):
+        Path(out).write_bytes(b"partial")
+        raise asyncio.CancelledError()
+
+    monkeypatch.setattr(shorts, "make_clip", _cancelled)
+    job = Job(upload_id=upload.id, tool_type="shorts")
+    db_session.add(job)
+    await db_session.commit()
+    with pytest.raises(asyncio.CancelledError):
+        await process_job({"session_factory": session_factory}, job.id)
+    assert set(storage.base_path.iterdir()) == files_before
+
+
 async def test_needs_relevance_first(
     db_session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], fake_make_clip, face_model
 ) -> None:

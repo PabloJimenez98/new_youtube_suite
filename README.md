@@ -114,8 +114,12 @@ Without the worker running, jobs created from the Manage page stay
 model into the Hugging Face cache). The CUDA 12 runtime comes from the
 `nvidia-cublas-cu12`/`nvidia-cudnn-cu12` pip wheels, which is why the
 worker needs the `LD_LIBRARY_PATH` line above. Without a usable GPU,
-set `WHISPER_DEVICE=cpu` (slower, no other change). See
-[`docs/decisions/0007-transcription-pipeline.md`](docs/decisions/0007-transcription-pipeline.md).
+set `WHISPER_DEVICE=cpu` (slower, no other change). Since M9 it decodes
+4 VAD chunks at a time, greedily (`WHISPER_BATCH_SIZE=4`,
+`WHISPER_BEAM_SIZE=1`), about 2× faster; `WHISPER_BATCH_SIZE=0` and
+`WHISPER_BEAM_SIZE=5` restore M3's sequential decoding. See
+[`docs/decisions/0007-transcription-pipeline.md`](docs/decisions/0007-transcription-pipeline.md)
+and [`0014`](docs/decisions/0014-m9-performance.md).
 
 **Speaker diarization (M4)** uses pyannote's gated
 `pyannote/speaker-diarization-community-1` pipeline. Set it up once:
@@ -152,7 +156,8 @@ See [`docs/decisions/0009-chapter-generator-local-models.md`](docs/decisions/000
 
 **Show notes (M6).** Show notes (title suggestions, description, tags,
 summary) come from the same local LLM that titles chapters: the
-Qwen3.5-4B GGUF in the chapter bundle, run by llama.cpp on CPU.
+Qwen3.5-4B GGUF in the chapter bundle, run by llama.cpp (weights in RAM;
+with the CUDA build below, the prompt prefill runs on the GPU).
 - **Setup:** none beyond `CHAPTERS_MODEL_DIR`. The worker loads the
   GGUF once and shares it between `chapters` and `shownotes`.
 - **Without a bundle with an LLM:** `shownotes` jobs fail with a clear
@@ -161,6 +166,30 @@ Qwen3.5-4B GGUF in the chapter bundle, run by llama.cpp on CPU.
   notes again replaces it, after a confirmation.
 
 See [`docs/decisions/0011-show-notes-local-llm.md`](docs/decisions/0011-show-notes-local-llm.md).
+
+**LLM speed (M9): llama-cpp-python with CUDA.** The LLM tools spend
+most of their time reading the prompt. Built with CUDA, llama.cpp runs
+that on the GPU (~13× faster here) while the weights stay in RAM. This
+cuts show notes from ~16 to ~6 min and relevance from ~17 to ~9 min on
+a 64-min episode. The CPU build works too, just slower. To build the
+CUDA one without a system CUDA toolkit (GTX 1060 = sm_61):
+```bash
+B=~/.cache/yts-llama-cuda && mkdir -p $B/cuda && cd $B
+R=https://developer.download.nvidia.com/compute/cuda/redist
+for p in cuda_nvcc/linux-x86_64/cuda_nvcc-linux-x86_64-12.6.85-archive.tar.xz \
+         cuda_cudart/linux-x86_64/cuda_cudart-linux-x86_64-12.6.77-archive.tar.xz \
+         cuda_cccl/linux-x86_64/cuda_cccl-linux-x86_64-12.6.77-archive.tar.xz \
+         libcublas/linux-x86_64/libcublas-linux-x86_64-12.6.4.1-archive.tar.xz; do
+  curl -sSL $R/$p | tar -xJ -C cuda --strip-components=1
+done
+PATH=$B/cuda/bin:$PATH CUDACXX=$B/cuda/bin/nvcc \
+CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=61 -DGGML_NATIVE=on -DCUDAToolkit_ROOT=$B/cuda" \
+  backend/.venv/bin/pip install --no-deps --force-reinstall --no-cache-dir llama-cpp-python==0.3.35
+```
+(Run the last command from the repo root; `pip install cmake ninja` into
+the venv first if they are missing.) At runtime the libraries come from
+the venv's NVIDIA wheels, with no `LD_LIBRARY_PATH` needed. See
+[`docs/decisions/0014-m9-performance.md`](docs/decisions/0014-m9-performance.md).
 
 **Shorts (M8).** Shorts are cut from the relevance curve (run Relevance
 first). The job picks up to five 20–60 s spans and frames each shot on

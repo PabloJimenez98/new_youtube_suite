@@ -17,6 +17,8 @@ from app.models.transcript import TranscriptSegment
 from app.models.upload import Upload
 from app.shownotes import pipeline
 from app.shownotes.chunking import ChapterMark, Seg
+from app.llm import runtime
+from app.worker.gpu import gpu_lock
 
 
 class TranscriptMissingError(Exception):
@@ -55,7 +57,13 @@ async def run(job: Job, db: AsyncSession) -> None:
             await db.execute(select(Chapter).where(Chapter.upload_id == upload.id).order_by(Chapter.order_index))
         ).scalars()
     ]
-    model_used, notes = await asyncio.to_thread(pipeline.generate_show_notes, segs, chapters)
+    # The LLM's prompt prefill runs on the GPU with the CUDA build (0014 §2).
+    async with gpu_lock:
+        try:
+            model_used, notes = await asyncio.to_thread(pipeline.generate_show_notes, segs, chapters)
+        finally:
+            # Free the LLM's ~1 GB of VRAM for Whisper/pyannote (0014 §2).
+            await asyncio.to_thread(runtime.release_all)
 
     try:
         # Replace, not append: one draft per upload, a re-run overwrites it.

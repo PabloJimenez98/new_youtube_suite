@@ -20,6 +20,8 @@ from app.models.transcript import TranscriptSegment
 from app.models.upload import Upload
 from app.relevance import pipeline
 from app.relevance.windows import Word
+from app.llm import runtime
+from app.worker.gpu import gpu_lock
 
 
 class TranscriptMissingError(Exception):
@@ -84,9 +86,15 @@ async def run(job: Job, db: AsyncSession) -> None:
         ).scalars()
     ]
     duration = upload.duration_seconds or max(s.end_seconds for s in segments)
-    label, description, result = await asyncio.to_thread(
-        pipeline.score_relevance, words_from_segments(segments), duration, chapters
-    )
+    # The LLM's prompt prefill runs on the GPU with the CUDA build (0014 §2).
+    async with gpu_lock:
+        try:
+            label, description, result = await asyncio.to_thread(
+                pipeline.score_relevance, words_from_segments(segments), duration, chapters
+            )
+        finally:
+            # Free the LLM's ~1 GB of VRAM for Whisper/pyannote (0014 §2).
+            await asyncio.to_thread(runtime.release_all)
 
     try:
         version = await get_or_create_version(db, label, description)

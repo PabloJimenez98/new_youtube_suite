@@ -151,9 +151,11 @@ async def run(job: Job, db: AsyncSession) -> None:
             for rank, r in enumerate(rendered, 1)
         )
         await db.commit()
-    except Exception:
-        await db.rollback()
+    except BaseException:
+        # BaseException, not Exception: stopping the worker cancels the job
+        # (CancelledError), and its half-rendered files must go too (M9 season run).
         _delete_files(storage, [r.key for r in rendered])
+        await db.rollback()
         raise
     # The new clips are committed: only now drop the old files.
     _delete_files(storage, old_keys)

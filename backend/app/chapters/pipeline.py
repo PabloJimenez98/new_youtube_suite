@@ -164,6 +164,16 @@ _chapterer: Chapterer | None = None
 _lock = threading.Lock()
 
 
+def _drop() -> None:
+    """Forget the cached object: its `Llama` was released (runtime.release_all)."""
+    global _chapterer
+    with _lock:
+        _chapterer = None
+
+
+runtime.on_release(_drop)
+
+
 def get_chapterer() -> Chapterer:
     """Load the configured bundle once per process."""
     global _chapterer

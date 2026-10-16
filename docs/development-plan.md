@@ -34,7 +34,7 @@ Updated as milestones complete — this table is the source of truth for
 | M6 — Show notes & metadata generator | Done |
 | M7 — Relevance-detection model v0 | Done |
 | M8 — Shorts generator | Done |
-| M9 — Full-suite hardening | Not started |
+| M9 — Full-suite hardening | In progress |
 | M10 — Market-analysis pipeline v0 | Not started |
 | M11 — OAuth + Analytics API v2 | Not started |
 | M12 — YouTube Reporting API | Not started |
@@ -179,6 +179,13 @@ Updated as milestones complete — this table is the source of truth for
 ### M9 — Full-suite hardening / regression checkpoint
 - **Depends on:** M3–M8
 - **Estimate:** 1 week
+- **Note (2026-10-16):** see `docs/decisions/0014-m9-performance.md`.
+  With the owner: the whole of season 1 of *Sastre y Maldonado* (28
+  episodes) is the test set, and a bottleneck pass came first.
+  Transcription moved to batched greedy decoding (2.1×), and the LLM
+  prefill to the GPU via a CUDA build of llama.cpp (show notes 2.8×,
+  relevance ~2× with a second averaging pass, `relevance-p2`). Retries
+  cover transient failures only.
 - **1. Planning:** Not a new feature — plan which real podcast episodes (aim for 3–5, varying length/speaker-count/audio quality) will be run end-to-end through the entire pipeline, and what "acceptable" looks like per tool.
 - **2. Development:** run the full pipeline on the chosen episodes; fix integration bugs surfaced (e.g. timestamp drift between tools, job-failure edge cases); add basic error handling/retry to job orchestration; polish the frontend result viewers for all tools built so far.
 - **3. Testing:** the "development" here largely *is* the test — treat every bug found as a new regression test added to the suite, not just a silent fix. This is the explicit checkpoint the user asked for: proof that nothing has broken as the tool count grew.

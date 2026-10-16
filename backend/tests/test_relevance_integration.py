@@ -35,6 +35,6 @@ def test_real_llm_scores_a_batch() -> None:
 def test_real_scorer_on_the_m3_fixture_text() -> None:
     words = [Word(0.4 * i, w) for i, w in enumerate(FIXTURE_CLIP_REFERENCE.split())]
     label, description, result = pipeline.score_relevance(words, 0.4 * len(words), [])
-    assert label.startswith("heuristic-v0+") and label.endswith("+relevance-p1")
-    assert result.scores and result.failed_batches == 0
+    assert label.startswith("heuristic-v0+") and label.endswith("+relevance-p2")
+    assert result.scores and result.failed_batches == 0 and result.batches >= 2
     assert all(0.0 <= s.score <= 1.0 and s.llm is not None for s in result.scores)

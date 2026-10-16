@@ -137,6 +137,8 @@ async def test_persists_segments_words_and_audio(
     upload = await db_session.get(Upload, upload_id)
     await db_session.refresh(upload)
     assert upload.audio_storage_path == audio_key_for(upload_id)
+    # M9 regression: the upload's duration is filled from the extracted audio.
+    assert upload.duration_seconds is not None and upload.duration_seconds > 1.0
     with storage.get(upload.audio_storage_path) as stored:
         assert stored.read(4) == b"RIFF"
 

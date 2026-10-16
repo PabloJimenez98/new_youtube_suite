@@ -275,3 +275,21 @@ Deferred / noted, not built in M8:
   revisited (M9 or M11).
 - **`jobs.params` is generic:** M4's speaker-count hint could use it.
 
+
+## 2026-10-16 — M9 (hardening, season-1 run)
+See `docs/decisions/0014-m9-performance.md` and `docs/research/m9-performance.md`.
+- **Relevance quality (for M15):** the zero-shot 4B LLM discriminates
+  weakly. Read greedily, it is unstable (CPU and GPU agree at Spearman
+  ~0.74). Read as an expected value over the digits 0–9, it is stable
+  (0.98) but picked logistics and credits on episode 8. M15's
+  pseudo-labels should use the expected-value score
+  (`experiments/m9-perf/llm_expected.py`), not greedy integers. Also
+  try a bigger LLM if the RAM budget allows.
+- **Auto-chaining tools after upload** (transcribe → … → shorts) is
+  product scope; the M9 runner does it from outside. Consider it for a
+  "process everything" button.
+- **16 LLM layers on the GPU** would give ~25 % more LLM speed, if
+  Whisper and pyannote could be unloaded between jobs. Model
+  residency per job is an open question.
+- **The `is_live` flip for relevance p1 → p2 was done by hand in the
+  dev DB.** M15's live-switch mechanism should cover it.

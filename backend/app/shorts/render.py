@@ -24,8 +24,12 @@ def _quote(path: Path) -> str:
     return "'" + str(path).replace("\\", "/").replace("'", "") + "'"
 
 
-def branch_filter(p: Plan, run: Shot, cmd_file: Path | None) -> str:
-    """The filter chain for one run of same-mode shots, ending at the output size."""
+def branch_filter(p: Plan, run: Shot, cmd_file: Path | None, i: int = 0) -> str:
+    """The filter chain for one run of same-mode shots, ending at the output size.
+
+    Inner pad labels carry the run index `i`: filtergraph labels must be
+    unique, and a clip can have several `fit` runs (season-1 run, 1x30).
+    """
     if run.mode == "crop":
         x0 = next((q["x"] for q in p.track if run.start <= q["t"] < run.end), 0)
         return (
@@ -38,9 +42,9 @@ def branch_filter(p: Plan, run: Shot, cmd_file: Path | None) -> str:
             f"pad={p.out_w}:{p.out_h}:(ow-iw)/2:(oh-ih)/2,setsar=1"
         )
     return (
-        f"split[bg][fg];[bg]scale={p.out_w}:{p.out_h}:force_original_aspect_ratio=increase,"
-        f"crop={p.out_w}:{p.out_h},{BLUR}[b];[fg]scale={p.out_w}:-2[f];"
-        f"[b][f]overlay=(W-w)/2:(H-h)/2,setsar=1"
+        f"split[bg{i}][fg{i}];[bg{i}]scale={p.out_w}:{p.out_h}:force_original_aspect_ratio=increase,"
+        f"crop={p.out_w}:{p.out_h},{BLUR}[b{i}];[fg{i}]scale={p.out_w}:-2[f{i}];"
+        f"[b{i}][f{i}]overlay=(W-w)/2:(H-h)/2,setsar=1"
     )
 
 
@@ -53,7 +57,7 @@ def filter_graph(p: Plan, fps: float, workdir: Path, ass_file: Path | None) -> s
         if run.mode == "crop":
             cmd_file = workdir / f"crop{i}.cmd"
             cmd_file.write_text(crop_commands(p, run, fps))
-        chains.append(branch_filter(p, run, cmd_file))
+        chains.append(branch_filter(p, run, cmd_file, i))
 
     subs = f",ass={_quote(ass_file)}" if ass_file else ""
     if len(parts) == 1:

@@ -9,7 +9,7 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
-from faster_whisper import WhisperModel
+from faster_whisper import BatchedInferencePipeline, WhisperModel
 
 from app.config import get_settings
 
@@ -52,13 +52,19 @@ def get_model() -> WhisperModel:
 
 def transcribe(audio_path: Path) -> list[SegmentResult]:
     settings = get_settings()
-    segments, _info = get_model().transcribe(
-        str(audio_path),
+    kwargs = dict(
         language=None,  # auto-detect per episode
         beam_size=settings.whisper_beam_size,
         vad_filter=settings.whisper_vad_filter,
         word_timestamps=True,
     )
+    if settings.whisper_batch_size > 0:
+        # Batched decoding always segments with VAD (docs/decisions/0014 §1).
+        segments, _info = BatchedInferencePipeline(get_model()).transcribe(
+            str(audio_path), batch_size=settings.whisper_batch_size, **kwargs
+        )
+    else:
+        segments, _info = get_model().transcribe(str(audio_path), **kwargs)
     # `segments` is a lazy generator -- the actual decoding happens
     # while it's consumed, so it must be drained here, inside the thread.
     return [

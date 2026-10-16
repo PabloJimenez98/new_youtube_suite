@@ -63,7 +63,7 @@ def test_filter_graph_single_run_and_mixed(tmp_path: Path) -> None:
                                 tmp_path / "c.ass")
     assert mixed.startswith("[0:v]split=2[s0][s1]")
     assert "[s0]trim=start=0.0000:end=2.0000,setpts=PTS-STARTPTS,sendcmd" in mixed
-    assert "[s1]trim=start=2.0000,setpts=PTS-STARTPTS,split[bg][fg]" in mixed
+    assert "[s1]trim=start=2.0000,setpts=PTS-STARTPTS,split[bg1][fg1]" in mixed
     assert mixed.endswith(f"concat=n=2:v=1:a=0,ass='{tmp_path / 'c.ass'}'[vout]")
     assert (tmp_path / "crop0.cmd").read_text().count("crop x") == 50
 
@@ -74,6 +74,8 @@ def test_filter_graph_single_run_and_mixed(tmp_path: Path) -> None:
         ("9:16", [(0, 4, "crop")], (720, 1280)),
         ("9:16", [(0, 4, "fit")], (720, 1280)),
         ("4:5", [(0, 2, "crop"), (2, 4, "fit")], (720, 900)),
+        # Season-1 regression (1x30): several fit runs need distinct filter labels.
+        ("9:16", [(0, 1, "fit"), (1, 2, "crop"), (2, 3, "fit"), (3, 4, "crop")], (720, 1280)),
         ("16:9", [(0, 4, "fit")], (1280, 720)),
     ],
 )

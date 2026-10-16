@@ -132,6 +132,16 @@ _generator: ShowNotesGenerator | None = None
 _lock = threading.Lock()
 
 
+def _drop() -> None:
+    """Forget the cached object: its `Llama` was released (runtime.release_all)."""
+    global _generator
+    with _lock:
+        _generator = None
+
+
+runtime.on_release(_drop)
+
+
 def get_generator() -> ShowNotesGenerator:
     """Build the generator once per process from the chapters bundle's LLM and LID."""
     global _generator

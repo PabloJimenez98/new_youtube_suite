@@ -18,7 +18,7 @@ from app.config import get_settings
 from app.llm import runtime
 from app.llm.chat import ChatLLM, LlamaChat
 from app.relevance import heuristics
-from app.relevance.llm_scoring import PROMPT_VERSION, block_scores, window_llm_scores
+from app.relevance.llm_scoring import PASS_OFFSETS, PROMPT_VERSION, block_scores, mean_of_passes, window_llm_scores
 from app.relevance.windows import BLOCK_S, BLOCKS_PER_WINDOW, Window, Word, build_blocks, build_windows
 
 HEURISTIC_WEIGHT = 0.4
@@ -63,9 +63,10 @@ class RelevanceScorer:
         """What this version is, for `model_versions.architecture_notes` / `training_data_reference`."""
         return {
             "architecture_notes": (
-                f"Heuristics (weights {heuristics.WEIGHTS}) + zero-shot LLM over 15 s blocks, "
+                f"Heuristics (weights {heuristics.WEIGHTS}) + zero-shot LLM over 15 s blocks "
+                f"({len(PASS_OFFSETS)} passes offset by {BLOCK_S:g} s, averaged), "
                 f"{HEURISTIC_WEIGHT}/{LLM_WEIGHT}; windows {BLOCK_S * BLOCKS_PER_WINDOW:g} s, hop {BLOCK_S:g} s. "
-                "docs/decisions/0012-relevance-v0.md"
+                "docs/decisions/0012-relevance-v0.md, 0014-m9-performance.md"
             ),
             "training_data_reference": {"kind": "untrained", "prompt_version": PROMPT_VERSION},
         }
@@ -84,16 +85,31 @@ class RelevanceScorer:
             i = bisect.bisect_right(starts, t) - 1
             return chapters[i][1] if i >= 0 else None
 
-        block_llm, batches, failed = block_scores(self.llm, blocks, lang, chapter_at)
+        passes: list[list[float | None]] = []
+        batches = failed = 0
+        for offset in PASS_OFFSETS:
+            block_llm, b, f = block_scores(self.llm, blocks, lang, chapter_at, offset)
+            batches, failed = batches + b, failed + f
+            passes.append(window_llm_scores(block_llm, len(windows), offset))
         if batches and failed == batches:
             raise RelevanceGenerationError(f"Relevance: every LLM batch failed ({batches} batches)")
-        llm = window_llm_scores(block_llm, len(windows))
+        llm = mean_of_passes(passes)
         scores = [WindowScore(w, h, l, combine(h, l)) for w, h, l in zip(windows, heur, llm, strict=True)]
         return RelevanceResult(lang, scores, batches, failed)
 
 
 _scorer: RelevanceScorer | None = None
 _lock = threading.Lock()
+
+
+def _drop() -> None:
+    """Forget the cached object: its `Llama` was released (runtime.release_all)."""
+    global _scorer
+    with _lock:
+        _scorer = None
+
+
+runtime.on_release(_drop)
 
 
 def get_scorer() -> RelevanceScorer:

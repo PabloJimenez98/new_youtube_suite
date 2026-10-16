@@ -52,6 +52,22 @@ def test_cuts_split_shots() -> None:
     assert shots_from_diffs(times, diffs, 4.0) == [(0.0, 1.0), (1.0, 2.4), (2.4, 4.0)]
 
 
+def test_a_fade_is_one_cut_and_no_shot_is_shorter_than_the_minimum() -> None:
+    # Season-1 regression (1x30): a closing fade crossed the threshold on many frames.
+    times = [k / FPS for k in range(150)]  # 6 s
+    fade = set(range(100, 140, 2))  # every other frame from 4.0 s to 5.6 s
+    diffs = [0.4 if k in fade or k == 25 else 0.03 for k in range(150)]
+    shots = shots_from_diffs(times, diffs, 6.0)
+    assert shots == [(0.0, 1.0), (1.0, 4.0), (4.0, 4.56), (4.56, 5.12), (5.12, 6.0)]
+    assert all(b - a >= framing.MIN_SHOT_S for a, b in shots)
+
+
+def test_a_cut_just_before_the_end_is_dropped() -> None:
+    times = [k / FPS for k in range(50)]
+    diffs = [0.4 if k == 45 else 0.03 for k in range(50)]  # cut at 1.8 s of 2.0 s
+    assert shots_from_diffs(times, diffs, 2.0) == [(0.0, 2.0)]
+
+
 def test_pick_face_prefers_big_confident_faces_and_penalises_the_edge() -> None:
     small, big = face_at(300, 60), face_at(800, 120)
     assert pick_face((small, big), W, None) is big
@@ -108,6 +124,12 @@ def test_wide_targets_never_crop() -> None:
 def test_runs_merge_same_mode_shots() -> None:
     shots = [Shot(0, 1, "crop"), Shot(1, 2, "crop"), Shot(2, 3, "fit"), Shot(3, 4, "crop")]
     assert runs(shots) == [Shot(0, 2, "crop"), Shot(2, 3, "fit"), Shot(3, 4, "crop")]
+
+
+def test_crop_commands_are_never_empty() -> None:
+    # A crop run without track samples must still give sendcmd one command.
+    p = framing.Plan(W, H, 404, 720, 1280, [Shot(0, 0.03, "crop")], [])
+    assert crop_commands(p, Shot(0, 0.03, "crop"), FPS) == "0.0000 crop x 0;\n"
 
 
 def test_crop_commands_interpolate_per_frame_and_restart_per_run() -> None:
