@@ -76,4 +76,8 @@
       </section>
     }
   }
+
+  @if (showNotes(); as notes) {
+    <app-show-notes-panel [uploadId]="upload().id" [notes]="notes" />
+  }
 </article>

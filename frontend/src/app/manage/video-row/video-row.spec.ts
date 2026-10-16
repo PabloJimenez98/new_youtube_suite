@@ -6,6 +6,7 @@ import { of, throwError } from 'rxjs';
 import { TOKEN_STORAGE_KEY } from '../../auth/auth';
 import { ChapterOut, Chapters } from '../../chapters/chapters';
 import { JobOut } from '../../jobs/job.model';
+import { ShowNotes, ShowNotesOut } from '../../shownotes/shownotes';
 import { Jobs } from '../../jobs/jobs';
 import { Transcripts } from '../../transcripts/transcripts';
 import { UploadOut } from '../../uploads/upload.model';
@@ -40,11 +41,13 @@ describe('VideoRow', () => {
   let jobsStub: { createJob: ReturnType<typeof vi.fn> };
   let transcriptsStub: { getSubtitle: ReturnType<typeof vi.fn> };
   let chaptersStub: { getChapters: ReturnType<typeof vi.fn> };
+  let showNotesStub: { getShowNotes: ReturnType<typeof vi.fn>; updateShowNotes: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     jobsStub = { createJob: vi.fn() };
     transcriptsStub = { getSubtitle: vi.fn() };
     chaptersStub = { getChapters: vi.fn().mockReturnValue(of([])) };
+    showNotesStub = { getShowNotes: vi.fn(), updateShowNotes: vi.fn() };
     localStorage.setItem(TOKEN_STORAGE_KEY, 'fake-token');
 
     await TestBed.configureTestingModule({
@@ -53,6 +56,7 @@ describe('VideoRow', () => {
         { provide: Jobs, useValue: jobsStub },
         { provide: Transcripts, useValue: transcriptsStub },
         { provide: Chapters, useValue: chaptersStub },
+        { provide: ShowNotes, useValue: showNotesStub },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],
@@ -268,7 +272,7 @@ describe('VideoRow', () => {
       const disabled = (fixture.nativeElement as HTMLElement).querySelectorAll(
         '.video-row__run:disabled',
       );
-      expect(disabled.length).toBe(2); // Speakers and Chapters
+      expect(disabled.length).toBe(3); // Speakers, Chapters and Show notes
     });
   });
 
@@ -346,6 +350,77 @@ describe('VideoRow', () => {
       fixture.componentRef.setInput('jobs', [makeJob({ id: 3, tool_type: 'chapters', status: 'succeeded' })]);
       fixture.detectChanges();
       expect(el().querySelector('.video-row__chapters')).toBeNull();
+    });
+  });
+
+  describe('show notes (M6)', () => {
+    const notes: ShowNotesOut = {
+      title_suggestions: ['A', 'B', 'C'],
+      description: 'Desc.',
+      tags: ['x'],
+      summary: 'Sum.',
+      language: 'en',
+      llm_model_used: 'm+shownotes-v1',
+      created_at: '2026-10-16T12:00:00Z',
+      updated_at: '2026-10-16T12:00:00Z',
+    };
+    const el = () => fixture.nativeElement as HTMLElement;
+    const showNotesButton = () =>
+      [...el().querySelectorAll('.video-row__tool')]
+        .find((c) => c.querySelector('.video-row__tool-label')?.textContent?.trim() === 'Show notes')
+        ?.querySelector<HTMLButtonElement>('.video-row__run') ?? null;
+
+    afterEach(() => vi.restoreAllMocks());
+
+    it('Run is disabled until a transcript exists', () => {
+      fixture.componentRef.setInput('jobs', []);
+      fixture.detectChanges();
+      expect(showNotesButton()?.disabled).toBe(true);
+      expect(showNotesButton()?.getAttribute('title')).toBe('Needs a transcript');
+    });
+
+    it('fetches the draft once its job succeeds and shows the panel', () => {
+      showNotesStub.getShowNotes.mockReturnValue(of(notes));
+      fixture.componentRef.setInput('jobs', [makeJob({ id: 3, tool_type: 'shownotes', status: 'running' })]);
+      fixture.detectChanges();
+      expect(el().querySelector('app-show-notes-panel')).toBeNull();
+
+      fixture.componentRef.setInput('jobs', [makeJob({ id: 3, tool_type: 'shownotes', status: 'succeeded' })]);
+      fixture.detectChanges();
+
+      expect(showNotesStub.getShowNotes).toHaveBeenCalledWith(5);
+      expect(el().querySelector('app-show-notes-panel')).not.toBeNull();
+    });
+
+    it('runs without asking when there is no draft yet', () => {
+      const confirm = vi.spyOn(window, 'confirm');
+      jobsStub.createJob.mockReturnValue(of(makeJob({ tool_type: 'shownotes' })));
+      fixture.componentRef.setInput('jobs', [makeJob({ status: 'succeeded' })]);
+      fixture.detectChanges();
+
+      showNotesButton()!.click();
+
+      expect(confirm).not.toHaveBeenCalled();
+      expect(jobsStub.createJob).toHaveBeenCalledWith(5, 'shownotes');
+    });
+
+    it.each([
+      [false, 0],
+      [true, 1],
+    ])('asks before replacing an existing draft (confirmed: %s)', (answer, calls) => {
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(answer);
+      showNotesStub.getShowNotes.mockReturnValue(of(notes));
+      jobsStub.createJob.mockReturnValue(of(makeJob({ id: 9, tool_type: 'shownotes' })));
+      fixture.componentRef.setInput('jobs', [
+        makeJob({ status: 'succeeded' }),
+        makeJob({ id: 3, tool_type: 'shownotes', status: 'succeeded' }),
+      ]);
+      fixture.detectChanges();
+
+      showNotesButton()!.click();
+
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(jobsStub.createJob).toHaveBeenCalledTimes(calls);
     });
   });
 

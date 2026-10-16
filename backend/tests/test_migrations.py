@@ -26,6 +26,7 @@ EXPECTED_TABLES = {
     "transcript_segments",
     "transcript_words",
     "chapters",
+    "show_notes_drafts",
 }
 
 

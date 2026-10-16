@@ -1,0 +1,72 @@
+.show-notes {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+
+  &__header,
+  &__field-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  &__header {
+    margin-bottom: var(--space-2);
+  }
+
+  &__label {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+  }
+
+  &__form {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  &__titles {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  &__title-row {
+    display: flex;
+    gap: var(--space-2);
+
+    input {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+  // Same look as the global `.field input`, which doesn't cover these.
+  textarea,
+  &__title-row input {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-bg-raised);
+    color: var(--color-text-primary);
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  &__copy,
+  &__save {
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.7rem;
+  }
+
+  &__error {
+    margin: 0 0 var(--space-2);
+    font-size: 0.8rem;
+    color: var(--color-danger);
+  }
+}

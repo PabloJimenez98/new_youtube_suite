@@ -150,6 +150,18 @@ with `current` pointing at the one to serve.
 
 See [`docs/decisions/0009-chapter-generator-local-models.md`](docs/decisions/0009-chapter-generator-local-models.md).
 
+**Show notes (M6).** Show notes (title suggestions, description, tags,
+summary) come from the same local LLM that titles chapters: the
+Qwen3.5-4B GGUF in the chapter bundle, run by llama.cpp on CPU.
+- **Setup:** none beyond `CHAPTERS_MODEL_DIR`. The worker loads the
+  GGUF once and shares it between `chapters` and `shownotes`.
+- **Without a bundle with an LLM:** `shownotes` jobs fail with a clear
+  message.
+- **Editing:** the draft is edited and saved in Manage. Running show
+  notes again replaces it, after a confirmation.
+
+See [`docs/decisions/0011-show-notes-local-llm.md`](docs/decisions/0011-show-notes-local-llm.md).
+
 The API alone: `POST /auth/login` (form fields `username`/`password`)
 for a token, `POST /uploads` (multipart, bearer token) to upload a
 file, `GET /uploads` to list them.

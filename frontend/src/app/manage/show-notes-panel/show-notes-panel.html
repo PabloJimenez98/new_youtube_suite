@@ -1,0 +1,69 @@
+<section class="show-notes" aria-label="Show notes">
+  <header class="show-notes__header">
+    <span class="show-notes__label">Show notes · {{ modelUsed() }}</span>
+    <button
+      type="button"
+      class="btn btn--primary show-notes__save"
+      [disabled]="form.invalid || form.pristine || saving()"
+      (click)="save()"
+    >
+      {{ saving() ? 'Saving…' : 'Save' }}
+    </button>
+  </header>
+
+  @if (saveError()) {
+    <p class="show-notes__error" role="alert">{{ saveError() }}</p>
+  }
+
+  <form class="show-notes__form" [formGroup]="form" (ngSubmit)="save()">
+    <fieldset class="show-notes__titles" formArrayName="titles">
+      <legend class="show-notes__label">Title suggestions</legend>
+      @for (control of titles.controls; track $index) {
+        <div class="show-notes__title-row">
+          <input
+            type="text"
+            maxlength="100"
+            [formControlName]="$index"
+            [attr.aria-label]="'Title suggestion ' + ($index + 1)"
+          />
+          <button
+            type="button"
+            class="btn btn--ghost show-notes__copy"
+            (click)="copy('title-' + $index, control.value)"
+          >
+            {{ copiedKey() === 'title-' + $index ? 'Copied!' : 'Copy' }}
+          </button>
+        </div>
+      }
+    </fieldset>
+
+    <div class="field">
+      <div class="show-notes__field-header">
+        <label for="sn-description-{{ uploadId() }}">Description</label>
+        <button
+          type="button"
+          class="btn btn--ghost show-notes__copy"
+          (click)="copy('description', form.controls.description.value)"
+        >
+          {{ copiedKey() === 'description' ? 'Copied!' : 'Copy' }}
+        </button>
+      </div>
+      <textarea id="sn-description-{{ uploadId() }}" rows="8" formControlName="description"></textarea>
+    </div>
+
+    <div class="field">
+      <div class="show-notes__field-header">
+        <label for="sn-tags-{{ uploadId() }}">Tags (comma-separated)</label>
+        <button type="button" class="btn btn--ghost show-notes__copy" (click)="copyTags()">
+          {{ copiedKey() === 'tags' ? 'Copied!' : 'Copy tags' }}
+        </button>
+      </div>
+      <input id="sn-tags-{{ uploadId() }}" type="text" formControlName="tags" />
+    </div>
+
+    <div class="field">
+      <label for="sn-summary-{{ uploadId() }}">Summary</label>
+      <textarea id="sn-summary-{{ uploadId() }}" rows="3" formControlName="summary"></textarea>
+    </div>
+  </form>
+</section>

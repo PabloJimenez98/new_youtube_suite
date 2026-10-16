@@ -152,11 +152,15 @@ class TitleResult:
 
 class LlamaTitler:
     def __init__(self, model_path: Path, n_ctx: int = 4096, n_threads: int = 6, n_gpu_layers: int = 0,
-                 max_tokens: int = 32, max_words: int = 900):
-        from llama_cpp import Llama
+                 max_tokens: int = 32, max_words: int = 900, llm=None):
+        # `llm`: an already-loaded Llama to reuse (the backend shares one
+        # per process between tools, docs/decisions/0011 §1).
+        if llm is None:
+            from llama_cpp import Llama
 
-        self.llm = Llama(model_path=str(model_path), n_ctx=n_ctx, n_threads=n_threads,
-                         n_gpu_layers=n_gpu_layers, verbose=False)
+            llm = Llama(model_path=str(model_path), n_ctx=n_ctx, n_threads=n_threads,
+                        n_gpu_layers=n_gpu_layers, verbose=False)
+        self.llm = llm
         md = self.llm.metadata
         self.template = md.get("tokenizer.chat_template")
         if not self.template:

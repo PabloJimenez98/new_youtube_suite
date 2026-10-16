@@ -206,3 +206,26 @@ goes into `docs/decisions/0009-…` once the research pass lands.
   fails and diarization works (we hand pyannote decoded audio), but
   pyannote's built-in file decoding would fail. Pin a torchcodec that
   matches the installed torch next time the backend deps are touched.
+
+## 2026-10-16 — M6 planning (show notes)
+Planned with the owner: `docs/decisions/0011-show-notes-local-llm.md`.
+- **Resolved:** M6 goes local too. Show notes reuse the chapters
+  bundle's Qwen3.5-4B (one shared `Llama` per worker process), so
+  nothing in v1 calls an external LLM API.
+- **Still open, not in M6:**
+  - pushing show notes to YouTube via `videos.update` (spec §2.6). M6
+    is copy/paste only.
+  - speaker names in the notes. Diarization labels are anonymous, so
+    they are not passed to the prompt (see the M4 note on an
+    `upload_speakers` table).
+  - the 9B for show notes too, if the RAM budget changes (0010).
+- **M6 done (2026-10-16).** QA on upload 8 was approved by the owner.
+  Noted for later, not built:
+  - **Titles repeat chapter titles:** 2 of 5 titles were chapter
+    titles verbatim, because the reduce prompt passes them in. A
+    "don't reuse chapter titles" line would be a prompt v2.
+  - **~16 min per 64-min episode** (estimated 6–8). Mostly map-step
+    prefill on CPU. Candidates: fewer/larger chunks, or reusing the
+    chapter titles step's work. Worth a look if M9 hardening finds it
+    slow.
+  - **No password reset command** in `app/cli.py` (came up during QA).

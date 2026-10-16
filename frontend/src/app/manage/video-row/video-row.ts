@@ -6,6 +6,8 @@ import { JobOut, TOOL_LABELS, TOOL_TYPES, ToolType } from '../../jobs/job.model'
 import { Jobs } from '../../jobs/jobs';
 import { UploadOut } from '../../uploads/upload.model';
 import { JobStatusBadge } from '../../shared/job-status-badge/job-status-badge';
+import { ShowNotes, ShowNotesOut } from '../../shownotes/shownotes';
+import { ShowNotesPanel } from '../show-notes-panel/show-notes-panel';
 import {
   SUBTITLE_FORMATS,
   SubtitleFormat,
@@ -15,7 +17,7 @@ import {
 
 @Component({
   selector: 'app-video-row',
-  imports: [JobStatusBadge],
+  imports: [JobStatusBadge, ShowNotesPanel],
   templateUrl: './video-row.html',
   styleUrl: './video-row.scss',
 })
@@ -24,6 +26,7 @@ export class VideoRow {
   private readonly auth = inject(Auth);
   private readonly transcripts = inject(Transcripts);
   private readonly chaptersService = inject(Chapters);
+  private readonly showNotesService = inject(ShowNotes);
 
   readonly upload = input.required<UploadOut>();
   /** This video's jobs, as last fetched by the parent's batched call. */
@@ -37,6 +40,7 @@ export class VideoRow {
   protected readonly downloadingFormat = signal<SubtitleFormat | null>(null);
   protected readonly chapters = signal<ChapterOut[] | null>(null);
   protected readonly copied = signal(false);
+  protected readonly showNotes = signal<ShowNotesOut | null>(null);
   protected readonly chaptersWithHours = computed(() =>
     (this.chapters() ?? []).some((c) => c.start_seconds >= 3600),
   );
@@ -60,13 +64,9 @@ export class VideoRow {
   private readonly allJobs = computed(() => [...this.optimisticJobs(), ...this.jobs()]);
 
   /** Newest succeeded chapters job -- a change (first success, or a re-run) triggers a (re)fetch. */
-  private readonly succeededChaptersJobId = computed(
-    () =>
-      this.allJobs()
-        .filter((job) => job.tool_type === 'chapters' && job.status === 'succeeded')
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.id ??
-      null,
-  );
+  private readonly succeededChaptersJobId = computed(() => this.newestSucceededJobId('chapters'));
+  /** Same for show notes (M6). */
+  private readonly succeededShowNotesJobId = computed(() => this.newestSucceededJobId('shownotes'));
 
   constructor() {
     // The parent re-polls jobs every 3 s; only fetch chapters when the
@@ -81,6 +81,25 @@ export class VideoRow {
         }),
       );
     });
+    effect(() => {
+      const jobId = this.succeededShowNotesJobId();
+      if (jobId === null) return;
+      untracked(() =>
+        this.showNotesService.getShowNotes(this.upload().id).subscribe({
+          next: (notes) => this.showNotes.set(notes),
+          error: () => this.showNotes.set(null),
+        }),
+      );
+    });
+  }
+
+  private newestSucceededJobId(tool: ToolType): number | null {
+    return (
+      this.allJobs()
+        .filter((job) => job.tool_type === tool && job.status === 'succeeded')
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.id ??
+      null
+    );
   }
 
   protected latestJobFor(tool: ToolType): JobOut | undefined {
@@ -101,6 +120,14 @@ export class VideoRow {
   }
 
   protected runTool(tool: ToolType): void {
+    // A show-notes re-run replaces the draft, edits included (docs/decisions/0011 §6).
+    if (
+      tool === 'shownotes' &&
+      this.showNotes() !== null &&
+      !window.confirm('Run show notes again? This replaces the current draft, including your edits.')
+    ) {
+      return;
+    }
     this.runningToolType.set(tool);
     this.jobsService.createJob(this.upload().id, tool).subscribe({
       next: (job) => {
@@ -124,9 +151,9 @@ export class VideoRow {
     );
   }
 
-  /** Diarization (M4) and chapters (M5) work on an existing transcript -- nothing to do without one. */
+  /** Diarization (M4), chapters (M5) and show notes (M6) work on an existing transcript -- nothing to do without one. */
   protected needsTranscript(tool: ToolType): boolean {
-    return (tool === 'diarize' || tool === 'chapters') && !this.hasTranscript();
+    return (tool === 'diarize' || tool === 'chapters' || tool === 'shownotes') && !this.hasTranscript();
   }
 
   /** Copy the chapters in YouTube-description format (docs/decisions/0009 §7). */

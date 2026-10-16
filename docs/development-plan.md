@@ -31,7 +31,7 @@ Updated as milestones complete — this table is the source of truth for
 | M3 — Transcript/subtitle generator | Done |
 | M4 — Speaker diarization | Done |
 | M5 — Chapter generator | Done |
-| M6 — Show notes & metadata generator | Not started |
+| M6 — Show notes & metadata generator | Done |
 | M7 — Relevance-detection model v0 | Not started |
 | M8 — Shorts generator | Not started |
 | M9 — Full-suite hardening | Not started |
@@ -139,7 +139,12 @@ Updated as milestones complete — this table is the source of truth for
 
 ### M6 — Show notes & metadata generator
 - **Depends on:** M3 (M5 optional input)
-- **Estimate:** 2–3 days
+- **Estimate:** ~3–4 days (was 2–3; map-reduce over a 4k context and
+  the shared LLM runtime, see the note below)
+- **Note (2026-10-16):** planned with the owner to run **locally**,
+  reusing the chapters bundle's Qwen3.5-4B (llama.cpp, CPU) instead of
+  the Claude API. Schema, retry/repair policy, storage, API and UI are
+  in `docs/decisions/0011-show-notes-local-llm.md`.
 - **1. Planning:** Define the structured-output JSON schema and the retry/repair policy for malformed LLM responses.
 - **2. Development:** prompt assembly, LLM call, schema validation + retry, `show_notes_drafts` persistence, frontend review/edit view.
 - **3. Testing:** unit tests for schema validation and the retry path (mocked malformed responses); manual QA on a real transcript. Lowest-risk milestone in the plan — good place to also catch up on any test-debt from earlier milestones if the schedule is tight.

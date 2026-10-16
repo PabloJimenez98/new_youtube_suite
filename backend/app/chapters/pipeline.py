@@ -35,6 +35,7 @@ from app.chapters.model import BoundaryTagger
 from app.chapters.text import LanguageId
 from app.chapters.units import Atom, Unit, UnitConfig, build_units
 from app.config import get_settings
+from app.llm import runtime
 
 
 class ChaptersUnavailableError(Exception):
@@ -86,8 +87,12 @@ class Chapterer:
         if llm := t.get("llm"):
             from app.chapters.llm_titles import LlamaTitler
 
-            self.llm = LlamaTitler(self.dir / llm["file"], n_ctx=llm.get("n_ctx", 4096), n_threads=llm_threads,
-                                   max_tokens=llm.get("max_tokens", 32), max_words=llm.get("max_words", 900))
+            n_ctx = llm.get("n_ctx", 4096)
+            # One Llama per process, shared with show notes (0011 §1).
+            shared = runtime.get_llama(self.dir / llm["file"], n_ctx, llm_threads)
+            self.llm = LlamaTitler(self.dir / llm["file"], n_ctx=n_ctx, n_threads=llm_threads,
+                                   max_tokens=llm.get("max_tokens", 32), max_words=llm.get("max_words", 900),
+                                   llm=shared)
             self.lid = LanguageId(self.dir / t["lid"]["file"])
 
     @torch.inference_mode()
@@ -129,8 +134,9 @@ class Chapterer:
         lang, _ = self.lid(" ".join(u.text for u in units)[:5000])
         out: list[str | None] = []
         for s, e in zip(starts, ends, strict=True):
-            r = self.llm.title(chapter_text(units, s, e, max_chars=None) or units[0].text, lang,
-                               [t for t in out if t], lid=self.lid)
+            with runtime.llm_lock:
+                r = self.llm.title(chapter_text(units, s, e, max_chars=None) or units[0].text, lang,
+                                   [t for t in out if t], lid=self.lid)
             out.append(r.title)
         missing = [i for i, t in enumerate(out) if not t]
         if missing:

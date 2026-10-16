@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import auth, chapters, jobs, transcripts, uploads
+from app.routers import auth, chapters, jobs, show_notes, transcripts, uploads
 
 app = FastAPI(title="YouTube Suite API")
 
@@ -9,6 +9,7 @@ app.include_router(uploads.router)
 app.include_router(jobs.router)
 app.include_router(transcripts.router)
 app.include_router(chapters.router)
+app.include_router(show_notes.router)
 
 
 @app.get("/health")

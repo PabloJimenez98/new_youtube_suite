@@ -17,6 +17,7 @@ import torch
 from transformers import AutoModel, AutoModelForSeq2SeqLM, AutoTokenizer
 
 from app.chapters import llm_titles, pipeline
+from app.llm import runtime
 from app.chapters.model import BoundaryTagger
 from app.chapters.units import Atom
 
@@ -163,13 +164,18 @@ def make_llm_bundle(root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (root / "manifest.json").write_text(json.dumps(m))
     monkeypatch.setattr(llm_titles, "LlamaTitler", FakeTitler)
     monkeypatch.setattr(pipeline, "LanguageId", FakeLid)
+    monkeypatch.setattr(runtime, "_cache", {})
+    monkeypatch.setattr(runtime, "_load", lambda path, n_ctx, n_threads: SimpleNamespace(path=path, n_ctx=n_ctx))
     return root
 
 
 def test_llm_bundle_loads_the_titler_and_lid_from_the_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     c = pipeline.Chapterer(make_llm_bundle(tmp_path, monkeypatch), llm_threads=3)
     assert c.llm.path == tmp_path / "llm" / "model.gguf"
+    shared = c.llm.kw.pop("llm")
     assert c.llm.kw == dict(n_ctx=2048, n_threads=3, max_tokens=32, max_words=900)
+    # The titler reuses the process-wide Llama (0011 §1).
+    assert shared is runtime.get_llama(tmp_path / "llm" / "model.gguf", 2048)
     assert c.lid.path == tmp_path / "lid.176.ftz"
 
 
