@@ -7,9 +7,9 @@ full specification (`docs/project-description.md`), and a milestone-based
 development plan (`docs/development-plan.md`). **Milestones M0 (backend
 & database skeleton), M1 (frontend skeleton & upload flow), M2
 (async job pipeline), M3 (transcript/subtitle generator), M4
-(speaker diarization), M5 (chapter generator) and M6 (show notes &
-metadata generator) are done** — see `docs/decisions/` (0002–0011)
-for what was decided. The next step is milestone **M7**.
+(speaker diarization), M5 (chapter generator), M6 (show notes & metadata generator) and M7
+(relevance-detection model v0) are done** — see `docs/decisions/`
+(0002–0012) for what was decided. The next step is milestone **M8**.
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 

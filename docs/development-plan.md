@@ -32,7 +32,7 @@ Updated as milestones complete — this table is the source of truth for
 | M4 — Speaker diarization | Done |
 | M5 — Chapter generator | Done |
 | M6 — Show notes & metadata generator | Done |
-| M7 — Relevance-detection model v0 | Not started |
+| M7 — Relevance-detection model v0 | Done |
 | M8 — Shorts generator | Not started |
 | M9 — Full-suite hardening | Not started |
 | M10 — Market-analysis pipeline v0 | Not started |
@@ -152,6 +152,12 @@ Updated as milestones complete — this table is the source of truth for
 ### M7 — Relevance-detection model v0 (heuristic + zero-shot bootstrap)
 - **Depends on:** M3
 - **Estimate:** 1 week
+- **Note (2026-10-16):** planned with the owner in
+  `docs/decisions/0012-relevance-v0.md`. The zero-shot pass uses the
+  shared local Qwen3.5-4B, batched (20 blocks per call). The spec's
+  `model_versions` table is created here rather than in M15. A
+  relevance curve with the top moments is added to Manage for the
+  manual review.
 - **1. Planning:** This ships the **bootstrap version only** (heuristic rules + zero-shot LLM scoring per window) — the trained BiLSTM comes later in M15, once real data exists to train it on. Write this distinction explicitly into the plan so it isn't mistaken for the final model. Define the heuristic rule set and the zero-shot prompt contract.
 - **2. Development:** sliding-window chunking (10–20s, 50% overlap) over transcript timestamps, heuristic scoring rules, zero-shot LLM scoring call, `relevance_scores` persistence tagged with a `heuristic-v0` `model_version`.
 - **3. Testing:** unit tests for the windowing/chunking logic; a manual spot-check comparing v0 scores against human judgment on 2–3 real episodes (not a rigorous benchmark yet — there's no held-out labeled set to benchmark against this early).

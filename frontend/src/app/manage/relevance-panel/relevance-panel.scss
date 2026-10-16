@@ -1,0 +1,89 @@
+.relevance {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+
+  &__header {
+    margin-bottom: var(--space-2);
+  }
+
+  &__label {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+  }
+
+  &__curve {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  &__baseline,
+  &__tick {
+    stroke: var(--color-border);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__tick-label {
+    fill: var(--color-text-muted);
+    font-size: 11px;
+    text-anchor: middle;
+  }
+
+  &__line {
+    fill: none;
+    stroke: var(--color-accent-cyan);
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__marker {
+    fill: var(--color-accent-pink);
+  }
+
+  &__moments {
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  &__moment {
+    display: flex;
+    gap: var(--space-2);
+    align-items: baseline;
+    width: 100%;
+    padding: var(--space-1) var(--space-2);
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.8rem;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--color-bg-raised);
+    }
+  }
+
+  &__time {
+    min-width: 4.5rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-muted);
+  }
+
+  &__score {
+    min-width: 2rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-accent-cyan);
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+  }
+}

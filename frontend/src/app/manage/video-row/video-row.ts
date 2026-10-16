@@ -1,12 +1,14 @@
-import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 
 import { Auth } from '../../auth/auth';
 import { ChapterOut, Chapters, formatTimestamp, toYouTubeText } from '../../chapters/chapters';
 import { JobOut, TOOL_LABELS, TOOL_TYPES, ToolType } from '../../jobs/job.model';
 import { Jobs } from '../../jobs/jobs';
 import { UploadOut } from '../../uploads/upload.model';
+import { Relevance, RelevanceOut } from '../../relevance/relevance';
 import { JobStatusBadge } from '../../shared/job-status-badge/job-status-badge';
 import { ShowNotes, ShowNotesOut } from '../../shownotes/shownotes';
+import { RelevancePanel } from '../relevance-panel/relevance-panel';
 import { ShowNotesPanel } from '../show-notes-panel/show-notes-panel';
 import {
   SUBTITLE_FORMATS,
@@ -17,7 +19,7 @@ import {
 
 @Component({
   selector: 'app-video-row',
-  imports: [JobStatusBadge, ShowNotesPanel],
+  imports: [JobStatusBadge, RelevancePanel, ShowNotesPanel],
   templateUrl: './video-row.html',
   styleUrl: './video-row.scss',
 })
@@ -27,6 +29,8 @@ export class VideoRow {
   private readonly transcripts = inject(Transcripts);
   private readonly chaptersService = inject(Chapters);
   private readonly showNotesService = inject(ShowNotes);
+  private readonly relevanceService = inject(Relevance);
+  private readonly player = viewChild<ElementRef<HTMLVideoElement>>('player');
 
   readonly upload = input.required<UploadOut>();
   /** This video's jobs, as last fetched by the parent's batched call. */
@@ -41,6 +45,7 @@ export class VideoRow {
   protected readonly chapters = signal<ChapterOut[] | null>(null);
   protected readonly copied = signal(false);
   protected readonly showNotes = signal<ShowNotesOut | null>(null);
+  protected readonly relevance = signal<RelevanceOut | null>(null);
   protected readonly chaptersWithHours = computed(() =>
     (this.chapters() ?? []).some((c) => c.start_seconds >= 3600),
   );
@@ -67,6 +72,8 @@ export class VideoRow {
   private readonly succeededChaptersJobId = computed(() => this.newestSucceededJobId('chapters'));
   /** Same for show notes (M6). */
   private readonly succeededShowNotesJobId = computed(() => this.newestSucceededJobId('shownotes'));
+  /** Same for relevance (M7). */
+  private readonly succeededRelevanceJobId = computed(() => this.newestSucceededJobId('relevance'));
 
   constructor() {
     // The parent re-polls jobs every 3 s; only fetch chapters when the
@@ -91,6 +98,24 @@ export class VideoRow {
         }),
       );
     });
+    effect(() => {
+      const jobId = this.succeededRelevanceJobId();
+      if (jobId === null) return;
+      untracked(() =>
+        this.relevanceService.getRelevance(this.upload().id).subscribe({
+          next: (relevance) => this.relevance.set(relevance),
+          error: () => this.relevance.set(null),
+        }),
+      );
+    });
+  }
+
+  /** Jump the preview to a relevance moment (docs/decisions/0012 §7). */
+  protected seekTo(seconds: number): void {
+    const video = this.player()?.nativeElement;
+    if (!video) return;
+    video.currentTime = seconds;
+    video.play().catch(() => undefined);
   }
 
   private newestSucceededJobId(tool: ToolType): number | null {
@@ -151,9 +176,12 @@ export class VideoRow {
     );
   }
 
-  /** Diarization (M4), chapters (M5) and show notes (M6) work on an existing transcript -- nothing to do without one. */
+  /** Diarization (M4), chapters (M5), relevance (M7) and show notes (M6) work on an existing transcript. */
   protected needsTranscript(tool: ToolType): boolean {
-    return (tool === 'diarize' || tool === 'chapters' || tool === 'shownotes') && !this.hasTranscript();
+    return (
+      (tool === 'diarize' || tool === 'chapters' || tool === 'relevance' || tool === 'shownotes') &&
+      !this.hasTranscript()
+    );
   }
 
   /** Copy the chapters in YouTube-description format (docs/decisions/0009 §7). */

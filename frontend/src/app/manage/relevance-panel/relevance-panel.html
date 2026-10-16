@@ -1,0 +1,34 @@
+<section class="relevance" aria-label="Relevance">
+  <header class="relevance__header">
+    <span class="relevance__label">Relevance · {{ relevance().version }}</span>
+  </header>
+
+  <svg
+    class="relevance__curve"
+    [attr.viewBox]="'0 -4 ' + width + ' ' + (height + 22)"
+    role="img"
+    aria-label="Relevance score over the episode"
+  >
+    <line class="relevance__baseline" x1="0" [attr.y1]="height" [attr.x2]="width" [attr.y2]="height" />
+    @for (tick of ticks(); track tick.x) {
+      <line class="relevance__tick" [attr.x1]="tick.x" [attr.x2]="tick.x" y1="0" [attr.y2]="height" />
+      <text class="relevance__tick-label" [attr.x]="tick.x" [attr.y]="height + 16">{{ tick.label }}</text>
+    }
+    <polyline class="relevance__line" [attr.points]="points()" />
+    @for (m of markers(); track $index) {
+      <circle class="relevance__marker" [attr.cx]="m.x" [attr.cy]="m.y" r="4" />
+    }
+  </svg>
+
+  <ol class="relevance__moments">
+    @for (moment of relevance().top_moments; track moment.start) {
+      <li>
+        <button type="button" class="relevance__moment" (click)="seek.emit(moment.start)">
+          <span class="relevance__time">{{ formatTimestamp(moment.start, withHours()) }}</span>
+          <span class="relevance__score">{{ (moment.score * 100).toFixed(0) }}</span>
+          <span class="relevance__text">{{ trim(moment.text) }}</span>
+        </button>
+      </li>
+    }
+  </ol>
+</section>

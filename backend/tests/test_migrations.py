@@ -27,6 +27,8 @@ EXPECTED_TABLES = {
     "transcript_words",
     "chapters",
     "show_notes_drafts",
+    "model_versions",
+    "relevance_scores",
 }
 
 

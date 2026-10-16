@@ -229,3 +229,27 @@ Planned with the owner: `docs/decisions/0011-show-notes-local-llm.md`.
     chapter titles step's work. Worth a look if M9 hardening finds it
     slow.
   - **No password reset command** in `app/cli.py` (came up during QA).
+
+## 2026-10-16 — M7 planning (relevance v0)
+Planned with the owner: `docs/decisions/0012-relevance-v0.md`.
+- **For M15:** spec §2.4's encoder, `bge-base-en-v1.5`, is
+  English-only, and episodes are en/es. Re-check the encoder choice
+  then (M5's `multilingual-e5-small` is a candidate).
+- **`model_versions` exists from M7**, for relevance only. Chapters and
+  show notes keep text version columns. Unify them only if M15 or
+  later actually needs it.
+
+## 2026-10-16 — M7 QA findings (relevance v0)
+See the QA run in `docs/decisions/0012-relevance-v0.md`.
+- **Heuristic and LLM scores barely agree** (correlation −0.18 on
+  upload 8). The owner approved the combined top 5. If M8's clip picks
+  look off, try reweighting (more LLM) or dropping weak features; any
+  change bumps the version label. M15 should treat the two components
+  as separate, noisy pseudo-labels.
+- **~17 min per 64-min episode** (estimated 5–10), like show notes.
+  Relevance + show notes ≈ 33 min of CPU LLM per episode. A candidate
+  for M9 hardening (larger batches, shorter prompts, or one shared pass).
+- **The blind-moments protocol was skipped** and only one episode was
+  reviewed. Repeat both when more episodes have transcripts (M8 QA is a
+  natural place).
+

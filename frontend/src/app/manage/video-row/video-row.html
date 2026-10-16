@@ -16,7 +16,7 @@
   </header>
 
   <div class="video-row__body">
-    <video class="video-row__thumb" [src]="videoUrl()" controls preload="metadata"></video>
+    <video #player class="video-row__thumb" [src]="videoUrl()" controls preload="metadata"></video>
 
     <div class="video-row__tools">
       @for (tool of toolTypes; track tool) {
@@ -74,6 +74,12 @@
           }
         </ol>
       </section>
+    }
+  }
+
+  @if (relevance(); as rel) {
+    @if (rel.windows.length) {
+      <app-relevance-panel [relevance]="rel" (seek)="seekTo($event)" />
     }
   }
 

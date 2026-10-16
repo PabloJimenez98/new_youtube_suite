@@ -22,12 +22,12 @@ import logging
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
 
-from app.chapters.llm_titles import render_prompt, sample_text, wrong_language
+from app.chapters.llm_titles import sample_text, wrong_language
 from app.chapters.text import LanguageId
 from app.config import get_settings
 from app.llm import runtime
+from app.llm.chat import ChatLLM, LlamaChat
 from app.shownotes.chunking import ChapterMark, Seg, make_chunks
 from app.shownotes.prompts import DRAFT_JSON_SCHEMA, PROMPT_VERSION, map_messages, reduce_messages
 from app.shownotes.validate import Draft, DraftInvalid, compose_description, parse_draft
@@ -48,40 +48,6 @@ class ShowNotesUnavailableError(Exception):
 
 class ShowNotesGenerationError(Exception):
     """The model gave no valid draft after every attempt."""
-
-
-class ChatLLM(Protocol):
-    def count_tokens(self, text: str) -> int: ...
-
-    def complete(self, messages: list[dict], *, max_tokens: int, temperature: float = 0.0, seed: int = 0,
-                 json_schema: dict | None = None) -> str: ...
-
-
-class LlamaChat:
-    """`ChatLLM` over the shared llama.cpp instance; every call holds `runtime.llm_lock`."""
-
-    def __init__(self, llm, n_ctx: int):
-        self.llm, self.n_ctx = llm, n_ctx
-        self.template, self.bos, self.eos = runtime.chat_tokens(llm)
-
-    def count_tokens(self, text: str) -> int:
-        with runtime.llm_lock:
-            return len(self.llm.tokenize(text.encode(), add_bos=False, special=False))
-
-    def complete(self, messages: list[dict], *, max_tokens: int, temperature: float = 0.0, seed: int = 0,
-                 json_schema: dict | None = None) -> str:
-        from llama_cpp import LlamaGrammar
-
-        prompt = render_prompt(self.template, messages, self.bos, self.eos)
-        grammar = LlamaGrammar.from_json_schema(json.dumps(json_schema), verbose=False) if json_schema else None
-        with runtime.llm_lock:
-            # The template already starts with BOS when the model wants one.
-            ids = self.llm.tokenize(prompt.encode(), add_bos=False, special=True)
-            if len(ids) + max_tokens > self.n_ctx:
-                raise ValueError(f"prompt of {len(ids)} tokens + {max_tokens} doesn't fit n_ctx={self.n_ctx}")
-            out = self.llm.create_completion(ids, max_tokens=max_tokens, temperature=temperature, seed=seed,
-                                             grammar=grammar)
-        return out["choices"][0]["text"]
 
 
 @dataclass(frozen=True)

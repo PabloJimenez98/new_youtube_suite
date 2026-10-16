@@ -6,6 +6,7 @@ import { of, throwError } from 'rxjs';
 import { TOKEN_STORAGE_KEY } from '../../auth/auth';
 import { ChapterOut, Chapters } from '../../chapters/chapters';
 import { JobOut } from '../../jobs/job.model';
+import { Relevance, RelevanceOut } from '../../relevance/relevance';
 import { ShowNotes, ShowNotesOut } from '../../shownotes/shownotes';
 import { Jobs } from '../../jobs/jobs';
 import { Transcripts } from '../../transcripts/transcripts';
@@ -41,6 +42,7 @@ describe('VideoRow', () => {
   let jobsStub: { createJob: ReturnType<typeof vi.fn> };
   let transcriptsStub: { getSubtitle: ReturnType<typeof vi.fn> };
   let chaptersStub: { getChapters: ReturnType<typeof vi.fn> };
+  let relevanceStub: { getRelevance: ReturnType<typeof vi.fn> };
   let showNotesStub: { getShowNotes: ReturnType<typeof vi.fn>; updateShowNotes: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
@@ -48,6 +50,7 @@ describe('VideoRow', () => {
     transcriptsStub = { getSubtitle: vi.fn() };
     chaptersStub = { getChapters: vi.fn().mockReturnValue(of([])) };
     showNotesStub = { getShowNotes: vi.fn(), updateShowNotes: vi.fn() };
+    relevanceStub = { getRelevance: vi.fn() };
     localStorage.setItem(TOKEN_STORAGE_KEY, 'fake-token');
 
     await TestBed.configureTestingModule({
@@ -57,6 +60,7 @@ describe('VideoRow', () => {
         { provide: Transcripts, useValue: transcriptsStub },
         { provide: Chapters, useValue: chaptersStub },
         { provide: ShowNotes, useValue: showNotesStub },
+        { provide: Relevance, useValue: relevanceStub },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],
@@ -272,7 +276,7 @@ describe('VideoRow', () => {
       const disabled = (fixture.nativeElement as HTMLElement).querySelectorAll(
         '.video-row__run:disabled',
       );
-      expect(disabled.length).toBe(3); // Speakers, Chapters and Show notes
+      expect(disabled.length).toBe(4); // Speakers, Chapters, Relevance and Show notes
     });
   });
 
@@ -350,6 +354,50 @@ describe('VideoRow', () => {
       fixture.componentRef.setInput('jobs', [makeJob({ id: 3, tool_type: 'chapters', status: 'succeeded' })]);
       fixture.detectChanges();
       expect(el().querySelector('.video-row__chapters')).toBeNull();
+    });
+  });
+
+  describe('relevance (M7)', () => {
+    const relevance: RelevanceOut = {
+      version: 'v0',
+      windows: [{ start: 0, end: 15, score: 0.5 }],
+      top_moments: [{ start: 42, end: 57, score: 0.9, text: 'Great bit' }],
+    };
+    const el = () => fixture.nativeElement as HTMLElement;
+    const relevanceButton = () =>
+      [...el().querySelectorAll('.video-row__tool')]
+        .find((c) => c.querySelector('.video-row__tool-label')?.textContent?.trim() === 'Relevance')
+        ?.querySelector<HTMLButtonElement>('.video-row__run') ?? null;
+
+    it('Run is disabled until a transcript exists', () => {
+      fixture.componentRef.setInput('jobs', []);
+      fixture.detectChanges();
+      expect(relevanceButton()?.disabled).toBe(true);
+    });
+
+    it('fetches the scores once the job succeeds and shows the panel', () => {
+      relevanceStub.getRelevance.mockReturnValue(of(relevance));
+      fixture.componentRef.setInput('jobs', [makeJob({ id: 3, tool_type: 'relevance', status: 'running' })]);
+      fixture.detectChanges();
+      expect(relevanceStub.getRelevance).not.toHaveBeenCalled();
+
+      fixture.componentRef.setInput('jobs', [makeJob({ id: 3, tool_type: 'relevance', status: 'succeeded' })]);
+      fixture.detectChanges();
+      expect(relevanceStub.getRelevance).toHaveBeenCalledWith(5);
+      expect(el().querySelector('app-relevance-panel')).not.toBeNull();
+    });
+
+    it('clicking a moment seeks the video there', () => {
+      relevanceStub.getRelevance.mockReturnValue(of(relevance));
+      fixture.componentRef.setInput('jobs', [makeJob({ id: 3, tool_type: 'relevance', status: 'succeeded' })]);
+      fixture.detectChanges();
+      const video = el().querySelector('video')!;
+      const play = vi.spyOn(video, 'play').mockResolvedValue(undefined);
+
+      el().querySelector<HTMLButtonElement>('.relevance__moment')!.click();
+
+      expect(video.currentTime).toBe(42);
+      expect(play).toHaveBeenCalled();
     });
   });
 

@@ -1,6 +1,6 @@
 """Per-`tool_type` job handler registry.
 
-`transcribe` (M3), `diarize` (M4), `chapters` (M5) and `shownotes` (M6) have real handlers. Every other
+`transcribe` (M3), `diarize` (M4), `chapters` (M5), `shownotes` (M6) and `relevance` (M7) have real handlers. Every other
 `tool_type` still maps to `dummy.run` until its own milestone replaces the entry (see
 `docs/decisions/0006-async-job-pipeline.md`). `app/worker/tasks.py` is
 the only consumer of this registry.
@@ -15,7 +15,7 @@ from collections.abc import Awaitable, Callable
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.job import JOB_TOOL_TYPES, Job
-from app.worker.handlers import chapters, diarize, dummy, shownotes, transcribe
+from app.worker.handlers import chapters, diarize, dummy, relevance, shownotes, transcribe
 
 Handler = Callable[[Job, AsyncSession], Awaitable[None]]
 
@@ -24,3 +24,4 @@ HANDLERS["transcribe"] = transcribe.run
 HANDLERS["diarize"] = diarize.run
 HANDLERS["chapters"] = chapters.run
 HANDLERS["shownotes"] = shownotes.run
+HANDLERS["relevance"] = relevance.run
