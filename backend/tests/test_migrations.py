@@ -29,6 +29,7 @@ EXPECTED_TABLES = {
     "show_notes_drafts",
     "model_versions",
     "relevance_scores",
+    "clips",
 }
 
 
@@ -54,6 +55,14 @@ def _run_alembic(*args: str) -> None:
     assert result.returncode == 0, result.stderr
 
 
+async def _job_columns() -> set[str]:
+    engine = create_async_engine(get_settings().test_database_url)
+    async with engine.connect() as conn:
+        names = await conn.run_sync(lambda c: {col["name"] for col in inspect(c).get_columns("jobs")})
+    await engine.dispose()
+    return names
+
+
 async def _table_names() -> set[str]:
     engine = create_async_engine(get_settings().test_database_url)
     async with engine.connect() as conn:
@@ -72,3 +81,15 @@ async def test_migration_up_then_down_creates_and_drops_tables() -> None:
 
     _run_alembic("downgrade", "base")
     assert not (EXPECTED_TABLES & await _table_names())
+
+
+async def test_0009_adds_job_params_and_clips_and_reverts() -> None:
+    _run_alembic("downgrade", "base")
+    _run_alembic("upgrade", "head")
+    assert "params" in await _job_columns() and "clips" in await _table_names()
+
+    _run_alembic("downgrade", "0008")
+    assert "params" not in await _job_columns() and "clips" not in await _table_names()
+    assert "relevance_scores" in await _table_names()
+
+    _run_alembic("downgrade", "base")

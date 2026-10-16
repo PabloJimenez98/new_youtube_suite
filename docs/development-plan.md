@@ -33,7 +33,7 @@ Updated as milestones complete — this table is the source of truth for
 | M5 — Chapter generator | Done |
 | M6 — Show notes & metadata generator | Done |
 | M7 — Relevance-detection model v0 | Done |
-| M8 — Shorts generator | Not started |
+| M8 — Shorts generator | Done |
 | M9 — Full-suite hardening | Not started |
 | M10 — Market-analysis pipeline v0 | Not started |
 | M11 — OAuth + Analytics API v2 | Not started |
@@ -166,6 +166,11 @@ Updated as milestones complete — this table is the source of truth for
 ### M8 — Shorts generator (mechanical layer)
 - **Depends on:** M3, M7
 - **Estimate:** 1.5–2 weeks (largest milestone before M15)
+- **Note (2026-10-16):** planned with the owner in
+  `docs/decisions/0013-shorts-generator.md`, after a crop spike
+  (`docs/research/m8-crop-spike.md`). Faces come from YuNet (OpenCV)
+  rather than YOLO (AGPL). Jobs gain a `params` column for the aspect
+  ratio and the captions toggle. Captions are karaoke-style.
 - **1. Planning:** Review `Autocrop-vertical`/`openshorts` (Phase 2 references) as implementation references for the subject-detection crop before building from scratch. Plan the peak-finding/boundary-snap/crop/caption-burn-in steps as **separately testable units** — this milestone has the most moving parts in the mechanical pipeline, so decomposing the test plan matters more here than anywhere else so far.
 - **2. Development:** peak-finding over the score curve, boundary expansion + sentence-snap, duration constraints/dedup, ffmpeg cut, subject-detection + smoothed crop, optional caption burn-in, `clips` persistence.
 - **3. Testing:** unit tests for peak-finding and boundary-snap logic on synthetic score curves (deterministic, no model/video needed); integration test producing an actual clip file from a fixture video and asserting duration/aspect-ratio/file-validity; manual visual QA of crop quality on 2–3 real episodes.

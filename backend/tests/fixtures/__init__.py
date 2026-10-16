@@ -10,3 +10,6 @@ FIXTURE_CLIP_REFERENCE = (FIXTURES_DIR / "librispeech_clip.txt").read_text().str
 # Two-speaker A/B/A clip (M4) -- same audio as the worker's diarization
 # healthcheck clip in app/assets/, muxed into an MP4 for full-pipeline tests.
 CONVERSATION_CLIP = FIXTURES_DIR / "conversation_clip.mp4"
+
+# Public-domain portrait for the shorts face detector (M8).
+FACE_IMAGE = FIXTURES_DIR / "face.jpg"

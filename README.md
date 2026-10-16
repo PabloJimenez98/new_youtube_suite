@@ -162,6 +162,23 @@ Qwen3.5-4B GGUF in the chapter bundle, run by llama.cpp on CPU.
 
 See [`docs/decisions/0011-show-notes-local-llm.md`](docs/decisions/0011-show-notes-local-llm.md).
 
+**Shorts (M8).** Shorts are cut from the relevance curve (run Relevance
+first). The job picks up to five 20–60 s spans and frames each shot on
+the detected face, or fits the whole frame over a blurred background
+when there is none. It can burn in karaoke captions. Manage offers the
+aspect ratio (9:16, 1:1, 4:5, 16:9) and a captions toggle before Run.
+- **Setup:** download the YuNet face detector (~230 KB, MIT) once:
+  ```bash
+  mkdir -p backend/models/shorts
+  curl -L -o backend/models/shorts/face_detection_yunet_2023mar.onnx \
+    https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+  ```
+  `SHORTS_FACE_MODEL_PATH` defaults to that path.
+- **Runtime:** CPU only (OpenCV + ffmpeg/libx264), no GPU.
+- **Without the model:** `shorts` jobs fail fast with a clear message.
+
+See [`docs/decisions/0013-shorts-generator.md`](docs/decisions/0013-shorts-generator.md).
+
 The API alone: `POST /auth/login` (form fields `username`/`password`)
 for a token, `POST /uploads` (multipart, bearer token) to upload a
 file, `GET /uploads` to list them.
@@ -189,7 +206,7 @@ ng serve
 
 Open `http://localhost:4200`, log in with the account you seeded, and
 upload a file. The dev server proxies `/auth` and `/uploads` to the
-backend at `127.0.0.1:8000` (see `frontend/proxy.conf.json`) — no CORS
+backend at `127.0.0.1:8000`, along with `/jobs` and `/clips` (see `frontend/proxy.conf.json`) — no CORS
 setup needed. Run the frontend test suite with `ng test` (Vitest,
 headless — no Chrome/browser install required).
 
@@ -208,6 +225,9 @@ headless — no Chrome/browser install required).
   mirror (MIT), on top of `intfloat/multilingual-e5-small` (MIT) and
   `google/mt5-small` (Apache-2.0). Language ID in the experiment:
   fastText `lid.176` (CC BY-SA 3.0).
+- Shorts face detection (M8): [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
+  `face_detection_yunet_2023mar.onnx` (MIT), run by OpenCV.
+- Test face image: scikit-image's `astronaut` (NASA, public domain).
 - Test/healthcheck audio: LibriSpeech (CC BY 4.0). See
   `backend/tests/fixtures/ATTRIBUTION.md` and
   `backend/app/assets/ATTRIBUTION.md`.

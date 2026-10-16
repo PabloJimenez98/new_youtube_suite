@@ -102,3 +102,47 @@ async def test_list_all_jobs_spans_uploads(
     assert response.status_code == 200
     upload_ids = {job["upload_id"] for job in response.json()}
     assert upload_ids == {upload_a, upload_b}
+
+
+# --- per-run params (M8, docs/decisions/0013 §5) ---------------------------------
+
+
+async def test_shorts_job_stores_params_with_defaults(
+    client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    upload_id = await _create_upload(client, auth_headers)
+
+    r = await client.post(f"/uploads/{upload_id}/jobs", headers=auth_headers,
+                          json={"tool_type": "shorts", "params": {"aspect_ratio": "4:5"}})
+    assert r.status_code == 201
+    assert r.json()["params"] == {"aspect_ratio": "4:5", "captions": True}
+
+    r = await client.post(f"/uploads/{upload_id}/jobs", headers=auth_headers, json={"tool_type": "shorts"})
+    assert r.json()["params"] == {"aspect_ratio": "9:16", "captions": True}
+
+    listed = await client.get(f"/uploads/{upload_id}/jobs", headers=auth_headers)
+    assert {tuple(sorted(j["params"].items())) for j in listed.json()} == {
+        (("aspect_ratio", "4:5"), ("captions", True)), (("aspect_ratio", "9:16"), ("captions", True))
+    }
+
+
+async def test_invalid_params_are_rejected(
+    client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    upload_id = await _create_upload(client, auth_headers)
+    for body in (
+        {"tool_type": "shorts", "params": {"aspect_ratio": "21:9"}},
+        {"tool_type": "shorts", "params": {"captions": True, "font": "Comic Sans"}},
+        {"tool_type": "transcribe", "params": {"aspect_ratio": "9:16"}},
+    ):
+        r = await client.post(f"/uploads/{upload_id}/jobs", headers=auth_headers, json=body)
+        assert r.status_code == 422, body
+
+
+async def test_other_tools_have_null_params(
+    client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    upload_id = await _create_upload(client, auth_headers)
+    r = await client.post(f"/uploads/{upload_id}/jobs", headers=auth_headers,
+                          json={"tool_type": "chapters", "params": {}})
+    assert r.status_code == 201 and r.json()["params"] is None

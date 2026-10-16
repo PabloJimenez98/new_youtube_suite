@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     # CPU threads for the bundle's title LLM, if it has one (0010 §4).
     chapters_llm_threads: int = 6
 
+    # Shorts (M8) -- see docs/decisions/0013-shorts-generator.md. YuNet face
+    # detector, downloaded by hand (gitignored, see README). A missing file
+    # makes `shorts` jobs fail fast.
+    shorts_face_model_path: Path | None = Path("models/shorts/face_detection_yunet_2023mar.onnx")
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -253,3 +253,25 @@ See the QA run in `docs/decisions/0012-relevance-v0.md`.
   reviewed. Repeat both when more episodes have transcripts (M8 QA is a
   natural place).
 
+## 2026-10-16 — M8 (shorts generator)
+Implemented per `docs/decisions/0013-shorts-generator.md`, with the crop
+spike in `docs/research/m8-crop-spike.md`.
+Deferred / noted, not built in M8:
+- **Speaker-aware framing:** in a two-person shot, pick the face of the
+  active speaker by mapping diarization speakers to faces. Episode 8
+  has one person per shot, so it wasn't needed there.
+- **Static two-shots and wide shots** (both hosts in frame) are
+  untested. Try one such episode in M9 hardening.
+- **NVENC encoding:** CPU libx264 already takes ~5 s per clip, so this
+  is only worth it with much longer clips.
+- **Per-clip titles/hooks** from the local LLM, and **publishing to
+  YouTube** (`videos.insert` for Shorts): both open.
+- **Clips over 60 s:** YouTube Shorts now allows up to 3 min. The cap
+  is a constant (`MAX_S`) if the owner wants longer.
+- **Caption styling:** the font, size, colours and position are fixed.
+  Per-channel style presets could become job params.
+- **The dashboard "Relevance curve" tile is still a dummy** (M7 didn't
+  replace it). Swap it for a real aggregate when the dashboard is
+  revisited (M9 or M11).
+- **`jobs.params` is generic:** M4's speaker-count hint could use it.
+

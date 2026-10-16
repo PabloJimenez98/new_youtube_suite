@@ -26,11 +26,33 @@
             <app-job-status-badge [status]="job.status" [error]="job.error_message" />
           }
           @if (canRun(tool)) {
+            @if (tool === 'shorts') {
+              <div class="video-row__options">
+                <select
+                  class="video-row__select"
+                  aria-label="Shorts aspect ratio"
+                  [value]="shortsAspect()"
+                  (change)="setShortsAspect($any($event.target).value)"
+                >
+                  @for (ratio of aspectRatios; track ratio) {
+                    <option [value]="ratio">{{ ratio }}</option>
+                  }
+                </select>
+                <label class="video-row__check">
+                  <input
+                    type="checkbox"
+                    [checked]="shortsCaptions()"
+                    (change)="shortsCaptions.set($any($event.target).checked)"
+                  />
+                  Captions
+                </label>
+              </div>
+            }
             <button
               type="button"
               class="btn btn--ghost video-row__run"
-              [disabled]="runningToolType() === tool || needsTranscript(tool)"
-              [attr.title]="needsTranscript(tool) ? 'Needs a transcript' : null"
+              [disabled]="runningToolType() === tool || runBlockedReason(tool) !== null"
+              [attr.title]="runBlockedReason(tool)"
               (click)="runTool(tool)"
             >
               {{ runningToolType() === tool ? 'Starting…' : 'Run' }}
@@ -80,6 +102,12 @@
   @if (relevance(); as rel) {
     @if (rel.windows.length) {
       <app-relevance-panel [relevance]="rel" (seek)="seekTo($event)" />
+    }
+  }
+
+  @if (clips(); as list) {
+    @if (list.length) {
+      <app-shorts-panel [clips]="list" [token]="token()" (seek)="seekTo($event)" />
     }
   }
 

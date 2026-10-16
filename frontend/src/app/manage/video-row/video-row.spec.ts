@@ -7,6 +7,7 @@ import { TOKEN_STORAGE_KEY } from '../../auth/auth';
 import { ChapterOut, Chapters } from '../../chapters/chapters';
 import { JobOut } from '../../jobs/job.model';
 import { Relevance, RelevanceOut } from '../../relevance/relevance';
+import { ClipOut, Shorts } from '../../shorts/shorts';
 import { ShowNotes, ShowNotesOut } from '../../shownotes/shownotes';
 import { Jobs } from '../../jobs/jobs';
 import { Transcripts } from '../../transcripts/transcripts';
@@ -43,6 +44,7 @@ describe('VideoRow', () => {
   let transcriptsStub: { getSubtitle: ReturnType<typeof vi.fn> };
   let chaptersStub: { getChapters: ReturnType<typeof vi.fn> };
   let relevanceStub: { getRelevance: ReturnType<typeof vi.fn> };
+  let shortsStub: { getClips: ReturnType<typeof vi.fn> };
   let showNotesStub: { getShowNotes: ReturnType<typeof vi.fn>; updateShowNotes: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
@@ -51,6 +53,7 @@ describe('VideoRow', () => {
     chaptersStub = { getChapters: vi.fn().mockReturnValue(of([])) };
     showNotesStub = { getShowNotes: vi.fn(), updateShowNotes: vi.fn() };
     relevanceStub = { getRelevance: vi.fn() };
+    shortsStub = { getClips: vi.fn() };
     localStorage.setItem(TOKEN_STORAGE_KEY, 'fake-token');
 
     await TestBed.configureTestingModule({
@@ -61,6 +64,7 @@ describe('VideoRow', () => {
         { provide: Chapters, useValue: chaptersStub },
         { provide: ShowNotes, useValue: showNotesStub },
         { provide: Relevance, useValue: relevanceStub },
+        { provide: Shorts, useValue: shortsStub },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],
@@ -276,7 +280,7 @@ describe('VideoRow', () => {
       const disabled = (fixture.nativeElement as HTMLElement).querySelectorAll(
         '.video-row__run:disabled',
       );
-      expect(disabled.length).toBe(4); // Speakers, Chapters, Relevance and Show notes
+      expect(disabled.length).toBe(5); // Speakers, Chapters, Relevance, Show notes, and Shorts (needs relevance)
     });
   });
 
@@ -398,6 +402,80 @@ describe('VideoRow', () => {
 
       expect(video.currentTime).toBe(42);
       expect(play).toHaveBeenCalled();
+    });
+  });
+
+  describe('shorts (M8)', () => {
+    const clips: ClipOut[] = [
+      {
+        id: 21, rank: 1, start: 120, end: 151, duration: 31, score: 0.8, aspect_ratio: '1:1',
+        caption_burned_in: false, framing: { shots: [{ start: 0, end: 31, mode: 'fit' }] },
+      },
+    ];
+    const el = () => fixture.nativeElement as HTMLElement;
+    const shortsCell = () =>
+      [...el().querySelectorAll('.video-row__tool')].find(
+        (c) => c.querySelector('.video-row__tool-label')?.textContent?.trim() === 'Shorts',
+      )!;
+    const shortsButton = () => shortsCell().querySelector<HTMLButtonElement>('.video-row__run')!;
+    const relevanceDone = makeJob({ id: 4, tool_type: 'relevance', status: 'succeeded' });
+
+    beforeEach(() => {
+      relevanceStub.getRelevance.mockReturnValue(of({ version: 'v0', windows: [], top_moments: [] }));
+    });
+
+    it('Run is disabled until relevance scores exist', () => {
+      fixture.componentRef.setInput('jobs', [makeJob({ status: 'succeeded' })]);
+      fixture.detectChanges();
+      expect(shortsButton().disabled).toBe(true);
+      expect(shortsButton().getAttribute('title')).toBe('Needs relevance scores');
+
+      fixture.componentRef.setInput('jobs', [relevanceDone]);
+      fixture.detectChanges();
+      expect(shortsButton().disabled).toBe(false);
+    });
+
+    it('sends the chosen aspect ratio and captions toggle', () => {
+      jobsStub.createJob.mockReturnValue(of(makeJob({ id: 8, tool_type: 'shorts' })));
+      fixture.componentRef.setInput('jobs', [relevanceDone]);
+      fixture.detectChanges();
+
+      const select = shortsCell().querySelector('select')!;
+      expect([...select.options].map((o) => o.value)).toEqual(['9:16', '1:1', '4:5', '16:9']);
+      select.value = '4:5';
+      select.dispatchEvent(new Event('change'));
+      const box = shortsCell().querySelector<HTMLInputElement>('input[type=checkbox]')!;
+      expect(box.checked).toBe(true);
+      box.checked = false;
+      box.dispatchEvent(new Event('change'));
+      shortsButton().click();
+
+      expect(jobsStub.createJob).toHaveBeenCalledWith(5, 'shorts', { aspect_ratio: '4:5', captions: false });
+    });
+
+    it('defaults to 9:16 with captions', () => {
+      jobsStub.createJob.mockReturnValue(of(makeJob({ id: 8, tool_type: 'shorts' })));
+      fixture.componentRef.setInput('jobs', [relevanceDone]);
+      fixture.detectChanges();
+      shortsButton().click();
+      expect(jobsStub.createJob).toHaveBeenCalledWith(5, 'shorts', { aspect_ratio: '9:16', captions: true });
+    });
+
+    it('fetches the clips once the job succeeds, shows the gallery and seeks the episode', () => {
+      shortsStub.getClips.mockReturnValue(of(clips));
+      fixture.componentRef.setInput('jobs', [relevanceDone, makeJob({ id: 9, tool_type: 'shorts', status: 'running' })]);
+      fixture.detectChanges();
+      expect(shortsStub.getClips).not.toHaveBeenCalled();
+
+      fixture.componentRef.setInput('jobs', [relevanceDone, makeJob({ id: 9, tool_type: 'shorts', status: 'succeeded' })]);
+      fixture.detectChanges();
+      expect(shortsStub.getClips).toHaveBeenCalledWith(5);
+      expect(el().querySelector('.shorts video')!.getAttribute('src')).toBe('/clips/21/file?token=fake-token');
+
+      const player = el().querySelector<HTMLVideoElement>('.video-row__thumb')!;
+      vi.spyOn(player, 'play').mockResolvedValue(undefined);
+      el().querySelector<HTMLButtonElement>('.shorts__seek')!.click();
+      expect(player.currentTime).toBe(120);
     });
   });
 

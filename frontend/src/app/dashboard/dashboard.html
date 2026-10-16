@@ -23,11 +23,7 @@
       [hint]="dummyTopHookClip.title"
       [preview]="true"
     />
-    <app-stat-tile
-      label="Shorts generated"
-      [value]="dummyShortsGenerated.toString()"
-      [preview]="true"
-    />
+    <app-stat-tile label="Shorts generated" [value]="shortsGenerated().toString()" />
   </section>
 
   <section class="dashboard__panel glass-panel">

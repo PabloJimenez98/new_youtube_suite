@@ -12,3 +12,13 @@
   64×64 black 1 fps H.264 video track, so the transcription pipeline
   sees a video upload. `librispeech_clip.txt` is the corpus's
   reference transcript, unchanged.
+
+`face.jpg`
+
+- **Source:** the `astronaut` sample image from scikit-image
+  (`skimage/data/astronaut.png`, v0.24.0): NASA portrait of astronaut
+  Eileen Collins.
+- **License:** public domain (a NASA work, as stated in scikit-image's
+  data README).
+- **Changes:** scaled from 512×512 to 256×256 and saved as JPEG. Used by
+  the shorts face-detection tests (M8).

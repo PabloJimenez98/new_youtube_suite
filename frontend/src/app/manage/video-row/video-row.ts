@@ -2,13 +2,15 @@ import { Component, ElementRef, computed, effect, inject, input, output, signal,
 
 import { Auth } from '../../auth/auth';
 import { ChapterOut, Chapters, formatTimestamp, toYouTubeText } from '../../chapters/chapters';
-import { JobOut, TOOL_LABELS, TOOL_TYPES, ToolType } from '../../jobs/job.model';
+import { ASPECT_RATIOS, AspectRatio, JobOut, TOOL_LABELS, TOOL_TYPES, ToolType } from '../../jobs/job.model';
 import { Jobs } from '../../jobs/jobs';
 import { UploadOut } from '../../uploads/upload.model';
 import { Relevance, RelevanceOut } from '../../relevance/relevance';
 import { JobStatusBadge } from '../../shared/job-status-badge/job-status-badge';
+import { ClipOut, Shorts } from '../../shorts/shorts';
 import { ShowNotes, ShowNotesOut } from '../../shownotes/shownotes';
 import { RelevancePanel } from '../relevance-panel/relevance-panel';
+import { ShortsPanel } from '../shorts-panel/shorts-panel';
 import { ShowNotesPanel } from '../show-notes-panel/show-notes-panel';
 import {
   SUBTITLE_FORMATS,
@@ -19,7 +21,7 @@ import {
 
 @Component({
   selector: 'app-video-row',
-  imports: [JobStatusBadge, RelevancePanel, ShowNotesPanel],
+  imports: [JobStatusBadge, RelevancePanel, ShortsPanel, ShowNotesPanel],
   templateUrl: './video-row.html',
   styleUrl: './video-row.scss',
 })
@@ -30,6 +32,7 @@ export class VideoRow {
   private readonly chaptersService = inject(Chapters);
   private readonly showNotesService = inject(ShowNotes);
   private readonly relevanceService = inject(Relevance);
+  private readonly shortsService = inject(Shorts);
   private readonly player = viewChild<ElementRef<HTMLVideoElement>>('player');
 
   readonly upload = input.required<UploadOut>();
@@ -46,6 +49,12 @@ export class VideoRow {
   protected readonly copied = signal(false);
   protected readonly showNotes = signal<ShowNotesOut | null>(null);
   protected readonly relevance = signal<RelevanceOut | null>(null);
+  protected readonly clips = signal<ClipOut[] | null>(null);
+  /** Options for the next shorts run (docs/decisions/0013 §8). */
+  protected readonly aspectRatios = ASPECT_RATIOS;
+  protected readonly shortsAspect = signal<AspectRatio>('9:16');
+  protected readonly shortsCaptions = signal(true);
+  protected readonly token = computed(() => this.auth.token() ?? '');
   protected readonly chaptersWithHours = computed(() =>
     (this.chapters() ?? []).some((c) => c.start_seconds >= 3600),
   );
@@ -74,6 +83,8 @@ export class VideoRow {
   private readonly succeededShowNotesJobId = computed(() => this.newestSucceededJobId('shownotes'));
   /** Same for relevance (M7). */
   private readonly succeededRelevanceJobId = computed(() => this.newestSucceededJobId('relevance'));
+  /** Same for shorts (M8). */
+  private readonly succeededShortsJobId = computed(() => this.newestSucceededJobId('shorts'));
 
   constructor() {
     // The parent re-polls jobs every 3 s; only fetch chapters when the
@@ -108,9 +119,19 @@ export class VideoRow {
         }),
       );
     });
+    effect(() => {
+      const jobId = this.succeededShortsJobId();
+      if (jobId === null) return;
+      untracked(() =>
+        this.shortsService.getClips(this.upload().id).subscribe({
+          next: (clips) => this.clips.set(clips),
+          error: () => this.clips.set(null),
+        }),
+      );
+    });
   }
 
-  /** Jump the preview to a relevance moment (docs/decisions/0012 §7). */
+  /** Jump the preview to a relevance moment or a short's source (docs/decisions/0012 §7, 0013 §8). */
   protected seekTo(seconds: number): void {
     const video = this.player()?.nativeElement;
     if (!video) return;
@@ -154,7 +175,14 @@ export class VideoRow {
       return;
     }
     this.runningToolType.set(tool);
-    this.jobsService.createJob(this.upload().id, tool).subscribe({
+    const request =
+      tool === 'shorts'
+        ? this.jobsService.createJob(this.upload().id, tool, {
+            aspect_ratio: this.shortsAspect(),
+            captions: this.shortsCaptions(),
+          })
+        : this.jobsService.createJob(this.upload().id, tool);
+    request.subscribe({
       next: (job) => {
         this.optimisticJobs.update((jobs) => [job, ...jobs]);
         this.runningToolType.set(null);
@@ -182,6 +210,25 @@ export class VideoRow {
       (tool === 'diarize' || tool === 'chapters' || tool === 'relevance' || tool === 'shownotes') &&
       !this.hasTranscript()
     );
+  }
+
+  /** Shorts (M8) are cut from the relevance curve. */
+  protected needsRelevance(tool: ToolType): boolean {
+    return (
+      tool === 'shorts' &&
+      !this.allJobs().some((job) => job.tool_type === 'relevance' && job.status === 'succeeded')
+    );
+  }
+
+  /** Why Run is disabled, if it is. */
+  protected runBlockedReason(tool: ToolType): string | null {
+    if (this.needsTranscript(tool)) return 'Needs a transcript';
+    if (this.needsRelevance(tool)) return 'Needs relevance scores';
+    return null;
+  }
+
+  protected setShortsAspect(value: string): void {
+    if ((ASPECT_RATIOS as readonly string[]).includes(value)) this.shortsAspect.set(value as AspectRatio);
   }
 
   /** Copy the chapters in YouTube-description format (docs/decisions/0009 §7). */

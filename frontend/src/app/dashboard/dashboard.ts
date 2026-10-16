@@ -6,12 +6,12 @@ import { JobOut, JobStatus, TOOL_LABELS } from '../jobs/job.model';
 import { Jobs } from '../jobs/jobs';
 import { UploadOut } from '../uploads/upload.model';
 import { Uploads } from '../uploads/uploads';
+import { Shorts } from '../shorts/shorts';
 import { Sparkline } from '../shared/sparkline/sparkline';
 import { StatTile } from './stat-tile/stat-tile';
 import {
   DUMMY_AVG_PREDICTED_CTR,
   DUMMY_RELEVANCE_SPARKLINE,
-  DUMMY_SHORTS_GENERATED,
   DUMMY_TOP_HOOK_CLIP,
 } from './dummy-stats';
 
@@ -31,12 +31,14 @@ const JOB_STATUSES: readonly JobStatus[] = ['queued', 'running', 'succeeded', 'f
 export class Dashboard implements OnInit {
   private readonly uploads = inject(Uploads);
   private readonly jobs = inject(Jobs);
+  private readonly shorts = inject(Shorts);
 
   protected readonly loading = signal(true);
   protected readonly errorMessage = signal<string | null>(null);
 
   private readonly videos = signal<UploadOut[]>([]);
   private readonly allJobs = signal<JobOut[]>([]);
+  protected readonly shortsGenerated = signal(0);
 
   protected readonly totalVideos = computed(() => this.videos().length);
 
@@ -83,16 +85,17 @@ export class Dashboard implements OnInit {
   protected readonly dummyAvgCtr = DUMMY_AVG_PREDICTED_CTR;
   protected readonly dummyTopHookClip = DUMMY_TOP_HOOK_CLIP;
   protected readonly dummyRelevanceSparkline = DUMMY_RELEVANCE_SPARKLINE;
-  protected readonly dummyShortsGenerated = DUMMY_SHORTS_GENERATED;
 
   ngOnInit(): void {
     forkJoin({
       uploads: this.uploads.listUploads(),
       jobs: this.jobs.listAllJobs(),
+      clips: this.shorts.countClips(),
     }).subscribe({
-      next: ({ uploads, jobs }) => {
+      next: ({ uploads, jobs, clips }) => {
         this.videos.set(uploads);
         this.allJobs.set(jobs);
+        this.shortsGenerated.set(clips);
         this.loading.set(false);
       },
       error: () => {

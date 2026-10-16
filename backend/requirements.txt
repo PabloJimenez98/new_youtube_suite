@@ -42,3 +42,12 @@ sentencepiece==0.2.1
 #   CMAKE_ARGS="-DGGML_NATIVE=on" pip install llama-cpp-python==0.3.35
 llama-cpp-python==0.3.35
 fasttext-numpy2-wheel==0.9.2
+
+# Shorts (M8): YuNet face detection for the vertical crop (cv2.FaceDetectorYN).
+# PyAV decodes frames for analysis and scipy finds the relevance peaks; both
+# were already installed transitively and are pinned here because shorts
+# imports them directly. Also needs the system `ffmpeg` (libx264, libass).
+# See docs/decisions/0013-shorts-generator.md.
+opencv-python-headless==4.14.0.94
+av==18.1.0
+scipy==1.18.1

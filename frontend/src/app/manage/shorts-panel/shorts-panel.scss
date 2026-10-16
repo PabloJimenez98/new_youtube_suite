@@ -1,0 +1,67 @@
+.shorts {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+
+  &__header {
+    margin-bottom: var(--space-2);
+  }
+
+  &__label {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+  }
+
+  &__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: var(--space-3);
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  &__player {
+    width: 100%;
+    max-height: 22rem;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-base);
+    outline: 1px solid var(--color-border);
+    object-fit: contain;
+  }
+
+  &__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-size: 0.75rem;
+  }
+
+  &__time {
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__score {
+    color: var(--color-accent-pink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+
+  &__seek,
+  &__download {
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.7rem;
+    text-decoration: none;
+  }
+}

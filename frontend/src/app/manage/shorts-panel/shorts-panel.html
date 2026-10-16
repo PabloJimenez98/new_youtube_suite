@@ -1,0 +1,31 @@
+<section class="shorts" aria-label="Shorts">
+  <header class="shorts__header">
+    <span class="shorts__label">Shorts · {{ clips().length }} · {{ clips()[0]?.aspect_ratio }}</span>
+  </header>
+
+  <ol class="shorts__list">
+    @for (clip of clips(); track clip.id) {
+      <li class="shorts__item">
+        <video
+          class="shorts__player"
+          [style.aspect-ratio]="ratio(clip)"
+          [src]="videoUrl(clip)"
+          controls
+          preload="metadata"
+        ></video>
+        <div class="shorts__meta">
+          <span class="shorts__time">
+            {{ formatTimestamp(clip.start, withHours()) }}–{{ formatTimestamp(clip.end, withHours()) }}
+          </span>
+          <span class="shorts__score" title="Relevance peak">{{ (clip.score * 100).toFixed(0) }}</span>
+        </div>
+        <div class="shorts__actions">
+          <button type="button" class="btn btn--ghost shorts__seek" (click)="seek.emit(clip.start)">
+            Show in episode
+          </button>
+          <a class="btn btn--ghost shorts__download" [href]="downloadUrl(clip)" download>Download</a>
+        </div>
+      </li>
+    }
+  </ol>
+</section>

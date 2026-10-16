@@ -8,7 +8,19 @@ export interface JobOut {
   started_at: string | null;
   completed_at: string | null;
   error_message: string | null;
+  /** Per-run tool options (M8: shorts only); null for other tools. */
+  params?: ShortsParams | null;
   created_at: string;
+}
+
+/** Mirrors backend/app/schemas/job.py's `ShortsParams` (docs/decisions/0013 §5). */
+export type AspectRatio = '9:16' | '1:1' | '4:5' | '16:9';
+
+export const ASPECT_RATIOS: readonly AspectRatio[] = ['9:16', '1:1', '4:5', '16:9'];
+
+export interface ShortsParams {
+  aspect_ratio: AspectRatio;
+  captions: boolean;
 }
 
 export type ToolType =

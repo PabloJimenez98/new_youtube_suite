@@ -5,6 +5,7 @@ import { JobOut } from '../jobs/job.model';
 import { Jobs } from '../jobs/jobs';
 import { UploadOut } from '../uploads/upload.model';
 import { Uploads } from '../uploads/uploads';
+import { Shorts } from '../shorts/shorts';
 import { Dashboard } from './dashboard';
 
 const videos: UploadOut[] = [
@@ -55,16 +56,19 @@ describe('Dashboard', () => {
   let fixture: ComponentFixture<Dashboard>;
   let uploadsStub: { listUploads: ReturnType<typeof vi.fn> };
   let jobsStub: { listAllJobs: ReturnType<typeof vi.fn> };
+  let shortsStub: { countClips: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     uploadsStub = { listUploads: vi.fn().mockReturnValue(of(videos)) };
     jobsStub = { listAllJobs: vi.fn().mockReturnValue(of(jobs)) };
+    shortsStub = { countClips: vi.fn().mockReturnValue(of(7)) };
 
     await TestBed.configureTestingModule({
       imports: [Dashboard],
       providers: [
         { provide: Uploads, useValue: uploadsStub },
         { provide: Jobs, useValue: jobsStub },
+        { provide: Shorts, useValue: shortsStub },
       ],
     }).compileComponents();
 
@@ -103,7 +107,15 @@ describe('Dashboard', () => {
     const previewBadges = (fixture.nativeElement as HTMLElement).querySelectorAll(
       'app-preview-badge',
     );
-    // 3 dummy stat-tiles (CTR, top hook clip, shorts generated)
-    expect(previewBadges.length).toBeGreaterThanOrEqual(3);
+    // 2 dummy stat-tiles (CTR, top hook clip); shorts generated is real since M8
+    expect(previewBadges.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('shows the real number of generated shorts', () => {
+    fixture.detectChanges();
+    const tiles = [...(fixture.nativeElement as HTMLElement).querySelectorAll('app-stat-tile')];
+    const shorts = tiles.find((t) => t.textContent!.includes('Shorts generated'))!;
+    expect(shorts.textContent).toContain('7');
+    expect(shorts.querySelector('app-preview-badge')).toBeNull();
   });
 });
