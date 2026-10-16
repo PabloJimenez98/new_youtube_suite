@@ -8,9 +8,9 @@ development plan (`docs/development-plan.md`). **Milestones M0 (backend
 & database skeleton), M1 (frontend skeleton & upload flow), M2
 (async job pipeline), M3 (transcript/subtitle generator), M4
 (speaker diarization), M5 (chapter generator), M6 (show notes & metadata generator), M7
-(relevance-detection model v0) and M8 (shorts generator) are done** —
-see `docs/decisions/` (0002–0013) for what was decided. The next step
-is milestone **M9**.
+(relevance-detection model v0), M8 (shorts generator) and M9 (full-suite
+hardening) are done** — see `docs/decisions/` (0002–0014) for what was
+decided. The next step is milestone **M10**.
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 

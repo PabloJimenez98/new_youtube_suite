@@ -34,7 +34,7 @@ Updated as milestones complete — this table is the source of truth for
 | M6 — Show notes & metadata generator | Done |
 | M7 — Relevance-detection model v0 | Done |
 | M8 — Shorts generator | Done |
-| M9 — Full-suite hardening | In progress |
+| M9 — Full-suite hardening | Done |
 | M10 — Market-analysis pipeline v0 | Not started |
 | M11 — OAuth + Analytics API v2 | Not started |
 | M12 — YouTube Reporting API | Not started |

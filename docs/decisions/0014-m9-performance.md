@@ -1,8 +1,7 @@
 # Decision: M9 Hardening — Faster Transcription, GPU Prefill for the LLM, Retries, Season Run
 
 **Date:** 2026-10-16
-**Status:** Implemented; the season run is done (see "Season run").
-The owner's review is pending.
+**Status:** Implemented (M9 done, 2026-10-17).
 
 ## Context
 
@@ -159,8 +158,8 @@ The owner's review is pending.
      sets it, and the existing uploads were backfilled.
   5. **Stopping the worker mid-render left orphan clip files.** The
      shorts cleanup now runs on cancellation too.
-- **The owner's review of a sample of episodes is pending** before M9
-  closes.
+- **Owner's review (2026-10-17):** approved ("lo he revisado y está
+  todo bien").
 
 ## Consequences
 
