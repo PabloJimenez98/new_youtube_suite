@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -72,6 +72,23 @@ class Settings(BaseSettings):
     # detector, downloaded by hand (gitignored, see README). A missing file
     # makes `shorts` jobs fail fast.
     shorts_face_model_path: Path | None = Path("models/shorts/face_detection_yunet_2023mar.onnx")
+
+    # Market-analysis pipeline (M10) -- see docs/decisions/0015-market-pipeline-v0.md.
+    # Read-only key with YouTube Data API v3 enabled. Unset -> the market
+    # cron tasks log a skip and return (the tool jobs are unaffected).
+    youtube_api_key: SecretStr | None = None
+    # Videos published within this many days get a snapshot every day...
+    market_recent_window_days: int = 90
+    # ...older ones once their latest snapshot is this many days old.
+    market_older_interval_days: int = 7
+    # Soft cap on Data API units per quota day (Pacific), per process.
+    market_daily_unit_budget: int = 5000
+
+    @field_validator("youtube_api_key", mode="before")
+    @classmethod
+    def _empty_key_is_unset(cls, value: object) -> object:
+        # `YOUTUBE_API_KEY=` (as in .env.example) means "no key".
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 @lru_cache

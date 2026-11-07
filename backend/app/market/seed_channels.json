@@ -1,0 +1,27 @@
+{
+  "_comment": "M10 seed list (docs/decisions/0015 §7), approved by the owner 2026-11-07. Handles verified 2026-11-07 against channels.list (title, subscribers, video count). An entry with ref null is skipped by `market seed`.",
+  "channels": [
+    {"name": "Sastre y Maldonado", "ref": "@SastreyMaldonado", "lang": "es", "format": "conversation/comedy, M9 reference"},
+    {"name": "The Wild Project", "ref": "@TheWildProject", "lang": "es", "format": "long interviews"},
+    {"name": "La Pija y la Quinqui", "ref": "@pijayquinqui", "lang": "es", "format": "conversation/comedy"},
+    {"name": "Estirando el Chicle", "ref": "@estirandoelchicle", "lang": "es", "format": "conversation/comedy"},
+    {"name": "Lo Que Tú Digas (Álex Fidalgo)", "ref": "@LoQueTuDigas", "lang": "es", "format": "long interviews"},
+    {"name": "Poco se Habla", "ref": "@pocosehablaelpodcast", "lang": "es", "format": "conversation"},
+    {"name": "Cracks Podcast (Oso Trava)", "ref": "@OsoTrava", "lang": "es", "format": "business/interviews (MX)"},
+    {"name": "Leyendas Legendarias", "ref": "@leyendaspodcast", "lang": "es", "format": "true crime/comedy (MX)"},
+    {"name": "La Cotorrisa", "ref": null, "lang": "es", "format": "comedy (MX)", "note": "unresolved 2026-11-07: @La_Cotorrisa is empty, UCkbIHI7_ywe48o863iaH8Qw is an unofficial channel"},
+    {"name": "Se Regalan Dudas", "ref": "@SeRegalanDudas", "lang": "es", "format": "conversation (MX)"},
+    {"name": "Hablando Huevadas", "ref": "@HablandoHuevadasOficial", "lang": "es", "format": "comedy (PE)"},
+    {"name": "The Joe Rogan Experience", "ref": "@joerogan", "lang": "en", "format": "long interviews"},
+    {"name": "Lex Fridman Podcast", "ref": "@lexfridman", "lang": "en", "format": "long interviews/tech"},
+    {"name": "The Diary of a CEO", "ref": "@TheDiaryOfACEO", "lang": "en", "format": "business/interviews"},
+    {"name": "Huberman Lab", "ref": "@hubermanlab", "lang": "en", "format": "science/wellbeing"},
+    {"name": "Modern Wisdom", "ref": "@ChrisWillx", "lang": "en", "format": "interviews"},
+    {"name": "Theo Von - This Past Weekend", "ref": "@TheoVon", "lang": "en", "format": "comedy/interviews"},
+    {"name": "Flagrant", "ref": "@officialflagrant", "lang": "en", "format": "comedy panel"},
+    {"name": "Call Her Daddy", "ref": "@CallHerDaddy", "lang": "en", "format": "conversation"},
+    {"name": "My First Million", "ref": "@MyFirstMillionPod", "lang": "en", "format": "business"},
+    {"name": "Lenny's Podcast", "ref": "@LennysPodcast", "lang": "en", "format": "product/tech, mid-size"},
+    {"name": "Dwarkesh Podcast", "ref": "@DwarkeshPatel", "lang": "en", "format": "tech/AI, mid-size"}
+  ]
+}

@@ -208,9 +208,35 @@ aspect ratio (9:16, 1:1, 4:5, 16:9) and a captions toggle before Run.
 
 See [`docs/decisions/0013-shorts-generator.md`](docs/decisions/0013-shorts-generator.md).
 
+**Market pipeline (M10).** Daily public-stat snapshots of a curated list
+of podcast channels, from the YouTube Data API v3. Backend and CLI only:
+the Analytics page still shows dummy data.
+- **Setup:** set `YOUTUBE_API_KEY` in `backend/.env` (a read-only key
+  with "YouTube Data API v3" enabled in Google Cloud). Without it the
+  market tasks log a skip; nothing else is affected.
+- **Channels:** `python -m app.cli market add @handle` (or a channel URL
+  or `UC…` ID) resolves the channel and backfills its whole catalogue
+  through the uploads playlist. `market seed` loads
+  `app/market/seed_channels.json`. Also `market list` and
+  `market deactivate <id>` (stops pulling, keeps history).
+- **Schedule:** the worker runs an RSS check every hour at :05 (new
+  uploads get their first snapshot within the hour) and the daily pull at
+  09:30 UTC: videos from the last 90 days every day, older ones weekly.
+  `market pull` / `market rss` run them on demand.
+- **Quota:** about 160 of the 10,000 daily units for ~25 channels. A soft
+  cap (`MARKET_DAILY_UNIT_BUDGET`, default 5,000) and Google's own
+  `quotaExceeded` both stop a run cleanly, keeping what it wrote.
+
+See [`docs/decisions/0015-market-pipeline-v0.md`](docs/decisions/0015-market-pipeline-v0.md).
+
 The API alone: `POST /auth/login` (form fields `username`/`password`)
 for a token, `POST /uploads` (multipart, bearer token) to upload a
 file, `GET /uploads` to list them.
+
+The test media (`*.mp4` fixtures, the diarization healthcheck WAV) are
+not in git. On a fresh clone, run `scripts/build_test_fixtures.sh` once.
+It downloads LibriSpeech dev-clean and rebuilds them as described in the
+`ATTRIBUTION.md` files.
 
 To run the backend test suite, create the separate test database once
 (`docker compose exec db psql -U youtube_suite -d youtube_suite -c
@@ -220,7 +246,9 @@ The transcription tests need `ffmpeg` and run Whisper `base` on CPU
 (no GPU needed; ~145 MB model download on the first run). The
 diarization tests run pyannote on CPU and need `HF_TOKEN` in
 `backend/.env`. With both models on CPU, the full backend suite takes a
-few minutes.
+few minutes. The market integration test (`-m youtube_api`) calls the
+real Data API with `YOUTUBE_API_KEY` (a few units) and is skipped
+without it.
 
 ### Frontend
 

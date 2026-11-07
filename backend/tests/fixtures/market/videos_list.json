@@ -1,0 +1,52 @@
+{
+  "kind": "youtube#videoListResponse",
+  "items": [
+    {
+      "kind": "youtube#video",
+      "id": "vid_full_001",
+      "snippet": {
+        "publishedAt": "2026-10-01T16:00:05Z",
+        "channelId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+        "title": "Episodio 117 | Todo",
+        "thumbnails": {
+          "default": {"url": "https://i.ytimg.com/vi/vid_full_001/default.jpg", "width": 120, "height": 90},
+          "medium": {"url": "https://i.ytimg.com/vi/vid_full_001/mqdefault.jpg", "width": 320, "height": 180},
+          "high": {"url": "https://i.ytimg.com/vi/vid_full_001/hqdefault.jpg", "width": 480, "height": 360}
+        },
+        "tags": ["podcast", "humor"],
+        "categoryId": "23"
+      },
+      "contentDetails": {"duration": "PT1H2M3S"},
+      "statistics": {"viewCount": "123456", "likeCount": "7890", "favoriteCount": "0", "commentCount": "321"}
+    },
+    {
+      "kind": "youtube#video",
+      "id": "vid_hidden_01",
+      "snippet": {
+        "publishedAt": "2026-09-15T16:00:00Z",
+        "channelId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+        "title": "Short sin likes",
+        "thumbnails": {
+          "default": {"url": "https://i.ytimg.com/vi/vid_hidden_01/default.jpg"},
+          "medium": {"url": "https://i.ytimg.com/vi/vid_hidden_01/mqdefault.jpg"}
+        },
+        "categoryId": "24"
+      },
+      "contentDetails": {"duration": "PT45S"},
+      "statistics": {"viewCount": "999", "favoriteCount": "0"}
+    },
+    {
+      "kind": "youtube#video",
+      "id": "vid_bad_dur_1",
+      "snippet": {
+        "publishedAt": "2026-09-01T16:00:00Z",
+        "channelId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+        "title": "Weird duration",
+        "thumbnails": {}
+      },
+      "contentDetails": {"duration": "15:33"},
+      "statistics": {"viewCount": "5"}
+    }
+  ],
+  "pageInfo": {"totalResults": 3, "resultsPerPage": 3}
+}

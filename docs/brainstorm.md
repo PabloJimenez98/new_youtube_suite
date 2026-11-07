@@ -293,3 +293,46 @@ See `docs/decisions/0014-m9-performance.md` and `docs/research/m9-performance.md
   residency per job is an open question.
 - **The `is_live` flip for relevance p1 → p2 was done by hand in the
   dev DB.** M15's live-switch mechanism should cover it.
+
+## 2026-11-06 — M10 planning (market-analysis pipeline v0)
+Plan in `docs/decisions/0015-market-pipeline-v0.md`. Left out of M10 on purpose
+(open items for later milestones, not built now):
+- **Analytics page wiring:** `frontend/src/app/analytics/` still uses
+  `analytics-dummy-data.ts`. Swap the market chart to real
+  `market_video_snapshots` data, which needs a read endpoint. That
+  milestone is not assigned yet. It is also unclear what "trend score"
+  should mean.
+- **Channel-level stats:** `channels.list` subscriberCount/videoCount
+  (§6.1) has no table in §4.2. A `market_channel_snapshots` table is
+  needed if M13/M15 want channel size as a confounder.
+- **New candidate channels:** discovering channels to add to the list
+  (the §6.1 role of `search.list`) is not used in M10.
+- **Snapshot retention/downsampling:** about 2.4M rows/year at about 25
+  channels. Fine for now; revisit if the list grows.
+- **Missed daily pull:** if the worker is down at 09:30 UTC, that day's
+  snapshots for recent videos are lost (§4 of 0015). Consider a catch-up
+  run on worker startup.
+
+## 2026-11-07 — M10 implementation notes
+- **New dev machine: RTX 5070 (Blackwell, sm_120).** The pinned
+  `torch==2.8.0+cu126` ships kernels up to sm_90 only (checked:
+  `torch.cuda.get_arch_list()`), so diarization (and anything else on
+  torch CUDA) can't run on this GPU. The tests are unaffected (CPU). The
+  pin was chosen for the GTX 1060 (cu128+ dropped Pascal, 0008 §2). Open:
+  move to a cu128 build now that the 1060 is gone, and re-check
+  ctranslate2 / llama.cpp CUDA builds and the M9 speed numbers? Not M10's
+  scope; needs the owner's call.
+- **`.env.example`** (resolved 2026-11-07: now `YOUTUBE_API_KEY=` + the `MARKET_*` settings; an empty key counts as unset) still had the placeholder `YOUTUBE_API_KEY=...`. A copy
+  of that line would set the key to `...` (the tasks would then fail with
+  HTTP 400 instead of skipping). It should be `YOUTUBE_API_KEY=` plus the
+  three `MARKET_*` settings.
+- **Seed list:** `app/market/seed_channels.json` holds the proposed §7 list.
+  Two entries (Sastre y Maldonado, Lo Que Tú Digas) have no handle yet and
+  are skipped by `market seed` until one is filled in.
+- **La Cotorrisa** (seed list) is still unresolved, see 0015 "Seed and first pull". The
+  owner needs to supply the official channel's handle or ID.
+- **Chapter bundle missing on the new machine.** `CHAPTERS_MODEL_DIR` has no bundle here,
+  so 6 integration tests (chapters, relevance, show notes) skip. The owner accepted this to
+  close M10 (2026-11-07). Re-export it in the post-M10 GPU/models phase.
+- **Test media are gitignored.** `scripts/build_test_fixtures.sh` rebuilds them from
+  LibriSpeech, exactly as `ATTRIBUTION.md` describes. It was used on the new machine.

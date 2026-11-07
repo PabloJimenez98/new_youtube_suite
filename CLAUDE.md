@@ -8,9 +8,11 @@ development plan (`docs/development-plan.md`). **Milestones M0 (backend
 & database skeleton), M1 (frontend skeleton & upload flow), M2
 (async job pipeline), M3 (transcript/subtitle generator), M4
 (speaker diarization), M5 (chapter generator), M6 (show notes & metadata generator), M7
-(relevance-detection model v0), M8 (shorts generator) and M9 (full-suite
-hardening) are done** — see `docs/decisions/` (0002–0014) for what was
-decided. The next step is milestone **M10**.
+(relevance-detection model v0), M8 (shorts generator), M9 (full-suite
+hardening) and M10 (market-analysis pipeline v0) are done** — see
+`docs/decisions/` (0002–0015) for what was decided. Before M11 the owner
+wants a GPU/model upgrade pass on the new machine (RTX 5070, see
+`docs/brainstorm.md` 2026-11-07); after that, the next milestone is **M11**.
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 

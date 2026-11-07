@@ -30,7 +30,11 @@ EXPECTED_TABLES = {
     "model_versions",
     "relevance_scores",
     "clips",
+    "market_channels",
+    "market_videos",
+    "market_video_snapshots",
 }
+MARKET_TABLES = {"market_channels", "market_videos", "market_video_snapshots"}
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -91,5 +95,17 @@ async def test_0009_adds_job_params_and_clips_and_reverts() -> None:
     _run_alembic("downgrade", "0008")
     assert "params" not in await _job_columns() and "clips" not in await _table_names()
     assert "relevance_scores" in await _table_names()
+
+    _run_alembic("downgrade", "base")
+
+
+async def test_0010_creates_market_tables_and_reverts() -> None:
+    _run_alembic("downgrade", "base")
+    _run_alembic("upgrade", "head")
+    assert MARKET_TABLES <= await _table_names()
+
+    _run_alembic("downgrade", "0009")
+    tables = await _table_names()
+    assert not (MARKET_TABLES & tables) and "clips" in tables
 
     _run_alembic("downgrade", "base")

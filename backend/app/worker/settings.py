@@ -7,13 +7,16 @@ as a separate process alongside `uvicorn app.main:app` -- see
 """
 
 import logging
+from datetime import timezone as dt_timezone
 from typing import Any
 
+from arq import cron
 from arq.connections import RedisSettings
 
 from app.config import get_settings
 from app.database import async_session_factory
 from app.diarization.pipeline import startup_healthcheck
+from app.market.tasks import market_daily_pull, market_rss_poll
 from app.worker.tasks import MAX_TRIES, fail_interrupted_jobs, process_job
 
 settings = get_settings()
@@ -43,6 +46,15 @@ async def startup(ctx: dict[str, Any]) -> None:
 
 class WorkerSettings:
     functions = [process_job]
+    # M10 market pipeline (docs/decisions/0015 §4). `unique=True` (the
+    # default) stops overlapping runs of the same cron.
+    cron_jobs = [
+        cron(market_rss_poll, minute=5),
+        cron(market_daily_pull, hour=9, minute=30),
+    ]
+    # arq evaluates cron schedules in the host timezone unless told
+    # otherwise; the schedule above is UTC.
+    timezone = dt_timezone.utc
     on_startup = startup
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     # M9: `process_job` asks for a retry (arq `Retry`) only on transient
