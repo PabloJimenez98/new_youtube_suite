@@ -22,7 +22,7 @@ from pathlib import Path
 import numpy as np, pandas as pd, torch
 from dotenv import load_dotenv
 load_dotenv('../.env')
-from lib import data as d, vidchapters as vc, titles as T
+from lib import data as d, runs as rundirs, vidchapters as vc, titles as T
 from lib.units import UnitConfig, Atom, build_units
 from lib.encode import Encoder
 from lib.store import Store
@@ -33,8 +33,8 @@ from lib.train import evaluate_scores, predict_scores
 from lib.model import BoundaryTagger
 from lib.export import export_bundle
 
-ROOT = d.data_root(); RUN = Path('runs/2026-09-28-eval'); RUN.mkdir(parents=True, exist_ok=True)
-b03 = json.load(open('runs/2026-09-28-boundaries/metrics.json')); c03 = json.load(open('runs/2026-09-28-boundaries/config.json'))
+ROOT = d.data_root(); RUN = Path(rundirs.run_dir('eval')); RUN.mkdir(parents=True, exist_ok=True)
+b03 = json.load(open(rundirs.run_dir('boundaries') + '/metrics.json')); c03 = json.load(open(rundirs.run_dir('boundaries') + '/config.json'))
 ENCODER, UNIT = c03['encoder'], UnitConfig(**c03['unit'])
 PRODUCT, WINDOW = DecodeConfig(**c03['decode_product']), c03['baseline_window_units']
 KIND = 'bilstm' if b03['bilstm_ships'] else 'baseline'
@@ -102,7 +102,7 @@ pd.DataFrame(title_rows).round(2)
 The transcript is read straight from Postgres (read-only). Words go through `build_units`, exactly as in the backend handler.
 """),
     ("code", """
-UPLOAD_ID = 8
+UPLOAD_ID = rundirs.qa_upload_id()
 q = f'''select coalesce(json_agg(json_build_object('s', w.start_seconds, 'e', w.end_seconds, 't', w.word)
         order by s.segment_index, w.word_index), '[]') from transcript_words w join transcript_segments s on s.id = w.segment_id
         where s.upload_id = {UPLOAD_ID}'''

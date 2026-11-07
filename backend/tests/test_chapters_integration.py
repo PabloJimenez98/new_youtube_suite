@@ -43,7 +43,8 @@ def test_real_bundle_on_the_m3_fixture_text() -> None:
 
 def test_current_bundle_is_v2_with_llm_titles() -> None:
     c = pipeline.Chapterer(Path(bundle))
-    assert c.version.endswith("+qwen3.5-4b")  # 0010: titles from the local LLM
+    # 0010: titles from the local LLM; the 9B since the RTX 5070 pass (0016).
+    assert c.version.endswith("+qwen3.5-9b")
     assert c.llm is not None and c.lid is not None
 
 

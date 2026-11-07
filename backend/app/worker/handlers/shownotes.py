@@ -1,7 +1,7 @@
 """Real handler for `tool_type='shownotes'` (M6).
 
 Transcript (+ chapters, when they exist) -> local LLM map-reduce ->
-one `show_notes_drafts` row per upload. CPU only; no GPU lock. See
+one `show_notes_drafts` row per upload. The LLM runs inside the GPU lock (since M9; 0016). See
 docs/decisions/0011-show-notes-local-llm.md.
 """
 

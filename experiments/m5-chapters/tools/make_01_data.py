@@ -32,10 +32,10 @@ from pathlib import Path
 import numpy as np, pandas as pd, matplotlib.pyplot as plt
 from dotenv import load_dotenv
 load_dotenv('../.env')
-from lib import data as d
+from lib import data as d, runs as rundirs
 
 ROOT = d.data_root(); RAW = ROOT / 'raw'; INTERIM = ROOT / 'interim'; INTERIM.mkdir(parents=True, exist_ok=True)
-RUN = Path('runs/2026-09-27-data'); RUN.mkdir(parents=True, exist_ok=True)
+RUN = Path(rundirs.run_dir('data')); RUN.mkdir(parents=True, exist_ok=True)
 CRITERIA = d.Criteria(min_minutes=15, max_minutes=120, min_chapters=3, min_chapter_s=10)
 # English videos per (split, duration bucket). Spanish: all of them.
 EN_PER_BUCKET = {'train': 3000, 'val': 300, 'test': 500}

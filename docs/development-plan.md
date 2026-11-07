@@ -42,6 +42,10 @@ Updated as milestones complete — this table is the source of truth for
 | M14 — Hook-strength scorer v0 | Not started |
 | M15 — Model retraining pipeline | Not started |
 
+**Hardware pass (pre-M11, outside the milestone plan): In progress.** Moves the
+stack and local models from the GTX 1060 3 GB to the RTX 5070 12 GB; see
+`docs/decisions/0016-hardware-upgrade-rtx5070.md`.
+
 ## Milestones
 
 ### M0 — Backend & database skeleton

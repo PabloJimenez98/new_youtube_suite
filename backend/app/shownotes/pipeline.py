@@ -14,7 +14,7 @@ Map-reduce over a 4k context:
 The model and LID come from the chapters bundle (`CHAPTERS_MODEL_DIR`,
 manifest `titles.llm` / `titles.lid`), and the `Llama` is the
 process-wide one from `app.llm.runtime`. Everything is synchronous and
-CPU-only: callers use `asyncio.to_thread`.
+blocking (the LLM is on the GPU since 0016): callers use `asyncio.to_thread`.
 """
 
 import json

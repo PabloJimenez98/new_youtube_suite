@@ -10,31 +10,36 @@ jobs at once (`max_jobs` defaults to 10), so every inference call takes
 import threading
 from pathlib import Path
 
+from app.config import get_settings
 from app.llm import cuda_libs
 
-_cache: dict[tuple[str, int], object] = {}
+_cache: dict[tuple[str, int, int], object] = {}
 _load_lock = threading.Lock()
 # Held around every generate/complete call on a shared instance.
 llm_lock = threading.Lock()
 
 
-def _load(path: Path, n_ctx: int, n_threads: int):
+def _load(path: Path, n_ctx: int, n_threads: int, n_gpu_layers: int = 0):
     cuda_libs.preload()
     from llama_cpp import Llama
 
-    # n_gpu_layers=0: the weights stay in RAM. With the CUDA build,
-    # llama.cpp still runs large prompt batches (the prefill) on the GPU,
-    # ~13x faster than the CPU here, using little VRAM; generation stays
-    # on the CPU. See docs/decisions/0014 §2.
-    return Llama(model_path=str(path), n_ctx=n_ctx, n_threads=n_threads, n_gpu_layers=0, verbose=False)
+    # n_gpu_layers=0 (M9, 0014 §2): the weights stay in RAM; the CUDA
+    # build still runs the prompt prefill on the GPU. -1 offloads every
+    # layer (RTX 5070, docs/decisions/0016).
+    return Llama(model_path=str(path), n_ctx=n_ctx, n_threads=n_threads, n_gpu_layers=n_gpu_layers, verbose=False)
 
 
-def get_llama(path: Path, n_ctx: int = 4096, n_threads: int = 6):
-    """The process-wide `Llama` for this file and context size, loaded on first use."""
-    key = (str(Path(path).resolve()), n_ctx)
+def get_llama(path: Path, n_ctx: int = 4096, n_threads: int = 6, n_gpu_layers: int | None = None):
+    """The process-wide `Llama` for this file, context size and offload, loaded on first use.
+
+    `n_gpu_layers` defaults to the `LLM_N_GPU_LAYERS` setting.
+    """
+    if n_gpu_layers is None:
+        n_gpu_layers = get_settings().llm_n_gpu_layers
+    key = (str(Path(path).resolve()), n_ctx, n_gpu_layers)
     with _load_lock:
         if key not in _cache:
-            _cache[key] = _load(Path(path), n_ctx, n_threads)
+            _cache[key] = _load(Path(path), n_ctx, n_threads, n_gpu_layers)
         return _cache[key]
 
 
@@ -54,7 +59,8 @@ def release_all() -> None:
     exists, which left too little room for batched Whisper on the 3 GB
     GPU (season-1 run: CUDA OOM). The LLM handlers call this at the end
     of each job; reloading costs a few seconds (the GGUF is in the page
-    cache).
+    cache). Kept on the 12 GB RTX 5070 (0016): with the whole 9B on the
+    GPU (~6 GB), Whisper's batch-16 peak (+6.5 GB) only fits once it's gone.
     """
     with _load_lock, llm_lock:
         for llm in _cache.values():

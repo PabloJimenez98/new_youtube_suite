@@ -2,7 +2,8 @@
 
 Transcript words -> text units -> boundary scores (BiLSTM or the
 TextTiling baseline, per the configured bundle) -> decoded chapter
-starts -> mT5 titles -> `chapters` rows. All on CPU; no GPU lock. See
+starts -> LLM (or mT5) titles -> `chapters` rows. Runs on `CHAPTERS_DEVICE`,
+inside the GPU lock (since M9; 0016). See
 docs/decisions/0009-chapter-generator-local-models.md §7.
 """
 

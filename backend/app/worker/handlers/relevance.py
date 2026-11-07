@@ -2,7 +2,7 @@
 
 Transcript words (+ speaker labels and chapters, when they exist) ->
 heuristic + batched LLM scores per 15 s window -> `relevance_scores`
-rows tagged with a `model_versions` row. CPU only; no GPU lock. See
+rows tagged with a `model_versions` row. The LLM runs inside the GPU lock (since M9; 0016). See
 docs/decisions/0012-relevance-v0.md.
 """
 

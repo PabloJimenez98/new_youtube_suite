@@ -10,9 +10,10 @@ development plan (`docs/development-plan.md`). **Milestones M0 (backend
 (speaker diarization), M5 (chapter generator), M6 (show notes & metadata generator), M7
 (relevance-detection model v0), M8 (shorts generator), M9 (full-suite
 hardening) and M10 (market-analysis pipeline v0) are done** — see
-`docs/decisions/` (0002–0015) for what was decided. Before M11 the owner
-wants a GPU/model upgrade pass on the new machine (RTX 5070, see
-`docs/brainstorm.md` 2026-11-07); after that, the next milestone is **M11**.
+`docs/decisions/` (0002–0016) for what was decided. A hardware pass for
+the new RTX 5070 (outside the milestone plan, decision 0016) is
+implemented; the owner's blind review of 4B vs 9B is pending. The next
+milestone is **M11**.
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 

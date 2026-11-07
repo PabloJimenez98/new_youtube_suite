@@ -35,3 +35,20 @@ def test_release_all_closes_models_and_drops_their_holders(monkeypatch) -> None:
 
 def test_release_all_with_nothing_loaded_is_a_noop() -> None:
     runtime.release_all()
+
+
+def test_gpu_layers_come_from_settings_and_key_the_cache(monkeypatch, tmp_path) -> None:
+    """LLM_N_GPU_LAYERS (docs/decisions/0016) reaches llama.cpp, and the same
+    file with a different offload is a different instance."""
+    from app.config import get_settings
+
+    loads = []
+    monkeypatch.setattr(runtime, "_cache", {})
+    monkeypatch.setattr(runtime, "_load", lambda p, n, t, g: loads.append(g) or FakeLlama())
+    monkeypatch.setattr(get_settings(), "llm_n_gpu_layers", -1)
+    gguf = tmp_path / "m.gguf"
+
+    a = runtime.get_llama(gguf, 4096)
+    assert runtime.get_llama(gguf, 4096) is a  # cached
+    b = runtime.get_llama(gguf, 4096, n_gpu_layers=0)
+    assert b is not a and loads == [-1, 0]

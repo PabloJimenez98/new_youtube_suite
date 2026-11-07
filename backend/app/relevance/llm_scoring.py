@@ -13,6 +13,11 @@ window then lines up exactly with a block of one pass and overlaps two
 of the other, and its LLM score is the mean of both passes. Single
 zero-shot readings move by several points with tiny numeric changes
 (CPU vs GPU prefill: Spearman ~0.74); averaging two readings steadies them.
+
+`relevance-p3` (RTX 5070 pass, docs/decisions/0016): same prompt and two
+passes as p2, with the whole LLM on the GPU (`LLM_N_GPU_LAYERS=-1`). The
+numerics change with the offload even for the same GGUF, so the version
+changes too; the model file is already part of the label.
 """
 
 import json
@@ -23,7 +28,7 @@ from app.relevance.windows import Block
 
 log = logging.getLogger(__name__)
 
-PROMPT_VERSION = "relevance-p2"  # the prompt is p1's; the version marks the two passes
+PROMPT_VERSION = "relevance-p3"  # p1's prompt, p2's two passes, full GPU offload (0016)
 PASS_OFFSETS = (0, 1)  # base-block offset of each pass
 BATCH = 20
 MAX_BLOCK_WORDS = 80

@@ -18,7 +18,7 @@ chain in order, waiting for each job:
 
 Run from backend/ with its venv (it mints a token for --user-id):
 
-    cd backend && .venv/bin/python ../scripts/run_pipeline.py /mnt/d/podcasts/X --csv run.csv
+    cd backend && .venv/bin/python ../scripts/run_pipeline.py ~/yts-data/podcasts/X --csv run.csv
 """
 
 import argparse

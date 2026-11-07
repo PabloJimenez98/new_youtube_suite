@@ -72,8 +72,9 @@ def diarize(wav_path: Path) -> list[Turn]:
         output = get_pipeline()({"waveform": waveform, "sample_rate": sample_rate})
     finally:
         # torch's caching allocator keeps the ~1 GB of inference memory
-        # reserved after a run. On a 3 GB card shared with Whisper that
-        # starves the next transcription (CUDA OOM) -- hand it back.
+        # reserved after a run (~2.6 GB at batch 32). Shared with Whisper
+        # and the LLM that starves the next job (CUDA OOM on the 3 GB 1060;
+        # still worth ~2.6 GB on the 12 GB card, 0016) -- hand it back.
         # See docs/decisions/0008-speaker-diarization.md "Post-review notes".
         if torch.cuda.is_available():
             torch.cuda.empty_cache()

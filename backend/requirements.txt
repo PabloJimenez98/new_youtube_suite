@@ -1,4 +1,4 @@
---extra-index-url https://download.pytorch.org/whl/cu126
+--extra-index-url https://download.pytorch.org/whl/cu128
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 sqlalchemy==2.0.35
@@ -17,17 +17,21 @@ arq==0.28.0
 # Transcription (M3) -- see docs/decisions/0007-transcription-pipeline.md.
 # Also needs the system `ffmpeg` binary.
 faster-whisper==1.2.1
+# Pinned since the RTX 5070 move: 4.8.5 verified on sm_120 (float16,
+# int8_float16, bfloat16) with the CUDA 12.8 libs below (0016).
+ctranslate2==4.8.5
 # CUDA 12 runtime libs for ctranslate2's GPU path (the worker needs them
 # on LD_LIBRARY_PATH -- see README). Pinned to the versions torch 2.8.0
-# cu126 requires (M4); ctranslate2 4.8.2 verified on them -- see
-# docs/decisions/0008-speaker-diarization.md §2.
-nvidia-cublas-cu12==12.6.4.1
+# cu128 requires, so pip keeps a single copy (M4 rule, 0008 §2).
+nvidia-cublas-cu12==12.8.4.1
 nvidia-cudnn-cu12==9.10.2.21
 
-# Speaker diarization (M4). The cu126 torch build is the last that still
-# ships Pascal (GTX 1060) kernels -- cu128+ dropped them.
-torch==2.8.0+cu126
-torchaudio==2.8.0+cu126
+# Speaker diarization (M4). cu128 is the first torch build with Blackwell
+# (RTX 5070, sm_120) kernels; it dropped Pascal, so the GTX 1060 is no
+# longer supported (docs/decisions/0016). Same torch minor pyannote 4.0.7
+# was verified on, and still CUDA 12 like ctranslate2's wheels.
+torch==2.8.0+cu128
+torchaudio==2.8.0+cu128
 pyannote.audio==4.0.7
 # pyannote's own decoder (torchcodec) can't load here, so the WAV is read
 # with soundfile and passed in preloaded.

@@ -678,3 +678,42 @@ rather than move the evaluation to the GPU.
 - **Production check:** a `chapters` job on upload 8 via the arq worker
   (job 11) succeeded in ~4.3 min with the same 6 titles as
   `ep_qwen3.5-4b.json`. Worker RSS: 1.6 GB idle → 6.8 GB after.
+
+### 2026-11-07: retrain on the RTX 5070 (same recipe)
+
+New machine (docs/decisions/0016). The M5 data and checkpoints of the GTX 1060 machine (`/mnt/d`)
+were gone, so the bundle was rebuilt here.
+
+- **Data:** `YTS_EXPERIMENT_DATA=~/yts-experiments` (ext4).
+  - The HF `lucas-ventura/chapter-llama` `docs/chapters.json` + `docs/asrs.json`.
+  - VidChapters' official `train/val/test.json` from the authors' Drive folder
+    (`1vDH0l9wprLqXFyJ3HiKRgb9Xsobr72b-`, via `gdown`), saved as `split_*.json`.
+- **Run tags.** New `lib/runs.py`:
+  - `M5_RUN_TAG` sends every notebook's outputs, and its predecessors' inputs, to
+    `runs/<tag>-<kind>`.
+  - `M5_QA_UPLOAD_ID` replaces the hardcoded upload 8.
+  - `tools/nb.py` writes the generated notebook into `M5_NB_DIR`.
+  - `tools/run_nb.py` executes it with this folder as cwd.
+  - The committed 2026-09 runs and the top-level notebooks are untouched.
+- **Command** (from `experiments/m5-chapters`):
+  ```bash
+  export YTS_EXPERIMENT_DATA=~/yts-experiments M5_RUN_TAG=2026-11-07-rtx5070 M5_QA_UPLOAD_ID=5
+  for s in "01_data data" "03_boundaries boundaries" "04_titles titles" "05_eval eval"; do
+    set -- $s; export M5_NB_DIR=runs/$M5_RUN_TAG-$2
+    ../.venv/bin/python tools/make_$1.py && ../.venv/bin/python tools/run_nb.py $M5_NB_DIR/$1.ipynb
+  done
+  ```
+- **Results.** 01 reproduces byte for byte (11,587 videos).
+
+| Notebook | Time | Result |
+|---|---|---|
+| 01 | 4.7 min | 11,587 videos (identical) |
+| 03 | 2 h 04 min | BiLSTM val F1@5s 16.64 (was 16.86), ships |
+| 04 | 54 min | mT5 val CIDEr en 76.5 / es 47.4 (was 67.9 / 50.0) |
+| 05 | 7 min | exports v1 `bilstm-e5s-sentence-20261107+mt5s` |
+
+  - 03 and 04 are bound by one CPU core launching small kernels (17–27% GPU).
+  - **v2 bundles:** `lib.export.add_llm_titles` with Qwen3.5-4B and Qwen3.5-9B Q4_K_M. `current`
+    points at the **9B** (the owner's choice).
+  - Notebook 06 was not re-run; the bundles carry the 2026-09 val rows for the same GGUF.
+- Full numbers are in `docs/research/hw-upgrade-rtx5070.md` §6.

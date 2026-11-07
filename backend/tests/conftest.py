@@ -10,15 +10,26 @@ from collections.abc import AsyncGenerator
 os.environ.setdefault("STORAGE_BASE_PATH", tempfile.mkdtemp(prefix="ys_test_uploads_"))
 
 # Transcription tests (M3) run a small Whisper model on CPU: fast, and
-# independent of the CUDA setup. Production uses large-v3-turbo on GPU
+# independent of the CUDA setup. Production uses large-v3 on the GPU
 # -- see docs/decisions/0007-transcription-pipeline.md. Set before any
 # `get_settings()` call, which caches.
-os.environ.setdefault("WHISPER_MODEL", "base")
-os.environ.setdefault("WHISPER_DEVICE", "cpu")
-os.environ.setdefault("WHISPER_COMPUTE_TYPE", "int8")
 # Same for diarization (M4): pyannote on CPU in tests. HF_TOKEN still
 # comes from backend/.env -- the real-pipeline tests need it.
-os.environ.setdefault("DIARIZATION_DEVICE", "cpu")
+# And chapters + the shared LLM (M5-M7): the fast suite stays CPU-only
+# even when backend/.env points production at the GPU (docs/decisions/0016).
+# The GPU path has its own opt-in suite, `pytest -m gpu`, which undoes
+# exactly the pins set here (FORCED_CPU_ENV) to get the production config.
+CPU_PINS = {
+    "WHISPER_MODEL": "base",
+    "WHISPER_DEVICE": "cpu",
+    "WHISPER_COMPUTE_TYPE": "int8",
+    "DIARIZATION_DEVICE": "cpu",
+    "CHAPTERS_DEVICE": "cpu",
+    "LLM_N_GPU_LAYERS": "0",
+}
+FORCED_CPU_ENV = [k for k in CPU_PINS if k not in os.environ]
+for _key, _value in CPU_PINS.items():
+    os.environ.setdefault(_key, _value)
 
 import pytest_asyncio
 from arq import create_pool

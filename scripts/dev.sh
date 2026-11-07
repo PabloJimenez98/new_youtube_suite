@@ -62,6 +62,9 @@ log "applying migrations"
 # (docs/decisions/0007-transcription-pipeline.md).
 SITE_PACKAGES="$("$VENV/bin/python" -c 'import site; print(site.getsitepackages()[0])')"
 export LD_LIBRARY_PATH="$SITE_PACKAGES/nvidia/cublas/lib:$SITE_PACKAGES/nvidia/cudnn/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+# Room for the CUDA driver's JIT cache (kernels compiled for the GPU on
+# first use), so it isn't evicted between runs (docs/decisions/0016).
+export CUDA_CACHE_MAXSIZE="${CUDA_CACHE_MAXSIZE:-4294967296}"
 
 cleanup() {
   trap - INT TERM EXIT

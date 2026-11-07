@@ -21,9 +21,9 @@ from pathlib import Path
 import pandas as pd, torch
 from dotenv import load_dotenv
 load_dotenv('../.env')
-from lib import data as d, vidchapters as vc, titles as T
+from lib import data as d, runs as rundirs, vidchapters as vc, titles as T
 
-ROOT = d.data_root(); RUN = Path('runs/2026-09-28-titles'); RUN.mkdir(parents=True, exist_ok=True)
+ROOT = d.data_root(); RUN = Path(rundirs.run_dir('titles')); RUN.mkdir(parents=True, exist_ok=True)
 CKPT = ROOT / 'checkpoints' / 'titles'
 EN_PAIRS, VAL_EN, VAL_ES = 60000, 500, 300
 ES_OVERSAMPLE = 8  # only ~900 Spanish pairs exist (01_data); keep mT5 answering in Spanish

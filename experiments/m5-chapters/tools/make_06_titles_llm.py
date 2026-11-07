@@ -23,10 +23,10 @@ from pathlib import Path
 import pandas as pd, psutil
 from dotenv import load_dotenv
 load_dotenv('../.env')
-from lib import data as d, vidchapters as vc, titles as T, llm_titles as L
+from lib import data as d, runs as rundirs, vidchapters as vc, titles as T, llm_titles as L
 from lib.units import Atom
 
-ROOT = d.data_root(); RUN = Path('runs/2026-09-28-titles-llm'); RUN.mkdir(parents=True, exist_ok=True)
+ROOT = d.data_root(); RUN = Path(rundirs.run_dir('titles-llm')); RUN.mkdir(parents=True, exist_ok=True)
 LLM_DIR = ROOT / 'llm'
 MODELS = {
     'qwen3.5-2b': 'Qwen3.5-2B-Q4_K_M.gguf',
@@ -131,9 +131,9 @@ display(table); display(sp.round(2)); display(gates)
 Chapter starts are the BiLSTM's from 05. Every method titles every chapter, on CPU, with the timings measured for real. The sheet shuffles the candidates per chapter and doesn't name them. The key is written to `blind_key.json`, which the owner shouldn't open before judging.
 """),
     ("code", """
-e05 = json.load(open('runs/2026-09-28-eval/metrics.json'))
+e05 = json.load(open(rundirs.run_dir('eval') + '/metrics.json'))
 starts = e05['episode']['bilstm']
-UPLOAD_ID = 8
+UPLOAD_ID = rundirs.qa_upload_id()
 q = f'''select coalesce(json_agg(json_build_object('s', w.start_seconds, 'e', w.end_seconds, 't', w.word)
         order by s.segment_index, w.word_index), '[]') from transcript_words w join transcript_segments s on s.id = w.segment_id
         where s.upload_id = {UPLOAD_ID}'''

@@ -165,7 +165,7 @@ def make_llm_bundle(root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(llm_titles, "LlamaTitler", FakeTitler)
     monkeypatch.setattr(pipeline, "LanguageId", FakeLid)
     monkeypatch.setattr(runtime, "_cache", {})
-    monkeypatch.setattr(runtime, "_load", lambda path, n_ctx, n_threads: SimpleNamespace(path=path, n_ctx=n_ctx))
+    monkeypatch.setattr(runtime, "_load", lambda path, n_ctx, n_threads, n_gpu_layers=0: SimpleNamespace(path=path, n_ctx=n_ctx))
     return root
 
 

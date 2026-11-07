@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np, pandas as pd, matplotlib.pyplot as plt, torch
 from dotenv import load_dotenv
 load_dotenv('../.env')
-from lib import data as d, vidchapters as vc
+from lib import data as d, runs as rundirs, vidchapters as vc
 from lib.units import UnitConfig
 from lib.encode import Encoder
 from lib.store import Store
@@ -34,7 +34,7 @@ from lib.model import BoundaryTagger
 ROOT = d.data_root()
 ENCODER, UNIT = 'e5-small', UnitConfig(mode='sentence', min_s=2, max_s=15)
 STORES = ROOT / 'embeddings' / f'{ENCODER}-sentence'
-RUN = Path('runs/2026-09-28-boundaries'); RUN.mkdir(parents=True, exist_ok=True)
+RUN = Path(rundirs.run_dir('boundaries')); RUN.mkdir(parents=True, exist_ok=True)
 CKPT = ROOT / 'checkpoints' / 'boundaries'
 PRODUCT = DecodeConfig(per_hour=6, min_len_s=60)
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'

@@ -4,7 +4,7 @@ Words -> 7.5 s blocks -> 15 s windows (50 % overlap) -> heuristic score
 and LLM score per window -> `score = 0.4 * heuristic + 0.6 * llm`, or
 the heuristic alone where the LLM gave nothing. Model and LID come from
 the chapters bundle; the `Llama` is the process-wide one. Synchronous
-and CPU-only: callers use `asyncio.to_thread`.
+and blocking (the LLM is on the GPU since 0016): callers use `asyncio.to_thread`.
 """
 
 import bisect

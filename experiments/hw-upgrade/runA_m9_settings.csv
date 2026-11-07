@@ -1,0 +1,11 @@
+finished_at,episode,upload_id,tool,job_id,status,seconds,error
+2026-11-07T12:31:25,SASTRE Y MALDONADO 1X09： ¿Torres y Sastre？ [oSCkZ8yVz7M],1,transcribe,1,succeeded,19.8,
+2026-11-07T12:31:35,SASTRE Y MALDONADO 1X06： De la homeopatía a la leche de Pasteur [znwuYC64UFI],2,transcribe,2,succeeded,38.7,
+2026-11-07T12:31:55,SASTRE Y MALDONADO 1X09： ¿Torres y Sastre？ [oSCkZ8yVz7M],1,diarize,3,succeeded,24.7,
+2026-11-07T12:32:25,SASTRE Y MALDONADO 1X06： De la homeopatía a la leche de Pasteur [znwuYC64UFI],2,diarize,4,succeeded,45.9,
+2026-11-07T12:32:56,SASTRE Y MALDONADO 1X15： Viva el Rey [L83BR6h-wdo],3,transcribe,5,succeeded,52.0,
+2026-11-07T12:33:16,SASTRE Y MALDONADO 1X28： Beso en el sobaco [VZ4NYtMNf9Q],4,transcribe,6,succeeded,41.6,
+2026-11-07T12:33:56,SASTRE Y MALDONADO 1X15： Viva el Rey [L83BR6h-wdo],3,diarize,7,succeeded,56.6,
+2026-11-07T12:34:36,SASTRE Y MALDONADO 1X28： Beso en el sobaco [VZ4NYtMNf9Q],4,diarize,8,succeeded,71.6,
+2026-11-07T12:34:47,"Sastre y Maldonado 1X08： Faros, fotos y trucos sexuales [8CPI8Ll9Hkg]",5,transcribe,9,succeeded,47.6,
+2026-11-07T12:35:17,"Sastre y Maldonado 1X08： Faros, fotos y trucos sexuales [8CPI8Ll9Hkg]",5,diarize,10,succeeded,27.4,

@@ -10,7 +10,7 @@ import pytest
 
 from app.config import get_settings
 from app.relevance import pipeline
-from app.relevance.llm_scoring import score_batch
+from app.relevance.llm_scoring import PROMPT_VERSION, score_batch
 from app.relevance.windows import Word
 from tests.fixtures import FIXTURE_CLIP_REFERENCE
 
@@ -35,6 +35,6 @@ def test_real_llm_scores_a_batch() -> None:
 def test_real_scorer_on_the_m3_fixture_text() -> None:
     words = [Word(0.4 * i, w) for i, w in enumerate(FIXTURE_CLIP_REFERENCE.split())]
     label, description, result = pipeline.score_relevance(words, 0.4 * len(words), [])
-    assert label.startswith("heuristic-v0+") and label.endswith("+relevance-p2")
+    assert label.startswith("heuristic-v0+") and label.endswith(f"+{PROMPT_VERSION}")
     assert result.scores and result.failed_batches == 0 and result.batches >= 2
     assert all(0.0 <= s.score <= 1.0 and s.llm is not None for s in result.scores)

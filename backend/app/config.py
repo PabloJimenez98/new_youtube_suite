@@ -36,26 +36,28 @@ class Settings(BaseSettings):
     worker_job_timeout_seconds: int = 10800
 
     # Transcription (M3) -- see docs/decisions/0007-transcription-pipeline.md.
-    # CC 6.1 GPUs (the GTX 1060 this runs on) only support int8/float32;
-    # `WHISPER_DEVICE=cpu` is the no-GPU fallback, no code changes needed.
-    whisper_model: str = "large-v3-turbo"
+    # RTX 5070 pass (docs/decisions/0016, research hw-upgrade §4-5): large-v3
+    # int8_float16 instead of M9's turbo int8 -- 6.3 WER points better on the
+    # Sastre y Maldonado excerpts, 48x real time at batch 16, peak +6.5 GB,
+    # ~2.2 GB resident after a job. `WHISPER_DEVICE=cpu` (with
+    # `WHISPER_COMPUTE_TYPE=int8`) is the no-GPU fallback.
+    whisper_model: str = "large-v3"
     whisper_device: str = "cuda"
-    whisper_compute_type: str = "int8"
-    # M9 (docs/decisions/0014 §1): batched decoding, 4 VAD chunks at a time,
-    # greedy. 2.1x faster than sequential beam 5 on a 64-min episode, and no
-    # further from a large-v3 reference. Batch 8 runs out of the 3 GB VRAM.
-    # `WHISPER_BATCH_SIZE=0` restores sequential decoding.
+    whisper_compute_type: str = "int8_float16"
+    # Batched greedy decoding (M9, 0014 §1); batch only changes speed, not WER
+    # (0016). `WHISPER_BATCH_SIZE=0` restores sequential decoding.
     whisper_beam_size: int = 1
-    whisper_batch_size: int = 4
+    whisper_batch_size: int = 16
     whisper_vad_filter: bool = True
 
     # Speaker diarization (M4) -- see docs/decisions/0008-speaker-diarization.md.
     # Read token for the gated pyannote/speaker-diarization-community-1 model.
     hf_token: SecretStr | None = None
     diarization_device: str = "cuda"
-    # 8 fits alongside a resident Whisper on 3 GB at no speed cost vs the
-    # default 32 (measured, docs/research/m4-diarization-spike.md).
-    diarization_embedding_batch_size: int = 8
+    # pyannote's default 32 (the GTX 1060 needed 8, 0008): on a 43-min episode
+    # 55 s vs 71 s, identical output (DER 0.0000 between the two), peak +2.6 GB
+    # handed back by empty_cache (0016).
+    diarization_embedding_batch_size: int = 32
     # Run the pipeline on a known 2-speaker clip at worker startup; if it
     # fails, only `diarize` jobs degrade (they fail fast with the reason).
     diarization_healthcheck: bool = True
@@ -64,9 +66,16 @@ class Settings(BaseSettings):
     # Directory of a model bundle exported by experiments/m5-chapters/05_eval
     # (gitignored). Unset -> `chapters` jobs fail fast with a clear message.
     chapters_model_dir: Path | None = None
-    chapters_device: str = "cpu"
-    # CPU threads for the bundle's title LLM, if it has one (0010 §4).
-    chapters_llm_threads: int = 6
+    # GPU since the RTX 5070 pass (0016): same boundaries as on CPU, and it
+    # fits next to Whisper + pyannote + the LLM. `cpu` works without a GPU.
+    chapters_device: str = "cuda"
+    # CPU threads for the bundle's title LLM, if it has one (0010 §4); the
+    # 7800X3D's physical cores. With full offload they barely matter.
+    chapters_llm_threads: int = 8
+    # Layers of the shared LLM (chapters titles, show notes, relevance) on
+    # the GPU: -1 = all (RTX 5070, 0016: Qwen3.5-9B Q4_K_M ~5.5 GB, ~93 tok/s);
+    # 0 = weights in RAM with the prefill on the GPU (M9, 0014 §2).
+    llm_n_gpu_layers: int = -1
 
     # Shorts (M8) -- see docs/decisions/0013-shorts-generator.md. YuNet face
     # detector, downloaded by hand (gitignored, see README). A missing file

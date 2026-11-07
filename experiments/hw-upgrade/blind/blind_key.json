@@ -1,0 +1,84 @@
+{
+ "bundles": {
+  "X": "/mnt/c/Users/Pablo/Projects/new_youtube_suite/backend/models/chapters/bilstm-e5s-sentence-20261107+qwen3.5-4b",
+  "Y": "/mnt/c/Users/Pablo/Projects/new_youtube_suite/backend/models/chapters/bilstm-e5s-sentence-20261107+qwen3.5-9b"
+ },
+ "episodes": {
+  "Sastre y Maldonado 1X08： Faros, fotos y trucos sexuales [8CPI8Ll9Hkg].webm": {
+   "timings": {
+    "X": {
+     "t_chapters": 26.1,
+     "t_notes": 20.0,
+     "t_relevance": 24.0
+    },
+    "Y": {
+     "t_chapters": 36.6,
+     "t_notes": 26.2,
+     "t_relevance": 28.3
+    }
+   },
+   "labels": {
+    "X": {
+     "chapters": "bilstm-e5s-sentence-20261107+qwen3.5-4b",
+     "shownotes": "Qwen3.5-4B-Q4_K_M+shownotes-v1",
+     "relevance": "heuristic-v0+Qwen3.5-4B-Q4_K_M+relevance-p3"
+    },
+    "Y": {
+     "chapters": "bilstm-e5s-sentence-20261107+qwen3.5-9b",
+     "shownotes": "Qwen3.5-9B-Q4_K_M+shownotes-v1",
+     "relevance": "heuristic-v0+Qwen3.5-9B-Q4_K_M+relevance-p3"
+    }
+   },
+   "chapters": {
+    "1": "X",
+    "2": "Y"
+   },
+   "notes": {
+    "1": "X",
+    "2": "Y"
+   },
+   "top": {
+    "1": "Y",
+    "2": "X"
+   }
+  },
+  "SASTRE Y MALDONADO 1X15： Viva el Rey [L83BR6h-wdo].webm": {
+   "timings": {
+    "X": {
+     "t_chapters": 23.5,
+     "t_notes": 25.3,
+     "t_relevance": 38.8
+    },
+    "Y": {
+     "t_chapters": 36.8,
+     "t_notes": 31.4,
+     "t_relevance": 45.9
+    }
+   },
+   "labels": {
+    "X": {
+     "chapters": "bilstm-e5s-sentence-20261107+qwen3.5-4b",
+     "shownotes": "Qwen3.5-4B-Q4_K_M+shownotes-v1",
+     "relevance": "heuristic-v0+Qwen3.5-4B-Q4_K_M+relevance-p3"
+    },
+    "Y": {
+     "chapters": "bilstm-e5s-sentence-20261107+qwen3.5-9b",
+     "shownotes": "Qwen3.5-9B-Q4_K_M+shownotes-v1",
+     "relevance": "heuristic-v0+Qwen3.5-9B-Q4_K_M+relevance-p3"
+    }
+   },
+   "chapters": {
+    "1": "Y",
+    "2": "X"
+   },
+   "notes": {
+    "1": "X",
+    "2": "Y"
+   },
+   "top": {
+    "1": "Y",
+    "2": "X"
+   }
+  }
+ }
+}

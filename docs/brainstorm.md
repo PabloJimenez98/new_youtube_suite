@@ -336,3 +336,30 @@ Plan in `docs/decisions/0015-market-pipeline-v0.md`. Left out of M10 on purpose
   close M10 (2026-11-07). Re-export it in the post-M10 GPU/models phase.
 - **Test media are gitignored.** `scripts/build_test_fixtures.sh` rebuilds them from
   LibriSpeech, exactly as `ATTRIBUTION.md` describes. It was used on the new machine.
+
+## 2026-11-07 — RTX 5070 hardware pass (docs/decisions/0016)
+- **RTX 5070 / torch cu126 question (above): resolved.**
+  - Moved to torch 2.8.0+cu128, ctranslate2 4.8.5 and llama.cpp built for sm_120.
+  - GTX 1060 support is dropped.
+- **Open, possible now that the GPU has room (not built):**
+  - **Bigger chapter encoders:** multilingual-e5-base/large, bge-m3. Needs a retrain plus
+    the 03/05 evaluation.
+  - **mT5 recipe:** unfreeze the embeddings/LM head, use a larger batch.
+  - **Training speed:** 03/04 run at 17–27% GPU because the batches are 1060-sized. A larger
+    batch would cut the retrain from ~3 h.
+  - **Show notes:** a larger `n_ctx` or one-shot generation (0011 rejected both for RAM).
+  - **Shorts:** NVENC encoding (0013 left it out because the GPU was busy).
+  - **LLM quantization:** Q6_K/Q8_0 for the 9B (downloaded, not evaluated). They need a
+    "release Whisper/chapters before loading the LLM" hook to fit in VRAM.
+- **torch cu130 would fix torchcodec** (pyannote's own decoder), but it means two CUDA majors
+  in the venv next to ctranslate2's CUDA 12.
+- **Bundles live on `/mnt/c` (9p).** After `release_all()`, each LLM job reloads the 5.7 GB
+  GGUF over 9p (page cache helps). Moving `backend/models/` to ext4 would cut chapters job
+  time. Measure first.
+- **VRAM headroom is ~1.6 GB** with every model resident (10.6 of 12.2 GB). A heavy GPU app
+  on the Windows desktop can push a job into OOM, which is retried as transient.
+- **Owner's blind review pending** (C3–C5, `experiments/hw-upgrade/blind/`): 4B vs 9B for
+  titles, relevance top-5 and show notes. If the 4B wins, switch the bundle `current` and
+  the live relevance version back by hand (the switch mechanism is M15's).
+- **`backend/.env` still has the M9 values** and overrides the new defaults until the owner
+  updates it (the agent can't edit `.env`).

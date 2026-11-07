@@ -109,17 +109,24 @@ Without the worker running, jobs created from the Manage page stay
 `queued`.
 
 **Transcription (M3)** needs the system `ffmpeg` binary
-(`sudo apt install ffmpeg`). By default the worker runs faster-whisper
-`large-v3-turbo` on the GPU in int8 (the first job downloads ~1.6 GB of
-model into the Hugging Face cache). The CUDA 12 runtime comes from the
-`nvidia-cublas-cu12`/`nvidia-cudnn-cu12` pip wheels, which is why the
-worker needs the `LD_LIBRARY_PATH` line above. Without a usable GPU,
-set `WHISPER_DEVICE=cpu` (slower, no other change). Since M9 it decodes
-4 VAD chunks at a time, greedily (`WHISPER_BATCH_SIZE=4`,
-`WHISPER_BEAM_SIZE=1`), about 2× faster; `WHISPER_BATCH_SIZE=0` and
-`WHISPER_BEAM_SIZE=5` restore M3's sequential decoding. See
-[`docs/decisions/0007-transcription-pipeline.md`](docs/decisions/0007-transcription-pipeline.md)
-and [`0014`](docs/decisions/0014-m9-performance.md).
+(`sudo apt install ffmpeg`).
+- **Default:** faster-whisper `large-v3` in int8_float16 on the GPU,
+  16 VAD chunks at a time, greedy (`WHISPER_BATCH_SIZE=16`,
+  `WHISPER_BEAM_SIZE=1`). On the RTX 5070 that's ~48× real time, with a
+  6.5 GB peak while a job runs and ~2.2 GB resident afterwards. The first
+  job downloads ~3 GB of model into the Hugging Face cache.
+- **CUDA runtime:** the CUDA 12 runtime comes from the
+  `nvidia-cublas-cu12`/`nvidia-cudnn-cu12` pip wheels. That's why the
+  worker needs the `LD_LIBRARY_PATH` line above.
+- **Without a usable GPU:** set `WHISPER_DEVICE=cpu` and
+  `WHISPER_COMPUTE_TYPE=int8` (slower, no other change).
+- **Sequential decoding:** `WHISPER_BATCH_SIZE=0` and
+  `WHISPER_BEAM_SIZE=5` restore M3's sequential decoding.
+
+See
+[`docs/decisions/0007-transcription-pipeline.md`](docs/decisions/0007-transcription-pipeline.md),
+[`0014`](docs/decisions/0014-m9-performance.md) and
+[`0016`](docs/decisions/0016-hardware-upgrade-rtx5070.md).
 
 **Speaker diarization (M4)** uses pyannote's gated
 `pyannote/speaker-diarization-community-1` pipeline. Set it up once:
@@ -132,10 +139,12 @@ At startup the worker runs a healthcheck: it diarizes a bundled
 2-speaker clip. If that fails (missing token, license not accepted,
 empty output), the worker still starts and the other tools keep
 working, but `diarize` jobs fail with the reason. It shows as a tooltip
-on the failed badge in Manage. torch comes from the PyTorch **cu126**
-index (set at the top of `requirements.txt`), the last build that still
-supports Pascal GPUs like the GTX 1060. See
-[`docs/decisions/0008-speaker-diarization.md`](docs/decisions/0008-speaker-diarization.md).
+on the failed badge in Manage. torch comes from the PyTorch **cu128**
+index (set at the top of `requirements.txt`), the first build with
+Blackwell (RTX 50xx, sm_120) kernels. It dropped Pascal, so a GTX 10xx
+no longer works. See
+[`docs/decisions/0008-speaker-diarization.md`](docs/decisions/0008-speaker-diarization.md)
+and [`0016`](docs/decisions/0016-hardware-upgrade-rtx5070.md).
 
 **Chapter models (M5).** Chapters come from models trained locally in
 the experiment [`experiments/m5-chapters/`](experiments/m5-chapters/README.md):
@@ -148,16 +157,18 @@ exports a versioned bundle to `backend/models/chapters/<version>/`,
 with `current` pointing at the one to serve.
 - **Setup:** set `CHAPTERS_MODEL_DIR=models/chapters/current` in
   `backend/.env`.
-- **Runtime:** inference runs on CPU and does not touch the GPU.
+- **Runtime:** the encoder, BiLSTM and mT5 run on `CHAPTERS_DEVICE`. The
+  title LLM runs on the GPU like the other LLM tools (see "LLM on the
+  GPU" below).
 - **Without a bundle:** `chapters` jobs fail with a clear message, and
   the other tools are unaffected.
 
 See [`docs/decisions/0009-chapter-generator-local-models.md`](docs/decisions/0009-chapter-generator-local-models.md).
 
 **Show notes (M6).** Show notes (title suggestions, description, tags,
-summary) come from the same local LLM that titles chapters: the
-Qwen3.5-4B GGUF in the chapter bundle, run by llama.cpp (weights in RAM;
-with the CUDA build below, the prompt prefill runs on the GPU).
+summary) come from the same local LLM that titles chapters: the GGUF
+in the chapter bundle (Qwen3.5-9B Q4_K_M since the RTX 5070 pass), run
+by llama.cpp fully on the GPU (`LLM_N_GPU_LAYERS=-1`).
 - **Setup:** none beyond `CHAPTERS_MODEL_DIR`. The worker loads the
   GGUF once and shares it between `chapters` and `shownotes`.
 - **Without a bundle with an LLM:** `shownotes` jobs fail with a clear
@@ -167,29 +178,41 @@ with the CUDA build below, the prompt prefill runs on the GPU).
 
 See [`docs/decisions/0011-show-notes-local-llm.md`](docs/decisions/0011-show-notes-local-llm.md).
 
-**LLM speed (M9): llama-cpp-python with CUDA.** The LLM tools spend
-most of their time reading the prompt. Built with CUDA, llama.cpp runs
-that on the GPU (~13× faster here) while the weights stay in RAM. This
-cuts show notes from ~16 to ~6 min and relevance from ~17 to ~9 min on
-a 64-min episode. The CPU build works too, just slower. To build the
-CUDA one without a system CUDA toolkit (GTX 1060 = sm_61):
+**LLM on the GPU: llama-cpp-python with CUDA.** The three LLM tools
+(chapter titles, show notes, relevance) share one GGUF.
+- **Offload:** `LLM_N_GPU_LAYERS` (default `-1`) puts every layer on the
+  GPU. On the RTX 5070 the 9B Q4_K_M uses ~5.5 GB and generates ~93 tok/s.
+- **M9 behaviour:** `0` restores it: weights in RAM, prompt prefill on
+  the GPU.
+- **Release:** the worker releases the model after every LLM job, so
+  Whisper and pyannote keep their room.
+- **CPU build:** works too, just much slower.
+
+To build the CUDA one without a system CUDA toolkit (RTX 50xx =
+sm_120; use your GPU's compute capability):
 ```bash
-B=~/.cache/yts-llama-cuda && mkdir -p $B/cuda && cd $B
+B=~/.cache/yts-llama-cuda128 && mkdir -p $B/cuda $B/dl && cd $B
 R=https://developer.download.nvidia.com/compute/cuda/redist
-for p in cuda_nvcc/linux-x86_64/cuda_nvcc-linux-x86_64-12.6.85-archive.tar.xz \
-         cuda_cudart/linux-x86_64/cuda_cudart-linux-x86_64-12.6.77-archive.tar.xz \
-         cuda_cccl/linux-x86_64/cuda_cccl-linux-x86_64-12.6.77-archive.tar.xz \
-         libcublas/linux-x86_64/libcublas-linux-x86_64-12.6.4.1-archive.tar.xz; do
-  curl -sSL $R/$p | tar -xJ -C cuda --strip-components=1
+for p in cuda_nvcc/linux-x86_64/cuda_nvcc-linux-x86_64-12.8.93-archive.tar.xz \
+         cuda_cudart/linux-x86_64/cuda_cudart-linux-x86_64-12.8.90-archive.tar.xz \
+         cuda_cccl/linux-x86_64/cuda_cccl-linux-x86_64-12.8.90-archive.tar.xz \
+         libcublas/linux-x86_64/libcublas-linux-x86_64-12.8.4.1-archive.tar.xz; do
+  curl -fsSL -o dl/$(basename $p) $R/$p   # checksums: redistrib_12.8.1.json
+  tar -xJf dl/$(basename $p) -C cuda --strip-components=1
 done
+ln -s lib cuda/lib64   # the tarballs use lib/, nvcc's link step looks in lib64/
 PATH=$B/cuda/bin:$PATH CUDACXX=$B/cuda/bin/nvcc \
-CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=61 -DGGML_NATIVE=on -DCUDAToolkit_ROOT=$B/cuda" \
+CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=120 -DGGML_NATIVE=on -DCUDAToolkit_ROOT=$B/cuda" \
   backend/.venv/bin/pip install --no-deps --force-reinstall --no-cache-dir llama-cpp-python==0.3.35
 ```
-(Run the last command from the repo root; `pip install cmake ninja` into
-the venv first if they are missing.) At runtime the libraries come from
-the venv's NVIDIA wheels, with no `LD_LIBRARY_PATH` needed. See
-[`docs/decisions/0014-m9-performance.md`](docs/decisions/0014-m9-performance.md).
+Notes on the build:
+- Run the last command from the repo root. If `cmake` and `ninja` are
+  missing, `pip install cmake ninja` into the venv first.
+- At runtime the libraries come from the venv's NVIDIA wheels
+  (`app/llm/cuda_libs.py`).
+
+See [`docs/decisions/0014-m9-performance.md`](docs/decisions/0014-m9-performance.md)
+and [`0016`](docs/decisions/0016-hardware-upgrade-rtx5070.md).
 
 **Shorts (M8).** Shorts are cut from the relevance curve (run Relevance
 first). The job picks up to five 20–60 s spans and frames each shot on
@@ -249,6 +272,17 @@ diarization tests run pyannote on CPU and need `HF_TOKEN` in
 few minutes. The market integration test (`-m youtube_api`) calls the
 real Data API with `YOUTUBE_API_KEY` (a few units) and is skipped
 without it.
+
+**GPU tests.** The fast suite always runs on CPU, whatever
+`backend/.env` says. `pytest -m gpu` runs the opt-in GPU suite instead
+(`tests/gpu/`). It loads the *production* configuration from `.env` plus
+the defaults, and checks it on the real card:
+- the CUDA stack;
+- Whisper, pyannote, the LLM and chapters, each with a speed floor
+  (catches a silent fallback to CPU or to system RAM) and a VRAM check;
+- the worst-case set of resident models fitting in the 12 GB budget.
+
+It needs the worker stopped, `HF_TOKEN` and a chapter bundle.
 
 ### Frontend
 

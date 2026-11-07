@@ -4,9 +4,13 @@
 
 One variant per process: a CUDA OOM in faster-whisper leaves the device
 unusable for the rest of the process.
+
+MODEL may carry a compute type, `large-v3:float16` (default int8, the
+only GTX 1060 option; RTX 5070 pass, docs/decisions/0016).
 """
 
 import json
+import os
 import re
 import sys
 import time
@@ -15,8 +19,10 @@ from faster_whisper import BatchedInferencePipeline, WhisperModel
 
 model_name, variant, wav, out = sys.argv[1:]
 m = re.fullmatch(r"(seq|batch(\d+))-b(\d+)", variant)
+model_name, _, compute = model_name.partition(":")
 device = "cpu" if model_name.endswith("@cpu") else "cuda"
-model = WhisperModel(model_name.removesuffix("@cpu"), device=device, compute_type="int8", cpu_threads=12)
+model = WhisperModel(model_name.removesuffix("@cpu"), device=device, compute_type=compute or "int8",
+                     cpu_threads=os.cpu_count() or 8)
 kwargs = dict(language="es", beam_size=int(m.group(3)), vad_filter=True, word_timestamps=True)
 t0 = time.time()
 if m.group(1) == "seq":

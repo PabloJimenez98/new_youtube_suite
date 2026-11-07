@@ -178,7 +178,7 @@ def test_generator_reuses_the_process_wide_llama(tmp_path: Path, monkeypatch: py
     monkeypatch.setattr(pipeline.get_settings(), "chapters_model_dir", tmp_path)
     loads = []
     monkeypatch.setattr(runtime, "_cache", {})
-    monkeypatch.setattr(runtime, "_load", lambda p, n, t: loads.append((p, n)) or SimpleNamespace())
+    monkeypatch.setattr(runtime, "_load", lambda p, n, t, g=0: loads.append((p, n)) or SimpleNamespace())
     monkeypatch.setattr(runtime, "chat_tokens", lambda llm: ("tpl", "", ""))
     monkeypatch.setattr(pipeline, "LanguageId", lambda path: FakeLid())
 
