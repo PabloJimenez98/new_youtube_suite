@@ -15,7 +15,9 @@ decided. A hardware pass for the new RTX 5070 (outside the milestone
 plan, decision 0016) is implemented; the owner's blind review of 4B vs
 9B is pending. M11 has an open follow-up: verify real Analytics rows once
 the test channel has views (0017). The OAuth app stays in Testing until
-the end of the project (0017 amendment). The next milestone is **M12**.
+the end of the project (0017 amendment). **M12 (Reporting API, real CTR/impressions) is in progress** (0018): code and
+unit tests are done; the live two-phase integration test is pending (needs
+`backend/.env` in the WSL clone, then ≥ 48 h of reporting lag).
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 

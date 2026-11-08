@@ -14,7 +14,12 @@ from app.worker.settings import WorkerSettings
 def test_cron_jobs_registered_with_expected_schedule() -> None:
     jobs = {c.name: c for c in WorkerSettings.cron_jobs}
     # + M11's analytics pull (docs/decisions/0017 §5), tested in test_analytics_pull.
-    assert set(jobs) == {"cron:market_rss_poll", "cron:market_daily_pull", "cron:analytics_daily_pull"}
+    assert set(jobs) == {
+        "cron:market_rss_poll",
+        "cron:market_daily_pull",
+        "cron:analytics_daily_pull",
+        "cron:reporting_daily_poll",
+    }
     rss, daily = jobs["cron:market_rss_poll"], jobs["cron:market_daily_pull"]
     assert rss.minute == 5 and rss.hour is None
     assert daily.hour == 9 and daily.minute == 30

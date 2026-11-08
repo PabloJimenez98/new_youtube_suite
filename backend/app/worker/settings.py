@@ -18,6 +18,7 @@ from app.database import async_session_factory
 from app.diarization.pipeline import startup_healthcheck
 from app.analytics.tasks import analytics_daily_pull
 from app.market.tasks import market_daily_pull, market_rss_poll
+from app.reporting.tasks import reporting_daily_poll
 from app.worker.tasks import MAX_TRIES, fail_interrupted_jobs, process_job
 
 settings = get_settings()
@@ -54,6 +55,8 @@ class WorkerSettings:
         cron(market_daily_pull, hour=9, minute=30),
         # M11 own-channel analytics (docs/decisions/0017 §5).
         cron(analytics_daily_pull, hour=10, minute=15),
+        # M12 Reporting API: real CTR/impressions (docs/decisions/0018 §2).
+        cron(reporting_daily_poll, hour=11, minute=0),
     ]
     # arq evaluates cron schedules in the host timezone unless told
     # otherwise; the schedule above is UTC.

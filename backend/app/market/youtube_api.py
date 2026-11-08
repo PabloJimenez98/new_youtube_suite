@@ -148,7 +148,26 @@ async def google_get(
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> dict[str, Any]:
     """GET a Google API with the M10 error policy (0015 §5), shared by the
-    API-key client above and the OAuth clients of M11 (0017 §5).
+    API-key client above and the OAuth clients of M11 (0017 §5). Returns the
+    JSON body; see `google_request` for the policy."""
+    response = await google_request(http, "GET", url, params, headers=headers, label=label, sleep=sleep)
+    return response.json()
+
+
+async def google_request(
+    http: httpx.AsyncClient,
+    method: str,
+    url: str,
+    params: dict[str, Any] | None = None,
+    *,
+    headers: dict[str, str],
+    label: str,
+    json_body: dict[str, Any] | None = None,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> httpx.Response:
+    """One Google API call with the shared error policy; returns the 200
+    response. The Reporting API (M12, 0018 §2) uses it for `jobs.create`
+    (POST) and for the CSV download (raw bytes).
 
     - 403 quota reasons -> `QuotaExceeded`, never retried.
     - 401 -> `Unauthorized` (the OAuth caller refreshes once and retries).
@@ -159,13 +178,13 @@ async def google_get(
     delay = 1.0
     for attempt in range(MAX_RETRIES + 1):
         try:
-            response = await http.get(url, params=params, headers=headers, timeout=30)
+            response = await http.request(method, url, params=params, headers=headers, json=json_body, timeout=30)
         except httpx.HTTPError as exc:
             if attempt == MAX_RETRIES:
                 raise YouTubeApiError(f"{label}: {exc}") from exc
         else:
             if response.status_code == 200:
-                return response.json()
+                return response
             reason = _error_reason(response)
             if response.status_code == 401:
                 raise Unauthorized(f"{label}: HTTP 401 {reason or ''}".strip(), status=401, reason=reason)

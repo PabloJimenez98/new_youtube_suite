@@ -12,8 +12,10 @@ import sys
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
+import pytest
 import pytest_asyncio
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import get_settings
@@ -37,9 +39,13 @@ EXPECTED_TABLES = {
     "analytics_videos",
     "analytics_snapshots",
     "analytics_retention_curve",
+    "reporting_jobs",
+    "reporting_reports",
+    "analytics_reach_snapshots",
 }
 ANALYTICS_TABLES = {"oauth_credentials", "analytics_videos", "analytics_snapshots", "analytics_retention_curve"}
 MARKET_TABLES = {"market_channels", "market_videos", "market_video_snapshots"}
+REPORTING_TABLES = {"reporting_jobs", "reporting_reports", "analytics_reach_snapshots"}
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -124,5 +130,36 @@ async def test_0011_creates_oauth_and_analytics_tables_and_reverts() -> None:
     _run_alembic("downgrade", "0010")
     tables = await _table_names()
     assert not (ANALYTICS_TABLES & tables) and MARKET_TABLES <= tables
+
+    _run_alembic("downgrade", "base")
+
+
+async def test_0012_creates_reporting_tables_with_constraints_and_reverts() -> None:
+    _run_alembic("downgrade", "base")
+    _run_alembic("upgrade", "head")
+    assert REPORTING_TABLES <= await _table_names()
+
+    engine = create_async_engine(get_settings().test_database_url)
+    try:
+        async with engine.begin() as conn:
+            insert_job = text(
+                "INSERT INTO reporting_jobs (channel_id, report_type, youtube_job_id, status, job_created_at) "
+                "VALUES ('UC1', 'channel_reach_basic_a1', :jid, :status, now())"
+            )
+            await conn.execute(insert_job, {"jid": "j1", "status": "active"})
+            await conn.execute(insert_job, {"jid": "j0", "status": "expired"})  # non-active rows don't count
+        # A second active job for the same (channel, type) breaks the partial unique index.
+        with pytest.raises(IntegrityError):
+            async with engine.begin() as conn:
+                await conn.execute(insert_job, {"jid": "j2", "status": "active"})
+        with pytest.raises(IntegrityError):  # status CHECK
+            async with engine.begin() as conn:
+                await conn.execute(insert_job, {"jid": "j3", "status": "ready"})
+    finally:
+        await engine.dispose()
+
+    _run_alembic("downgrade", "0011")
+    tables = await _table_names()
+    assert not (REPORTING_TABLES & tables) and ANALYTICS_TABLES <= tables
 
     _run_alembic("downgrade", "base")

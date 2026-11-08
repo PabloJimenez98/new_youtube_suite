@@ -181,3 +181,54 @@ async def test_disconnect_revokes_and_deletes(client, auth_headers, test_user, s
 async def test_disconnect_when_not_connected_is_a_noop(client, auth_headers, google) -> None:
     assert (await client.delete("/youtube/connection", headers=auth_headers)).status_code == 204
     assert google.revoked == []
+
+
+# ---- M12: reach-report status (docs/decisions/0018 §4) ----------------------------
+
+
+async def test_status_reach_is_null_before_the_first_poll_then_reports_the_job(
+    client, auth_headers, session_factory, google
+) -> None:
+    from datetime import date, datetime, timedelta, timezone
+
+    from app.models.reporting import ReportingJob, ReportingReport
+    from app.youtube_oauth.google_oauth import TokenResponse
+    from app.youtube_oauth.tokens import store_connection
+
+    await store_connection(
+        session_factory,
+        TokenCipher(FERNET_KEY),
+        TokenResponse(google.issue_access(), 3600, "rt-1", SCOPES),
+        channel_id=CHANNEL_ID,
+        channel_title="T",
+    )
+    body = (await client.get("/youtube/connection", headers=auth_headers)).json()
+    assert body["status"] == "connected" and body["reach"] is None
+
+    created = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    async with session_factory() as db:
+        job = ReportingJob(channel_id=CHANNEL_ID, report_type="channel_reach_basic_a1", youtube_job_id="j1", job_created_at=created)
+        db.add(job)
+        await db.flush()
+        for i, status in enumerate(("downloaded", "downloaded", "pending", "failed")):
+            day = date(2026, 11, 1) + timedelta(days=i)
+            db.add(
+                ReportingReport(
+                    job_id=job.id,
+                    youtube_report_id=f"r{i}",
+                    start_time=created + timedelta(days=i),
+                    end_time=created + timedelta(days=i + 1),
+                    report_date=day,
+                    create_time=created + timedelta(days=i + 2),
+                    download_url="https://x",
+                    status=status,
+                    last_error="missing column(s) video_id" if status == "failed" else None,
+                )
+            )
+        await db.commit()
+    reach = (await client.get("/youtube/connection", headers=auth_headers)).json()["reach"]
+    assert reach["job_status"] == "active"
+    assert reach["latest_report_date"] == "2026-11-02"
+    assert (reach["reports_pending"], reach["reports_failed"]) == (1, 1)
+    assert reach["last_error"] == "missing column(s) video_id"
+    assert "youtube_job_id" not in reach

@@ -8,11 +8,15 @@
   always ends in a redirect to `/analytics?youtube=connected|error`.
 - `DELETE /youtube/connection`: revoke at Google (best effort), then delete
   the row. Already-pulled analytics rows are kept.
+
+M12 (docs/decisions/0018 §4) adds a `reach` object to the status: the
+state of the Reporting API job for real CTR/impressions, or `null`
+before the first poll.
 """
 
 import logging
 from collections.abc import AsyncGenerator
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from urllib.parse import urlencode
 
@@ -29,6 +33,7 @@ from app.database import get_session_factory
 from app.market.youtube_api import API_BASE, YouTubeApiError, google_get
 from app.models.oauth import OAuthCredential
 from app.models.user import User
+from app.reporting.status import reach_summary
 from app.youtube_oauth.crypto import TokenDecryptError, cipher_from_settings
 from app.youtube_oauth.google_oauth import (
     GoogleOAuthClient,
@@ -46,6 +51,16 @@ router = APIRouter(prefix="/youtube", tags=["youtube"])
 ConnectionStatus = Literal["not_configured", "disconnected", "connected", "needs_reconsent"]
 
 
+class ReachOut(BaseModel):
+    job_status: Literal["active", "expired", "superseded"]
+    job_created_at: datetime
+    last_polled_at: datetime | None = None
+    latest_report_date: date | None = None
+    reports_pending: int = 0
+    reports_failed: int = 0
+    last_error: str | None = None
+
+
 class ConnectionOut(BaseModel):
     status: ConnectionStatus
     channel_id: str | None = None
@@ -54,6 +69,7 @@ class ConnectionOut(BaseModel):
     connected_at: datetime | None = None
     last_refresh_at: datetime | None = None
     last_error: str | None = None
+    reach: ReachOut | None = None
 
 
 class StartOut(BaseModel):
@@ -88,6 +104,7 @@ async def connection_status(
     row = await get_credential(sf)
     if row is None:
         return ConnectionOut(status="disconnected")
+    reach = await reach_summary(sf, row.connected_channel_id)
     return ConnectionOut(
         status="connected" if row.status == "active" else "needs_reconsent",
         channel_id=row.connected_channel_id,
@@ -96,6 +113,17 @@ async def connection_status(
         connected_at=row.connected_at,
         last_refresh_at=row.last_refresh_at,
         last_error=row.last_error,
+        reach=None
+        if reach is None
+        else ReachOut(
+            job_status=reach.job_status,
+            job_created_at=reach.job_created_at,
+            last_polled_at=reach.last_polled_at,
+            latest_report_date=reach.latest_report_date,
+            reports_pending=reach.reports_pending,
+            reports_failed=reach.reports_failed,
+            last_error=reach.last_error,
+        ),
     )
 
 

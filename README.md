@@ -307,6 +307,33 @@ status alone and logs an ERROR instead.
 
 See [`docs/decisions/0017-oauth-analytics-v2.md`](docs/decisions/0017-oauth-analytics-v2.md).
 
+**Real CTR and impressions (Reporting API, M12).** Thumbnail
+impressions and CTR come only from the YouTube **Reporting API**, a
+bulk-report system, not a live query. It uses the same connection and
+needs no extra consent.
+
+*Schedule:* `reporting_daily_poll` runs at 11:00 UTC.
+- The first run creates a `channel_reach_basic_a1` job at Google, or
+  adopts an existing one.
+- From then on, YouTube posts **one CSV per day**, in Pacific time:
+  - the first file arrives **within 48 h** of the job's creation;
+  - 30 days of history follow within a few days.
+- Each poll downloads the new files into `analytics_reach_snapshots`:
+  one row per video per day, with CTR as a 0–1 fraction.
+- When YouTube posts a corrected file for a day, it replaces that day's
+  rows.
+- Files stay downloadable for 60 days, so a worker that is down for
+  weeks loses nothing.
+- `python -m app.cli reporting poll` runs it now; `reporting status`
+  shows the job, the report counts and the row counts.
+
+The Analytics card shows a "Reach reports" line:
+- "waiting for the first report"
+- "up to <day>"
+- failures and an expired job, in warning colour
+
+See [`docs/decisions/0018-reporting-api-reach.md`](docs/decisions/0018-reporting-api-reach.md).
+
 The API alone: `POST /auth/login` (form fields `username`/`password`)
 for a token, `POST /uploads` (multipart, bearer token) to upload a
 file, `GET /uploads` to list them.
@@ -330,7 +357,13 @@ without it. The OAuth/Analytics integration test is opt-in
 (`pytest -m youtube_oauth`). It needs a channel connected from the app,
 because it copies the dev DB's credential into the test DB, then forces
 a real refresh and runs the pull twice. A channel with no views yet
-correctly yields 0 analytics rows.
+correctly yields 0 analytics rows. The Reporting API integration test
+(`pytest -m youtube_reporting -s`) has **two phases**, because of
+YouTube's reporting lag:
+- **Phase 1:** the first run creates or adopts the real reach job. It
+  passes while no report exists yet and prints when to re-run.
+- **Phase 2:** re-run it **≥ 48 h after the job was created**. It then
+  checks the downloaded reports and rows, and prints the CSV header.
 
 **GPU tests.** The fast suite always runs on CPU, whatever
 `backend/.env` says. `pytest -m gpu` runs the opt-in GPU suite instead

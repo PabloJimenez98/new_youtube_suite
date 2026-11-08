@@ -387,3 +387,28 @@ Plan in `docs/decisions/0017-oauth-analytics-v2.md`. Left out of M11 on purpose:
 - **Uvicorn access log prints the OAuth callback query** (single-use `code` and `state`).
   Low risk (the code is single-use, short-lived and already exchanged), but a log filter
   could redact it.
+
+## 2026-11-08 — M12 planning/development (Reporting API, real CTR/impressions)
+Plan in `docs/decisions/0018-reporting-api-reach.md`. Left out of M12 on purpose, or still open:
+- **`channel_reach_combined_a1`** (traffic source / device / OS breakdown of impressions and
+  CTR): not in M12, which covers basic only. Add it if the M13/M15 CTR model wants per-surface
+  CTR (e.g. browse vs suggested). It would be a second job type on the same pipeline.
+- **Verify on the first real CSV (open):**
+  - the header spelling
+  - the date format (`YYYY-MM-DD` vs `YYYYMMDD`; both accepted)
+  - the CTR scale. `CTR_SCALE="auto"` reads a file with any value > 1 as percentages, so a
+    percent-scale file whose CTRs are all ≤ 1 % would be misread as fractions. Pin
+    `CTR_SCALE` once a real file with impressions has been seen (integration phase 2 prints
+    it).
+- **Whether `yt-analytics.readonly` is enough for `jobs.create`** (open until phase 1 runs
+  live). If Google answers 403, that means a re-consent with a different scope, which is the
+  owner's call.
+- **Reach rows are not linked to `analytics_videos` or `uploads`:** this is the same open
+  linking question as M11, and M13/M15 will need it to pair (title, thumbnail) with real CTR.
+- **Dev-env drift (M11 entry above): partly resolved 2026-11-08.**
+  - The WSL clone was fast-forwarded to M11 (`git pull`). M12 is developed and tested there.
+  - The gitignored test media were copied over from the Windows tree.
+  - **Still open:** `backend/.env` exists only in the Windows tree, so in the WSL clone
+    `HF_TOKEN` and the OAuth settings are missing. Four diarization tests fail and the
+    `youtube_oauth`/`youtube_reporting` integration tests skip. The owner should copy the
+    `.env` across (the agent can't read or edit `.env`).

@@ -2,7 +2,11 @@
   <h2>Connected YouTube channel</h2>
 
   @if (notice(); as n) {
-    <p class="yt-connection__notice" [class.yt-connection__notice--error]="n.kind === 'error'" role="status">
+    <p
+      class="yt-connection__notice"
+      [class.yt-connection__notice--error]="n.kind === 'error'"
+      role="status"
+    >
       {{ n.text }}
     </p>
   }
@@ -23,36 +27,79 @@
         <p class="yt-connection__muted">
           Connect your channel to pull its daily engagement and audience-retention data.
         </p>
-        <button type="button" class="btn btn--primary yt-connection__connect" [disabled]="busy()" (click)="connect()">
+        <button
+          type="button"
+          class="btn btn--primary yt-connection__connect"
+          [disabled]="busy()"
+          (click)="connect()"
+        >
           Connect YouTube
         </button>
       }
       @case ('needs_reconsent') {
         <div class="yt-connection__warning" role="alert">
           <strong>Reconnect needed.</strong> Google no longer accepts the stored access for
-          <strong>{{ c.channel_title }}</strong>, so analytics pulls are paused.
+          <strong>{{ c.channel_title }}</strong
+          >, so analytics pulls are paused.
           @if (c.last_error) {
             <span class="yt-connection__error">{{ c.last_error }}</span>
           }
         </div>
-        <button type="button" class="btn btn--primary yt-connection__connect" [disabled]="busy()" (click)="connect()">
+        <button
+          type="button"
+          class="btn btn--primary yt-connection__connect"
+          [disabled]="busy()"
+          (click)="connect()"
+        >
           Reconnect
         </button>
       }
       @case ('connected') {
         <dl class="yt-connection__details">
           <dt>Channel</dt>
-          <dd>{{ c.channel_title }} <code>{{ c.channel_id }}</code></dd>
+          <dd>
+            {{ c.channel_title }} <code>{{ c.channel_id }}</code>
+          </dd>
           @if (c.last_refresh_at) {
             <dt>Last token refresh</dt>
             <dd>{{ c.last_refresh_at | date: 'medium' }}</dd>
           }
+          <dt>Reach reports</dt>
+          <dd class="yt-connection__reach">
+            @if (!c.reach) {
+              <span class="yt-connection__muted">not started; the daily poll creates the job</span>
+            } @else if (c.reach.latest_report_date) {
+              up to {{ c.reach.latest_report_date | date: 'mediumDate' }}
+            } @else {
+              waiting for the first report (job created
+              {{ c.reach.job_created_at | date: 'medium' }}; YouTube takes up to 48 h)
+            }
+            @if (c.reach && (c.reach.reports_failed > 0 || c.reach.job_status !== 'active')) {
+              <span class="yt-connection__reach-warning">
+                @if (c.reach.reports_failed > 0) {
+                  {{ c.reach.reports_failed }} failed
+                }
+                @if (c.reach.job_status !== 'active') {
+                  job {{ c.reach.job_status }}
+                }
+                @if (c.reach.last_error) {
+                  : {{ c.reach.last_error }}
+                }
+              </span>
+            }
+          </dd>
         </dl>
         @if (confirmingDisconnect()) {
           <div class="yt-connection__confirm">
             <span>Disconnect? Already-pulled data is kept.</span>
-            <button type="button" class="btn btn--ghost" (click)="confirmingDisconnect.set(false)">Cancel</button>
-            <button type="button" class="btn btn--danger yt-connection__confirm-yes" (click)="disconnect()">
+            <button type="button" class="btn btn--ghost" (click)="confirmingDisconnect.set(false)">
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn--danger yt-connection__confirm-yes"
+              (click)="disconnect()"
+            >
               Disconnect
             </button>
           </div>

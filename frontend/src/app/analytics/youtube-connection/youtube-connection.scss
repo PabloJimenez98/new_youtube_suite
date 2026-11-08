@@ -61,3 +61,10 @@
     gap: var(--space-3);
   }
 }
+
+.yt-connection__reach-warning {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: 0.85rem;
+  color: var(--color-warning);
+}

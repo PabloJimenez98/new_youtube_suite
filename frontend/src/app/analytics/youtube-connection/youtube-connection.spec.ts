@@ -5,7 +5,12 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { YoutubeConnection, browserNavigation } from './youtube-connection';
-import { ConnectionOut, YoutubeConnectionService, callbackErrorMessage } from './youtube-connection.service';
+import {
+  ConnectionOut,
+  ReachOut,
+  YoutubeConnectionService,
+  callbackErrorMessage,
+} from './youtube-connection.service';
 
 const base: ConnectionOut = {
   status: 'connected',
@@ -15,11 +20,24 @@ const base: ConnectionOut = {
   connected_at: '2026-11-07T10:00:00Z',
   last_refresh_at: '2026-11-07T11:00:00Z',
   last_error: null,
+  reach: null,
+};
+
+const reach: ReachOut = {
+  job_status: 'active',
+  job_created_at: '2026-11-08T11:00:00Z',
+  last_polled_at: '2026-11-08T11:00:00Z',
+  latest_report_date: null,
+  reports_pending: 0,
+  reports_failed: 0,
+  last_error: null,
 };
 
 describe('YoutubeConnectionService', () => {
   it('calls the three /youtube endpoints', () => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     const service = TestBed.inject(YoutubeConnectionService);
     const http = TestBed.inject(HttpTestingController);
     service.getConnection().subscribe();
@@ -47,7 +65,10 @@ describe('YoutubeConnection', () => {
   let navigate: ReturnType<typeof vi.fn>;
   const el = () => fixture.nativeElement as HTMLElement;
 
-  async function setup(connection: ConnectionOut, query: Record<string, string> = {}): Promise<void> {
+  async function setup(
+    connection: ConnectionOut,
+    query: Record<string, string> = {},
+  ): Promise<void> {
     stub = {
       getConnection: vi.fn().mockReturnValue(of(connection)),
       startConsent: vi.fn(),
@@ -58,7 +79,10 @@ describe('YoutubeConnection', () => {
       imports: [YoutubeConnection],
       providers: [
         { provide: YoutubeConnectionService, useValue: stub },
-        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(query) } } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap(query) } },
+        },
         { provide: Router, useValue: { navigate } },
       ],
     }).compileComponents();
@@ -75,7 +99,9 @@ describe('YoutubeConnection', () => {
   it('disconnected: Connect starts the consent and redirects to Google', async () => {
     await setup({ ...base, status: 'disconnected', channel_id: null, channel_title: null });
     const assign = vi.spyOn(browserNavigation, 'assign').mockImplementation(() => undefined);
-    stub.startConsent.mockReturnValue(of({ authorization_url: 'https://accounts.google.com/o/oauth2/v2/auth?x=1' }));
+    stub.startConsent.mockReturnValue(
+      of({ authorization_url: 'https://accounts.google.com/o/oauth2/v2/auth?x=1' }),
+    );
     el().querySelector<HTMLButtonElement>('.yt-connection__connect')!.click();
     expect(stub.startConsent).toHaveBeenCalled();
     expect(assign).toHaveBeenCalledWith('https://accounts.google.com/o/oauth2/v2/auth?x=1');
@@ -83,7 +109,11 @@ describe('YoutubeConnection', () => {
   });
 
   it('needs re-consent: a visible warning with the reason and a Reconnect button', async () => {
-    await setup({ ...base, status: 'needs_reconsent', last_error: 'invalid_grant: Token has been expired or revoked.' });
+    await setup({
+      ...base,
+      status: 'needs_reconsent',
+      last_error: 'invalid_grant: Token has been expired or revoked.',
+    });
     const alert = el().querySelector('[role="alert"]')!;
     expect(alert.textContent).toContain('Reconnect needed');
     expect(alert.textContent).toContain('invalid_grant');
@@ -108,8 +138,13 @@ describe('YoutubeConnection', () => {
 
   it('shows the callback outcome and clears the query params', async () => {
     await setup(base, { youtube: 'connected' });
-    expect(el().querySelector('[role="status"]')!.textContent).toContain('YouTube channel connected');
-    expect(navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: {}, replaceUrl: true }));
+    expect(el().querySelector('[role="status"]')!.textContent).toContain(
+      'YouTube channel connected',
+    );
+    expect(navigate).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({ queryParams: {}, replaceUrl: true }),
+    );
   });
 
   it('shows a readable callback error', async () => {
@@ -124,5 +159,50 @@ describe('YoutubeConnection', () => {
     (fixture.componentInstance as unknown as { refresh: () => void }).refresh();
     fixture.detectChanges();
     expect(el().textContent).toContain('Could not load');
+  });
+
+  describe('reach line (M12)', () => {
+    const reachText = () =>
+      el().querySelector('.yt-connection__reach')!.textContent!.replace(/\s+/g, ' ');
+
+    it('no job yet: says the poll will create it', async () => {
+      await setup(base);
+      expect(reachText()).toContain('not started');
+      expect(el().querySelector('.yt-connection__reach-warning')).toBeNull();
+    });
+
+    it('waiting for the first report', async () => {
+      await setup({ ...base, reach });
+      expect(reachText()).toContain('waiting for the first report');
+      expect(reachText()).toContain('48 h');
+    });
+
+    it('up to date: shows the latest report day', async () => {
+      await setup({ ...base, reach: { ...reach, latest_report_date: '2026-11-06' } });
+      expect(reachText()).toContain('up to Nov 6, 2026');
+      expect(el().querySelector('.yt-connection__reach-warning')).toBeNull();
+    });
+
+    it('failures are a visible warning with the error', async () => {
+      await setup({
+        ...base,
+        reach: {
+          ...reach,
+          latest_report_date: '2026-11-06',
+          reports_failed: 2,
+          last_error: 'missing column(s) video_id',
+        },
+      });
+      const warning = el().querySelector('.yt-connection__reach-warning')!.textContent!;
+      expect(warning).toContain('2 failed');
+      expect(warning).toContain('missing column(s) video_id');
+    });
+
+    it('an expired job is shown', async () => {
+      await setup({ ...base, reach: { ...reach, job_status: 'expired' } });
+      expect(el().querySelector('.yt-connection__reach-warning')!.textContent).toContain(
+        'job expired',
+      );
+    });
   });
 });

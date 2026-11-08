@@ -20,6 +20,10 @@ Usage:
     # happens in the app (Analytics page), not here.
     python -m app.cli analytics status   # connection status, no tokens
     python -m app.cli analytics pull     # the daily analytics pull, now
+
+    # Reporting API: real CTR/impressions (M12, docs/decisions/0018 §4)
+    python -m app.cli reporting status   # job, report counts, reach rows
+    python -m app.cli reporting poll     # the daily reporting poll, now
 """
 
 import argparse
@@ -154,6 +158,39 @@ async def _analytics_pull() -> None:
     await analytics_daily_pull({})
 
 
+# ---- reporting -------------------------------------------------------------
+
+
+async def _reporting_status() -> None:
+    from app.reporting.status import reach_summary
+    from app.youtube_oauth.tokens import get_credential
+
+    row = await get_credential(async_session_factory)
+    if row is None:
+        print("disconnected: connect a channel from the Analytics page")
+        return
+    summary = await reach_summary(async_session_factory, row.connected_channel_id)
+    if summary is None:
+        print(f"no reach job yet for {row.connected_channel_id}: run `python -m app.cli reporting poll`")
+        return
+    print(f"job {summary.youtube_job_id}: {summary.job_status}, created {summary.job_created_at:%Y-%m-%d %H:%M} UTC")
+    print(f"  last poll: {summary.last_polled_at}")
+    print(
+        f"  reports: {summary.reports_downloaded} downloaded, {summary.reports_pending} pending, "
+        f"{summary.reports_failed} failed; latest day {summary.latest_report_date}"
+    )
+    print(f"  analytics_reach_snapshots: {summary.reach_rows} rows")
+    if summary.last_error:
+        print(f"  last error: {summary.last_error}")
+
+
+async def _reporting_poll() -> None:
+    from app.reporting.tasks import reporting_daily_poll
+
+    # The task logs its own report line (and any skip) via `app.reporting`.
+    await reporting_daily_poll({})
+
+
 def _seed_refs() -> list[str]:
     entries = json.loads(SEED_FILE.read_text(encoding="utf-8"))["channels"]
     refs = []
@@ -180,6 +217,9 @@ def main() -> None:
     analytics = sub.add_parser("analytics").add_subparsers(dest="analytics_command", required=True)
     analytics.add_parser("status")
     analytics.add_parser("pull")
+    reporting = sub.add_parser("reporting").add_subparsers(dest="reporting_command", required=True)
+    reporting.add_parser("status")
+    reporting.add_parser("poll")
     args = parser.parse_args()
 
     if args.command == "create-user":
@@ -191,6 +231,9 @@ def main() -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)  # one line per request is noise
     if args.command == "analytics":
         asyncio.run(_analytics_status() if args.analytics_command == "status" else _analytics_pull())
+        return
+    if args.command == "reporting":
+        asyncio.run(_reporting_status() if args.reporting_command == "status" else _reporting_poll())
         return
     cmd = args.market_command
     if cmd == "add":

@@ -13,6 +13,18 @@ export interface ConnectionOut {
   connected_at: string | null;
   last_refresh_at: string | null;
   last_error: string | null;
+  /** The Reporting API job for real CTR/impressions (M12, 0018 §4); null before the first poll. */
+  reach: ReachOut | null;
+}
+
+export interface ReachOut {
+  job_status: 'active' | 'expired' | 'superseded';
+  job_created_at: string;
+  last_polled_at: string | null;
+  latest_report_date: string | null;
+  reports_pending: number;
+  reports_failed: number;
+  last_error: string | null;
 }
 
 /** The connected YouTube channel (M11, docs/decisions/0017 §1, §6). */
