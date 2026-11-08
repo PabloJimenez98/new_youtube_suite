@@ -9,11 +9,13 @@ development plan (`docs/development-plan.md`). **Milestones M0 (backend
 (async job pipeline), M3 (transcript/subtitle generator), M4
 (speaker diarization), M5 (chapter generator), M6 (show notes & metadata generator), M7
 (relevance-detection model v0), M8 (shorts generator), M9 (full-suite
-hardening) and M10 (market-analysis pipeline v0) are done** — see
-`docs/decisions/` (0002–0016) for what was decided. A hardware pass for
-the new RTX 5070 (outside the milestone plan, decision 0016) is
-implemented; the owner's blind review of 4B vs 9B is pending. The next
-milestone is **M11**.
+hardening), M10 (market-analysis pipeline v0) and M11 (OAuth + Analytics
+API v2) are done** — see `docs/decisions/` (0002–0017) for what was
+decided. A hardware pass for the new RTX 5070 (outside the milestone
+plan, decision 0016) is implemented; the owner's blind review of 4B vs
+9B is pending. M11 has an open follow-up: verify real Analytics rows once
+the test channel has views (0017). The OAuth app stays in Testing until
+the end of the project (0017 amendment). The next milestone is **M12**.
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 

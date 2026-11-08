@@ -15,6 +15,11 @@ Usage:
     python -m app.cli market deactivate <market_channel id>
     python -m app.cli market pull        # the daily pull, now
     python -m app.cli market rss         # the RSS poll, now
+
+    # Connected-channel analytics (M11, docs/decisions/0017 §6). Connecting
+    # happens in the app (Analytics page), not here.
+    python -m app.cli analytics status   # connection status, no tokens
+    python -m app.cli analytics pull     # the daily analytics pull, now
 """
 
 import argparse
@@ -116,6 +121,39 @@ async def _market_run(kind: str) -> None:
     await (market_daily_pull if kind == "pull" else market_rss_poll)({})
 
 
+# ---- analytics -------------------------------------------------------------
+
+
+async def _analytics_status() -> None:
+    from app.config import get_settings
+    from app.models.analytics import AnalyticsRetentionPoint, AnalyticsSnapshot, AnalyticsVideo
+    from app.youtube_oauth.tokens import get_credential
+
+    if not get_settings().youtube_oauth_configured:
+        print("not_configured: set GOOGLE_OAUTH_CLIENT_ID/SECRET and OAUTH_TOKEN_ENCRYPTION_KEY (README)")
+        return
+    row = await get_credential(async_session_factory)
+    if row is None:
+        print("disconnected: connect a channel from the Analytics page")
+        return
+    print(f"{row.status}: {row.connected_channel_title} ({row.connected_channel_id})")
+    print(f"  scopes: {', '.join(row.scopes)}")
+    print(f"  access token expires {row.token_expiry:%Y-%m-%d %H:%M} UTC, last refresh {row.last_refresh_at}")
+    if row.last_error:
+        print(f"  last error: {row.last_error}")
+    async with async_session_factory() as db:
+        for model in (AnalyticsVideo, AnalyticsSnapshot, AnalyticsRetentionPoint):
+            n = await db.scalar(select(func.count()).select_from(model).where(model.channel_id == row.connected_channel_id))
+            print(f"  {model.__tablename__}: {n} rows")
+
+
+async def _analytics_pull() -> None:
+    from app.analytics.tasks import analytics_daily_pull
+
+    # The task logs its own report line (and any skip) via `app.analytics`.
+    await analytics_daily_pull({})
+
+
 def _seed_refs() -> list[str]:
     entries = json.loads(SEED_FILE.read_text(encoding="utf-8"))["channels"]
     refs = []
@@ -139,6 +177,9 @@ def main() -> None:
     market.add_parser("deactivate").add_argument("channel_id", type=int)
     market.add_parser("pull")
     market.add_parser("rss")
+    analytics = sub.add_parser("analytics").add_subparsers(dest="analytics_command", required=True)
+    analytics.add_parser("status")
+    analytics.add_parser("pull")
     args = parser.parse_args()
 
     if args.command == "create-user":
@@ -148,6 +189,9 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)  # one line per request is noise
+    if args.command == "analytics":
+        asyncio.run(_analytics_status() if args.analytics_command == "status" else _analytics_pull())
+        return
     cmd = args.market_command
     if cmd == "add":
         asyncio.run(_market_add(args.refs))

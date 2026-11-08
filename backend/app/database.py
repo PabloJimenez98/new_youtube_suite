@@ -18,3 +18,9 @@ class Base(DeclarativeBase):
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_factory() as session:
         yield session
+
+
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    """For endpoints that hand a factory to code shared with the worker
+    (M11's token storage opens its own short transactions)."""
+    return async_session_factory

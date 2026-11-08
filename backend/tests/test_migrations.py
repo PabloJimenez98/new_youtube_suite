@@ -33,7 +33,12 @@ EXPECTED_TABLES = {
     "market_channels",
     "market_videos",
     "market_video_snapshots",
+    "oauth_credentials",
+    "analytics_videos",
+    "analytics_snapshots",
+    "analytics_retention_curve",
 }
+ANALYTICS_TABLES = {"oauth_credentials", "analytics_videos", "analytics_snapshots", "analytics_retention_curve"}
 MARKET_TABLES = {"market_channels", "market_videos", "market_video_snapshots"}
 
 
@@ -107,5 +112,17 @@ async def test_0010_creates_market_tables_and_reverts() -> None:
     _run_alembic("downgrade", "0009")
     tables = await _table_names()
     assert not (MARKET_TABLES & tables) and "clips" in tables
+
+    _run_alembic("downgrade", "base")
+
+
+async def test_0011_creates_oauth_and_analytics_tables_and_reverts() -> None:
+    _run_alembic("downgrade", "base")
+    _run_alembic("upgrade", "head")
+    assert ANALYTICS_TABLES <= await _table_names()
+
+    _run_alembic("downgrade", "0010")
+    tables = await _table_names()
+    assert not (ANALYTICS_TABLES & tables) and MARKET_TABLES <= tables
 
     _run_alembic("downgrade", "base")

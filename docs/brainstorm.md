@@ -363,3 +363,27 @@ Plan in `docs/decisions/0015-market-pipeline-v0.md`. Left out of M10 on purpose
   the live relevance version back by hand (the switch mechanism is M15's).
 - **`backend/.env` still has the M9 values** and overrides the new defaults until the owner
   updates it (the agent can't edit `.env`).
+
+## 2026-11-07 — M11 planning (OAuth + Analytics API v2)
+Plan in `docs/decisions/0017-oauth-analytics-v2.md`. Left out of M11 on purpose:
+- **Linking `analytics_videos` to `uploads`:** knowing which app upload became which published
+  video (needed by M15 to correlate clip features with real retention). Manual link, title
+  match, or `videos.insert` from the app are all open.
+- **Encryption-key rotation** for `OAUTH_TOKEN_ENCRYPTION_KEY`: not built; a lost key means
+  re-consent.
+- **Retention by `audienceType`** (organic vs ads): M11 stores all traffic only.
+- **Showing analytics data in the UI:** the Analytics page's charts stay on dummy data.
+- **OAuth app still in "Testing" (open, deferred to the end of the project — 0017 amendment
+  2026-11-08):** publishing needs a public homepage + privacy-policy URL on an authorized domain
+  (plan: `<user>.github.io` with `index.html` + `privacy.html`, add that subdomain as an
+  authorized domain, fill the Branding page, then Audience → Publish app; don't submit for
+  verification). Until then, re-connect the channel from `/analytics` every ~7 days.
+- **M11 follow-up (open): verify real Analytics rows** once the test channel has views
+  (48–72 h lag). See 0017 "First live run". Until then, the live run only proved 0-row pulls.
+- **Dev-env drift (open):** the WSL clone `~/projects/new_youtube_suite` (which holds the venv
+  and `node_modules`) is still at M9. M11 was run from the Windows tree using that clone's venv
+  and `node_modules`. Update the clone, or point the venv at the Windows tree, before relying on
+  `scripts/dev.sh`.
+- **Uvicorn access log prints the OAuth callback query** (single-use `code` and `state`).
+  Low risk (the code is single-use, short-lived and already exchanged), but a log filter
+  could redact it.

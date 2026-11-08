@@ -36,7 +36,7 @@ Updated as milestones complete — this table is the source of truth for
 | M8 — Shorts generator | Done |
 | M9 — Full-suite hardening | Done |
 | M10 — Market-analysis pipeline v0 | Done |
-| M11 — OAuth + Analytics API v2 | Not started |
+| M11 — OAuth + Analytics API v2 | Done |
 | M12 — YouTube Reporting API | Not started |
 | M13 — Title/thumbnail CTR predictor v0 | Not started |
 | M14 — Hook-strength scorer v0 | Not started |

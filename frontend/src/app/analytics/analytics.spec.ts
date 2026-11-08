@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { Analytics } from './analytics';
@@ -6,8 +8,16 @@ describe('Analytics', () => {
   let fixture: ComponentFixture<Analytics>;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [Analytics] }).compileComponents();
+    await TestBed.configureTestingModule({
+      imports: [Analytics],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
     fixture = TestBed.createComponent(Analytics);
+  });
+
+  it('renders the YouTube connection card (M11)', () => {
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-youtube-connection')).not.toBeNull();
   });
 
   it('should create', () => {

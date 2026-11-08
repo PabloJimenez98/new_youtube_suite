@@ -43,6 +43,11 @@ class QuotaExceeded(YouTubeApiError):
     """Google's quota is spent (403 quotaExceeded). Stop; don't retry."""
 
 
+class Unauthorized(YouTubeApiError):
+    """HTTP 401: the credentials were rejected (an OAuth access token that
+    Google no longer accepts, M11). The API-key client never expects it."""
+
+
 class BudgetExhausted(YouTubeApiError):
     """Our own soft cap (`MARKET_DAILY_UNIT_BUDGET`) is reached."""
 
@@ -85,39 +90,16 @@ class YouTubeClient:
     async def _get(self, endpoint: str, params: dict[str, Any]) -> dict[str, Any]:
         self._ledger.reserve(1)
         self.units_used += 1
-        delay = 1.0
-        for attempt in range(MAX_RETRIES + 1):
-            try:
-                # Key in a header, not the URL, so it never shows up in
-                # request logs or exception messages.
-                response = await self._http.get(
-                    f"{API_BASE}/{endpoint}", params=params, headers={"X-Goog-Api-Key": self._key}, timeout=30
-                )
-            except httpx.HTTPError as exc:
-                if attempt == MAX_RETRIES:
-                    raise YouTubeApiError(f"{endpoint}: {exc}") from exc
-            else:
-                if response.status_code == 200:
-                    return response.json()
-                reason = _error_reason(response)
-                if response.status_code == 403 and reason in _QUOTA_REASONS:
-                    raise QuotaExceeded(f"{endpoint}: {reason}")
-                retryable = (
-                    response.status_code == 429
-                    or response.status_code >= 500
-                    or reason == "rateLimitExceeded"
-                )
-                if not retryable:
-                    raise YouTubeApiError(
-                        f"{endpoint}: HTTP {response.status_code} {reason or ''}".strip(),
-                        status=response.status_code,
-                        reason=reason,
-                    )
-                if attempt == MAX_RETRIES:
-                    raise YouTubeApiError(f"{endpoint}: HTTP {response.status_code} after retries")
-            await self._sleep(delay)
-            delay *= 2
-        raise AssertionError("unreachable")
+        # Key in a header, not the URL, so it never shows up in request
+        # logs or exception messages.
+        return await google_get(
+            self._http,
+            f"{API_BASE}/{endpoint}",
+            params,
+            headers={"X-Goog-Api-Key": self._key},
+            label=endpoint,
+            sleep=self._sleep,
+        )
 
     async def channels(self, *, handle: str | None = None, channel_id: str | None = None) -> list[dict]:
         params: dict[str, Any] = {"part": "snippet,contentDetails"}
@@ -154,6 +136,61 @@ class YouTubeClient:
             "videos", {"part": "snippet,contentDetails,statistics", "id": ",".join(ids), "maxResults": 50}
         )
         return data.get("items", [])
+
+
+async def google_get(
+    http: httpx.AsyncClient,
+    url: str,
+    params: dict[str, Any],
+    *,
+    headers: dict[str, str],
+    label: str,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> dict[str, Any]:
+    """GET a Google API with the M10 error policy (0015 §5), shared by the
+    API-key client above and the OAuth clients of M11 (0017 §5).
+
+    - 403 quota reasons -> `QuotaExceeded`, never retried.
+    - 401 -> `Unauthorized` (the OAuth caller refreshes once and retries).
+    - 429, 5xx, 403 `rateLimitExceeded` and network errors -> 3 retries with
+      exponential backoff.
+    - Anything else -> `YouTubeApiError` with the status and reason.
+    """
+    delay = 1.0
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            response = await http.get(url, params=params, headers=headers, timeout=30)
+        except httpx.HTTPError as exc:
+            if attempt == MAX_RETRIES:
+                raise YouTubeApiError(f"{label}: {exc}") from exc
+        else:
+            if response.status_code == 200:
+                return response.json()
+            reason = _error_reason(response)
+            if response.status_code == 401:
+                raise Unauthorized(f"{label}: HTTP 401 {reason or ''}".strip(), status=401, reason=reason)
+            if response.status_code == 403 and reason in _QUOTA_REASONS:
+                raise QuotaExceeded(f"{label}: {reason}")
+            retryable = response.status_code == 429 or response.status_code >= 500 or reason == "rateLimitExceeded"
+            if not retryable:
+                raise YouTubeApiError(
+                    f"{label}: HTTP {response.status_code} {reason or _error_message(response) or ''}".strip(),
+                    status=response.status_code,
+                    reason=reason,
+                )
+            if attempt == MAX_RETRIES:
+                raise YouTubeApiError(f"{label}: HTTP {response.status_code} after retries")
+        await sleep(delay)
+        delay *= 2
+    raise AssertionError("unreachable")
+
+
+def _error_message(response: httpx.Response) -> str | None:
+    try:
+        message = response.json()["error"]["message"]
+    except (ValueError, KeyError, TypeError):
+        return None
+    return message if isinstance(message, str) else None
 
 
 def _error_reason(response: httpx.Response) -> str | None:

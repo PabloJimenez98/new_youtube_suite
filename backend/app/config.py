@@ -93,11 +93,39 @@ class Settings(BaseSettings):
     # Soft cap on Data API units per quota day (Pacific), per process.
     market_daily_unit_budget: int = 5000
 
-    @field_validator("youtube_api_key", mode="before")
+    # OAuth + Analytics API v2 (M11) -- see docs/decisions/0017-oauth-analytics-v2.md.
+    # A Google "Web application" OAuth client of the owner's Cloud project.
+    # Any of the three unset -> the connection reports `not_configured`
+    # and the analytics cron logs a skip.
+    google_oauth_client_id: str | None = None
+    google_oauth_client_secret: SecretStr | None = None
+    # Fernet key for the stored tokens (encrypted at rest, 0017 §2).
+    oauth_token_encryption_key: SecretStr | None = None
+    # Goes through the Angular dev proxy (`/youtube` -> the API), so the
+    # browser stays on one origin. Must match the client's authorized URI.
+    google_oauth_redirect_uri: str = "http://localhost:4200/youtube/oauth/callback"
+    # Where the OAuth callback sends the browser back to (`/analytics`).
+    frontend_base_url: str = "http://localhost:4200"
+
+    @field_validator(
+        "youtube_api_key",
+        "google_oauth_client_id",
+        "google_oauth_client_secret",
+        "oauth_token_encryption_key",
+        mode="before",
+    )
     @classmethod
     def _empty_key_is_unset(cls, value: object) -> object:
         # `YOUTUBE_API_KEY=` (as in .env.example) means "no key".
         return None if isinstance(value, str) and not value.strip() else value
+
+    @property
+    def youtube_oauth_configured(self) -> bool:
+        return (
+            self.google_oauth_client_id is not None
+            and self.google_oauth_client_secret is not None
+            and self.oauth_token_encryption_key is not None
+        )
 
 
 @lru_cache

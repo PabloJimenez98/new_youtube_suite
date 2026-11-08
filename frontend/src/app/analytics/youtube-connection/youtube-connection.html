@@ -1,0 +1,72 @@
+<section class="glass-panel yt-connection">
+  <h2>Connected YouTube channel</h2>
+
+  @if (notice(); as n) {
+    <p class="yt-connection__notice" [class.yt-connection__notice--error]="n.kind === 'error'" role="status">
+      {{ n.text }}
+    </p>
+  }
+
+  @if (loadError()) {
+    <p class="yt-connection__muted">Could not load the connection status.</p>
+    <button type="button" class="btn" (click)="refresh()">Retry</button>
+  } @else if (connection(); as c) {
+    @switch (c.status) {
+      @case ('not_configured') {
+        <p class="yt-connection__muted">
+          YouTube OAuth isn't configured on the server: set <code>GOOGLE_OAUTH_CLIENT_ID</code>,
+          <code>GOOGLE_OAUTH_CLIENT_SECRET</code> and <code>OAUTH_TOKEN_ENCRYPTION_KEY</code> in
+          <code>backend/.env</code> (README, "Connected YouTube channel").
+        </p>
+      }
+      @case ('disconnected') {
+        <p class="yt-connection__muted">
+          Connect your channel to pull its daily engagement and audience-retention data.
+        </p>
+        <button type="button" class="btn btn--primary yt-connection__connect" [disabled]="busy()" (click)="connect()">
+          Connect YouTube
+        </button>
+      }
+      @case ('needs_reconsent') {
+        <div class="yt-connection__warning" role="alert">
+          <strong>Reconnect needed.</strong> Google no longer accepts the stored access for
+          <strong>{{ c.channel_title }}</strong>, so analytics pulls are paused.
+          @if (c.last_error) {
+            <span class="yt-connection__error">{{ c.last_error }}</span>
+          }
+        </div>
+        <button type="button" class="btn btn--primary yt-connection__connect" [disabled]="busy()" (click)="connect()">
+          Reconnect
+        </button>
+      }
+      @case ('connected') {
+        <dl class="yt-connection__details">
+          <dt>Channel</dt>
+          <dd>{{ c.channel_title }} <code>{{ c.channel_id }}</code></dd>
+          @if (c.last_refresh_at) {
+            <dt>Last token refresh</dt>
+            <dd>{{ c.last_refresh_at | date: 'medium' }}</dd>
+          }
+        </dl>
+        @if (confirmingDisconnect()) {
+          <div class="yt-connection__confirm">
+            <span>Disconnect? Already-pulled data is kept.</span>
+            <button type="button" class="btn btn--ghost" (click)="confirmingDisconnect.set(false)">Cancel</button>
+            <button type="button" class="btn btn--danger yt-connection__confirm-yes" (click)="disconnect()">
+              Disconnect
+            </button>
+          </div>
+        } @else {
+          <button
+            type="button"
+            class="btn btn--ghost yt-connection__disconnect"
+            [disabled]="busy()"
+            (click)="confirmingDisconnect.set(true)"
+          >
+            Disconnect
+          </button>
+        }
+      }
+    }
+  }
+</section>

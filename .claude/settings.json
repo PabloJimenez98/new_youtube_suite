@@ -22,7 +22,13 @@
       "Bash(.venv/bin/pytest*)",
       "Agent(test-runner)"
     ],
-    "deny": ["Bash(rm -rf*)", "Edit(**/.env)"]
+    "deny": [
+      "Bash(rm -rf*)", 
+      "Edit(**/.env)",
+      "Read(./.env)",
+      "Read(**/.env)",
+      "Read(./secrets/**)"
+    ]
   },
   "hooks": {
     "PostToolUse": [

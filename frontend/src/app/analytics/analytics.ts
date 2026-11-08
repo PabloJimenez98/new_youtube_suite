@@ -4,10 +4,11 @@ import { Component } from '@angular/core';
 import { PreviewBanner } from '../shared/preview-banner/preview-banner';
 import { DUMMY_CHANNEL_METRICS, DUMMY_MARKET_TRENDS } from './analytics-dummy-data';
 import { MarketChart } from './market-chart/market-chart';
+import { YoutubeConnection } from './youtube-connection/youtube-connection';
 
 @Component({
   selector: 'app-analytics',
-  imports: [PreviewBanner, MarketChart, DecimalPipe],
+  imports: [PreviewBanner, MarketChart, DecimalPipe, YoutubeConnection],
   templateUrl: './analytics.html',
   styleUrl: './analytics.scss',
 })

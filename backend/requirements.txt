@@ -7,6 +7,8 @@ alembic==1.13.2
 pydantic==2.9.2
 pydantic-settings==2.5.2
 python-jose[cryptography]==3.3.0
+# M11 token encryption at rest (Fernet), imported directly (docs/decisions/0017 §2).
+cryptography==50.0.2
 passlib[bcrypt]==1.7.4
 # passlib 1.7.4 reads bcrypt.__about__.__version__, which bcrypt>=4.1
 # removed -- pin to the last compatible 4.0.x release.

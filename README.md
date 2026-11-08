@@ -252,6 +252,61 @@ the Analytics page still shows dummy data.
 
 See [`docs/decisions/0015-market-pipeline-v0.md`](docs/decisions/0015-market-pipeline-v0.md).
 
+**Connected YouTube channel (M11).** One platform-level channel (yours),
+connected with OAuth from the **Analytics** page. Every day the worker
+pulls that channel's per-video engagement and audience-retention curves
+from the YouTube Analytics API v2.
+
+*One-time Google Cloud setup*, in the same project as `YOUTUBE_API_KEY`:
+1. **APIs & Services → Library:** enable **YouTube Analytics API**.
+2. **Google Auth Platform:**
+   - **Branding:** an app name and your email.
+   - **Audience:** External. For now the app stays in **Testing**, with
+     your Google account added under **Test users**. In Testing, refresh
+     tokens expire after 7 days, so the card asks you to reconnect about
+     weekly. Publishing (**Publish app** → *In production*, unverified)
+     is deferred to the end of the project. It needs a public homepage
+     URL and privacy-policy URL on an authorized domain set in
+     **Branding** (see the 0017 amendment). After publishing, reconnect once.
+   - **Data access:** add `…/auth/yt-analytics.readonly` and
+     `…/auth/youtube.readonly`.
+3. **Clients → Create client → Web application**, with the authorized
+   redirect URI `http://localhost:4200/youtube/oauth/callback`.
+4. **`backend/.env`:** set `GOOGLE_OAUTH_CLIENT_ID`,
+   `GOOGLE_OAUTH_CLIENT_SECRET` and `OAUTH_TOKEN_ENCRYPTION_KEY`. Generate
+   the key with:
+   ```
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   ```
+   If you lose the key, you have to reconnect.
+
+*Connecting:* Analytics page → **Connect YouTube**. Approve both
+permissions on Google's screen (it will show an "unverified app"
+warning). You land back on the Analytics page with the channel shown.
+The tokens are stored encrypted (Fernet) in `oauth_credentials` and are
+never returned by the API.
+
+*Schedule:* `analytics_daily_pull` runs at 10:15 UTC.
+- It refreshes the video list, unlisted and private videos included.
+- **Daily engagement** goes to `analytics_snapshots`, one row per video
+  per *metric day*. Each run re-reads the last 7 days, because Analytics
+  lags 48–72 h.
+- **Retention curves** go to `analytics_retention_curve`, 100 points per
+  video per pull: daily for videos from the last 90 days, weekly for
+  older ones.
+- `python -m app.cli analytics pull` runs it now; `analytics status`
+  shows the connection and row counts.
+
+*When access dies* (revoked, expired, password change):
+- The connection goes to **needs reconsent**.
+- The pull logs a WARNING and stops.
+- The Analytics card shows **Reconnect** with Google's reason.
+
+It is never silent. A network outage or a wrong client secret leaves the
+status alone and logs an ERROR instead.
+
+See [`docs/decisions/0017-oauth-analytics-v2.md`](docs/decisions/0017-oauth-analytics-v2.md).
+
 The API alone: `POST /auth/login` (form fields `username`/`password`)
 for a token, `POST /uploads` (multipart, bearer token) to upload a
 file, `GET /uploads` to list them.
@@ -271,7 +326,11 @@ diarization tests run pyannote on CPU and need `HF_TOKEN` in
 `backend/.env`. With both models on CPU, the full backend suite takes a
 few minutes. The market integration test (`-m youtube_api`) calls the
 real Data API with `YOUTUBE_API_KEY` (a few units) and is skipped
-without it.
+without it. The OAuth/Analytics integration test is opt-in
+(`pytest -m youtube_oauth`). It needs a channel connected from the app,
+because it copies the dev DB's credential into the test DB, then forces
+a real refresh and runs the pull twice. A channel with no views yet
+correctly yields 0 analytics rows.
 
 **GPU tests.** The fast suite always runs on CPU, whatever
 `backend/.env` says. `pytest -m gpu` runs the opt-in GPU suite instead

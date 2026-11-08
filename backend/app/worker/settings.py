@@ -16,6 +16,7 @@ from arq.connections import RedisSettings
 from app.config import get_settings
 from app.database import async_session_factory
 from app.diarization.pipeline import startup_healthcheck
+from app.analytics.tasks import analytics_daily_pull
 from app.market.tasks import market_daily_pull, market_rss_poll
 from app.worker.tasks import MAX_TRIES, fail_interrupted_jobs, process_job
 
@@ -51,6 +52,8 @@ class WorkerSettings:
     cron_jobs = [
         cron(market_rss_poll, minute=5),
         cron(market_daily_pull, hour=9, minute=30),
+        # M11 own-channel analytics (docs/decisions/0017 §5).
+        cron(analytics_daily_pull, hour=10, minute=15),
     ]
     # arq evaluates cron schedules in the host timezone unless told
     # otherwise; the schedule above is UTC.

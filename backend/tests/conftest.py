@@ -39,7 +39,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.auth.security import hash_password
 from app.config import get_settings
-from app.database import Base, get_db
+from app.database import Base, get_db, get_session_factory
 from app.main import app
 from app.models.user import User
 from app.worker.pool import get_arq_pool
@@ -81,8 +81,11 @@ async def _override_get_db(
             yield session
 
     app.dependency_overrides[get_db] = _get_db_override
+    # M11: endpoints that pass a session factory to worker-shared code.
+    app.dependency_overrides[get_session_factory] = lambda: session_factory
     yield
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_session_factory, None)
 
 
 @pytest_asyncio.fixture
