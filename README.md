@@ -258,7 +258,10 @@ pulls that channel's per-video engagement and audience-retention curves
 from the YouTube Analytics API v2.
 
 *One-time Google Cloud setup*, in the same project as `YOUTUBE_API_KEY`:
-1. **APIs & Services → Library:** enable **YouTube Analytics API**.
+1. **APIs & Services → Library:** enable **YouTube Analytics API** and
+   **YouTube Reporting API** (M12: real CTR/impressions; without it the
+   reporting poll fails with HTTP 403 "has not been used in project … or it
+   is disabled").
 2. **Google Auth Platform:**
    - **Branding:** an app name and your email.
    - **Audience:** External. For now the app stays in **Testing**, with

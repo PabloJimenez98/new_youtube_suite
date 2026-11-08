@@ -400,15 +400,10 @@ Plan in `docs/decisions/0018-reporting-api-reach.md`. Left out of M12 on purpose
     percent-scale file whose CTRs are all ≤ 1 % would be misread as fractions. Pin
     `CTR_SCALE` once a real file with impressions has been seen (integration phase 2 prints
     it).
-- **Whether `yt-analytics.readonly` is enough for `jobs.create`** (open until phase 1 runs
-  live). If Google answers 403, that means a re-consent with a different scope, which is the
-  owner's call.
+- ~~**Whether `yt-analytics.readonly` is enough for `jobs.create`**~~ **Resolved 2026-11-08:** yes; phase 1 created the job with the M11 grant (0018 "Live phase 1").
 - **Reach rows are not linked to `analytics_videos` or `uploads`:** this is the same open
   linking question as M11, and M13/M15 will need it to pair (title, thumbnail) with real CTR.
-- **Dev-env drift (M11 entry above): partly resolved 2026-11-08.**
+- **Dev-env drift (M11 entry above): resolved 2026-11-08.**
   - The WSL clone was fast-forwarded to M11 (`git pull`). M12 is developed and tested there.
   - The gitignored test media were copied over from the Windows tree.
-  - **Still open:** `backend/.env` exists only in the Windows tree, so in the WSL clone
-    `HF_TOKEN` and the OAuth settings are missing. Four diarization tests fail and the
-    `youtube_oauth`/`youtube_reporting` integration tests skip. The owner should copy the
-    `.env` across (the agent can't read or edit `.env`).
+  - ~~**Still open:** `backend/.env` only in the Windows tree~~ **Resolved 2026-11-08:** the owner copied it to the WSL clone; the 4 diarization tests pass again.

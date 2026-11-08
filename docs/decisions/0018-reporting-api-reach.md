@@ -338,3 +338,22 @@ the test is **two phases**, with the wait written into the test:
     has no `backend/.env` (brainstorm). They are unrelated to M12.
 - **Live phases:** not run yet. They need `backend/.env` in the WSL clone (phase 1), then
   ≥ 48 h of waiting (phase 2).
+
+## Live phase 1 (2026-11-08)
+
+- **Setup gap found and fixed:**
+  - The first run failed with HTTP 403 "YouTube Reporting API has not been used in project …
+    or it is disabled". The API has to be enabled in the Cloud project, like the Analytics API
+    in M11.
+  - The owner enabled it, and the README setup guide now lists it.
+  - The 403 is non-retryable, so it surfaced as one clear error rather than as retries.
+- **Scope verified:** `jobs.list` and `jobs.create` succeed with the M11 grant
+  (`yt-analytics.readonly` + `youtube.readonly`), so no new consent is needed.
+- **Real job:** `14f8221d-2fce-44d3-9801-39b3aa45b520` (`channel_reach_basic_a1`, channel
+  `UCJEybqMK_7qMTzvKm4jyp5g`), created 2026-11-08 12:38 UTC by
+  `pytest -m youtube_reporting -s`, which passed phase 1.
+- **Dev DB adoption:** `python -m app.cli reporting poll` then **adopted** the same job in the
+  dev DB (no duplicate). The card shows "waiting for the first report".
+- **Phase 2 (open):** re-run `pytest -m youtube_reporting -s` after **2026-11-10 12:38 UTC**,
+  then pin `CTR_SCALE` from the printed CSV header and values. Header-only files are expected
+  while the test channel has no impressions.
