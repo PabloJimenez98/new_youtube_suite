@@ -140,3 +140,201 @@
     @include mixins.neon-focus(var(--color-accent-cyan));
   }
 }
+
+// ---- Explainability layer (docs/decisions/0021) ---------------------------
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+// ⓘ button next to every tool name.
+.info-btn {
+  flex: none;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--color-accent-cyan);
+  background: transparent;
+  color: var(--color-accent-cyan);
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  @include mixins.neon-focus(var(--color-accent-cyan));
+}
+
+// Glossary term with a hover/focus tooltip.
+.term {
+  position: relative;
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px dashed var(--color-accent-violet);
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  cursor: help;
+  outline: none;
+
+  &__tip {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    z-index: 5;
+    width: 18rem;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-bg-raised);
+    box-shadow: var(--shadow-panel);
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--color-text-primary);
+    transition: opacity var(--transition-fast);
+  }
+
+  &:hover &__tip,
+  &:focus-visible &__tip {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    border-color: var(--color-accent-cyan);
+  }
+}
+
+// Two-option toggle (Inference / Training).
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+
+  button {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    padding: var(--space-1) var(--space-3);
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+
+    &.is-active {
+      background: color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+      color: var(--color-text-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-accent-cyan);
+      outline-offset: -2px;
+    }
+  }
+}
+
+// Tool status dots (Manage list, stepper, tabs). Colour + shape:
+// done = filled, failed = ring with an X-ish dash, blocked = hollow dashed.
+.status-dot {
+  display: inline-block;
+  flex: none;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  border: 2px solid var(--color-text-muted);
+  background: transparent;
+
+  &--done {
+    background: var(--color-success);
+    border-color: var(--color-success);
+  }
+
+  &--running,
+  &--queued {
+    border-color: var(--color-info);
+    background: color-mix(in srgb, var(--color-info) 45%, transparent);
+    animation: status-pulse 1.4s ease-in-out infinite;
+  }
+
+  &--queued {
+    border-color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 35%, transparent);
+  }
+
+  &--failed {
+    background: var(--color-danger);
+    border-color: var(--color-danger);
+    border-radius: 2px;
+  }
+
+  &--ready {
+    border-color: var(--color-text-secondary);
+  }
+
+  &--blocked {
+    border-style: dashed;
+    opacity: 0.6;
+  }
+}
+
+@keyframes status-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot--running,
+  .status-dot--queued {
+    animation: none;
+  }
+}
+
+// "heuristic v0 · relevance-p2"-style provenance chip.
+.model-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+.link-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent-cyan);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+// Visually hidden, still read by screen readers.
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

@@ -1,13 +1,4 @@
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
-}
-
+// `.dialog-backdrop` is global (styles/_components.scss, docs/decisions/0021).
 .dialog {
   max-width: 22rem;
   display: flex;

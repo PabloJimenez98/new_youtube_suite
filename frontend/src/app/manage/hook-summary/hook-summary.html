@@ -1,0 +1,82 @@
+<section class="hs glass-panel" aria-labelledby="hs-title">
+  <header class="hs__head">
+    <h3 id="hs-title">Hook strength of the first 15 seconds</h3>
+    <app-info key="hook" />
+  </header>
+  <p class="hs__lead">
+    Each short’s opening is scored on four signals, weighted
+    @for (k of subKeys; track k; let last = $last) {
+      <span class="hs__w">{{ shortLabels[k] }} {{ weights()[k] ?? '–' }}</span>{{ last ? '.' : ' · ' }}
+    }
+    The score (0–100) ranks this episode’s clips against each other: it is not a retention percentage.
+  </p>
+
+  @if (rows().length) {
+    <div class="hs__table-wrap">
+      <table class="hs__table">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Clip</th>
+            <th scope="col">Hook</th>
+            @for (k of subKeys; track k) {
+              <th scope="col" [attr.title]="longLabels[k]">{{ shortLabels[k] }}</th>
+            }
+            <th scope="col">Measured</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.clip.id) {
+            <tr>
+              <td class="hs__rank">{{ r.rank }}</td>
+              <td>
+                <button type="button" class="hs__clip" [attr.aria-label]="'Play the episode from ' + ts(r.clip.start)" (click)="seek.emit(r.clip.start)">
+                  {{ ts(r.clip.start) }}–{{ ts(r.clip.end) }}
+                </button>
+                @if (r.strongest || r.weakest) {
+                  <span class="hs__why">
+                    @if (r.strongest) {
+                      <span class="hs__plus">+ {{ r.strongest }}</span>
+                    }
+                    @if (r.weakest) {
+                      <span class="hs__minus">− {{ r.weakest }}</span>
+                    }
+                  </span>
+                }
+              </td>
+              <td>
+                <span class="hs__score">
+                <span class="hs__score-num">{{ r.score.toFixed(0) }}</span>
+                <span class="hs__bar hs__bar--score" aria-hidden="true"><span [style.width.%]="r.score"></span></span>
+                </span>
+              </td>
+              @for (k of subKeys; track k) {
+                <td>
+                  @if (sub(r, k); as v) {
+                    <span class="hs__bar" [attr.title]="v.toFixed(2)" aria-hidden="true"><span [style.width.%]="v * 100"></span></span>
+                    <span class="sr-only">{{ v.toFixed(2) }}</span>
+                  } @else {
+                    <span class="hs__bar" title="0" aria-hidden="true"><span style="width: 0"></span></span>
+                    <span class="sr-only">0</span>
+                  }
+                </td>
+              }
+              <td class="hs__measured">
+                {{ r.leadSilence == null ? '–' : r.leadSilence.toFixed(1) + ' s silence' }} ·
+                {{ r.wordsPerSecond == null ? '–' : r.wordsPerSecond.toFixed(1) + ' w/s' }}
+                @if (r.question) {
+                  · opens with “?”
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (unscored()) {
+      <p class="hs__note muted">{{ unscored() }} clip(s) not scored yet: run Hook score again to include them.</p>
+    }
+  } @else {
+    <p class="hs__note muted">No clip has a hook score yet. Run Hook score above to rank this episode’s shorts.</p>
+  }
+</section>

@@ -1,0 +1,56 @@
+<section class="stepper glass-panel" aria-label="Pipeline">
+  <header class="stepper__head">
+    <h2>Pipeline</h2>
+    <span class="stepper__count">{{ done() }}/8 done</span>
+  </header>
+
+  <ol class="stepper__nodes">
+    @for (tool of order; track tool) {
+      @let s = states()[tool];
+      <li class="stepper__item">
+        <button
+          type="button"
+          class="stepper__node"
+          [class]="'stepper__node stepper__node--' + s.status"
+          [attr.title]="nodeTitle(tool)"
+          [attr.aria-label]="nodeTitle(tool)"
+          (click)="selectTool.emit(tool)"
+        >
+          <span [class]="'status-dot status-dot--' + s.status" aria-hidden="true"></span>
+          {{ labels[tool] }}
+        </button>
+        <app-info [key]="tool" />
+      </li>
+    }
+  </ol>
+
+  <div class="stepper__next" aria-live="polite">
+    @if (suggestion(); as next) {
+      <span class="stepper__eyebrow">{{ next.state.status === 'failed' ? 'Needs attention' : 'Suggested next step' }}</span>
+      <div class="stepper__next-title">
+        <strong>{{ labels[next.state.tool] }}</strong>
+        <app-info [key]="next.state.tool" />
+      </div>
+      <p>{{ next.why }}</p>
+      <button
+        type="button"
+        class="btn btn--primary"
+        [disabled]="starting() === next.state.tool"
+        (click)="runSuggested.emit(next.state.tool)"
+      >
+        {{ starting() === next.state.tool ? 'Starting…' : actionLabel(next) }}
+      </button>
+    } @else if (inFlight().length) {
+      <span class="stepper__eyebrow">Working</span>
+      <p>
+        @for (t of inFlight(); track t; let last = $last) {
+          {{ labels[t] }}{{ last ? '' : ', ' }}
+        }
+        {{ inFlight().length === 1 ? 'is' : 'are' }} running. The next step appears when it finishes.
+      </p>
+    } @else {
+      <span class="stepper__eyebrow">All done</span>
+      <p>Every tool has run. Re-run any of them from its tab.</p>
+    }
+  </div>
+</section>

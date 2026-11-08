@@ -1,16 +1,19 @@
-<article class="video-card glass-panel">
+<a class="video-card glass-panel" [routerLink]="['/manage', upload().id]" [attr.title]="upload().filename">
   <div class="video-card__thumb" aria-hidden="true">
-    <span>▶</span>
-  </div>
-
-  <h3 class="video-card__title">{{ upload().filename }}</h3>
-
-  <div class="video-card__meta">
-    <span class="badge" [class]="'badge--' + upload().status">{{ upload().status }}</span>
+    @if (thumbnail(); as src) {
+      <img class="video-card__frame" [src]="src" alt="" loading="lazy" referrerpolicy="no-referrer" />
+    } @else {
+      <span>▶</span>
+    }
     @if (durationLabel()) {
       <span class="video-card__duration">{{ durationLabel() }}</span>
     }
   </div>
 
-  <span class="video-card__date">{{ upload().uploaded_at | date: 'mediumDate' }}</span>
-</article>
+  <h3 class="video-card__title">{{ name() }}</h3>
+
+  <div class="video-card__meta">
+    <span class="badge" [class]="'badge--' + upload().status">{{ upload().status }}</span>
+    <span class="video-card__date">{{ upload().uploaded_at | date: 'mediumDate' }}</span>
+  </div>
+</a>

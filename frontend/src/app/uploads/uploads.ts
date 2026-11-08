@@ -34,4 +34,9 @@ export class Uploads {
   deleteUpload(id: number): Observable<void> {
     return this.http.delete<void>(`/uploads/${id}`);
   }
+
+  /** PATCH /uploads/{id}: link (or unlink, with null) the episode's YouTube video (0022 §1). */
+  linkYoutube(id: number, youtubeVideoId: string | null): Observable<UploadOut> {
+    return this.http.patch<UploadOut>(`/uploads/${id}`, { youtube_video_id: youtubeVideoId });
+  }
 }

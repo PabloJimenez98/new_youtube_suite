@@ -30,7 +30,7 @@ describe('Shell', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('renders the wordmark and all four nav links', () => {
+  it('renders the wordmark and all five nav links', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.shell-nav__wordmark')?.textContent).toContain(
@@ -39,7 +39,7 @@ describe('Shell', () => {
     const links = Array.from(compiled.querySelectorAll('.shell-nav__links a')).map(
       (a) => a.getAttribute('href'),
     );
-    expect(links).toEqual(['/library', '/dashboard', '/analytics', '/manage']);
+    expect(links).toEqual(['/library', '/dashboard', '/analytics', '/manage', '/how-it-works']);
   });
 
   it('logs out and navigates to /login on click', () => {

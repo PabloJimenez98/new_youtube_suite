@@ -393,6 +393,19 @@ The Analytics card shows a "Reach reports" line:
 
 See [`docs/decisions/0018-reporting-api-reach.md`](docs/decisions/0018-reporting-api-reach.md).
 
+**Analytics charts (precomputed).** The Analytics page reads its analyses
+from `insight_results`; requests never compute them.
+- **Schedule:** the worker's `insights_refresh` runs hourly at :45 and at
+  startup. It recomputes only what changed (a new market snapshot, a
+  re-linked episode, new channel analytics); otherwise it's a ~0.1 s no-op.
+  A full recompute takes about 10 s.
+- `python -m app.cli insights refresh [--force]` runs it now;
+  `insights status` lists each result's compute time.
+- A missing result shows "Computing…" on the page and queues a refresh.
+
+See [`docs/decisions/0022-analytics-dashboards.md`](docs/decisions/0022-analytics-dashboards.md)
+and [`0023`](docs/decisions/0023-precomputed-insights.md).
+
 The API alone: `POST /auth/login` (form fields `username`/`password`)
 for a token, `POST /uploads` (multipart, bearer token) to upload a
 file, `GET /uploads` to list them.

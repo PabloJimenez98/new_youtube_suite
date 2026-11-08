@@ -1,27 +1,137 @@
-<h1 class="page-heading">Manage videos</h1>
-
-<app-upload (uploaded)="onUploaded()" />
+<header class="manage__top">
+  <div>
+    <h1 class="page-heading">Manage</h1>
+    <p class="manage__intro">
+      Each episode runs through 8 tools; each dot is one tool. Open an episode to run them.
+      <app-info key="upload" />
+    </p>
+  </div>
+  <button type="button" class="btn btn--primary" (click)="uploadOpen.set(true)">+ Upload episode</button>
+</header>
 
 @if (loading()) {
   <p>Loading…</p>
 } @else if (errorMessage()) {
   <p class="manage__error" role="alert">{{ errorMessage() }}</p>
 } @else if (videos().length === 0) {
-  <p>No videos yet -- upload one above to get started.</p>
+  <div class="manage__empty glass-panel">
+    <p>No episodes yet. Upload one to start: the transcript comes first, and every other tool builds on it.</p>
+    <button type="button" class="btn btn--primary" (click)="uploadOpen.set(true)">+ Upload episode</button>
+  </div>
 } @else {
-  <div class="manage__rows">
-    @for (video of videos(); track video.id) {
-      <app-video-row
-        [upload]="video"
-        [jobs]="jobsFor().get(video.id) ?? []"
-        (deleteRequested)="requestDelete($event)"
-      />
+  <div class="manage__filters" role="search" aria-label="Filter episodes">
+    <label class="filter filter--grow">
+      <span>Search</span>
+      <input class="manage__search" type="search" placeholder="Episode name" [value]="search()" (input)="search.set($any($event.target).value)" />
+    </label>
+    <label class="filter">
+      <span>Published from</span>
+      <input type="date" [value]="publishedFrom()" (change)="publishedFrom.set($any($event.target).value)" />
+    </label>
+    <label class="filter">
+      <span>to</span>
+      <input type="date" [value]="publishedTo()" (change)="publishedTo.set($any($event.target).value)" />
+    </label>
+    <label class="filter filter--num">
+      <span>Views ≥</span>
+      <input type="number" min="0" step="1000" [placeholder]="viewRange() ? compact(viewRange()!.min) : ''" [value]="minViews() ?? ''" (input)="setNumber('min', $any($event.target).value)" />
+    </label>
+    <label class="filter filter--num">
+      <span>Views ≤</span>
+      <input type="number" min="0" step="1000" [placeholder]="viewRange() ? compact(viewRange()!.max) : ''" [value]="maxViews() ?? ''" (input)="setNumber('max', $any($event.target).value)" />
+    </label>
+    @if (filtersActive()) {
+      <button type="button" class="btn btn--ghost manage__clear" (click)="clearFilters()">Clear</button>
     }
+    <span class="manage__count muted">{{ rows().length }} of {{ videos().length }} episodes</span>
+  </div>
+
+  <div class="manage__table-wrap glass-panel">
+    <table class="ep-table">
+      <thead>
+        <tr>
+          <th scope="col" class="ep-table__preview"><span class="sr-only">Preview</span></th>
+          <th scope="col" [attr.aria-sort]="ariaSort('name')">
+            <button type="button" class="sort" (click)="sortBy('name')">Episode<span class="sort__dir" aria-hidden="true">{{ sortKey() === 'name' ? (sortDir() === 'asc' ? '▲' : '▼') : '' }}</span></button>
+          </th>
+          <th scope="col" [attr.aria-sort]="ariaSort('published')">
+            <button type="button" class="sort" (click)="sortBy('published')">Published<span class="sort__dir" aria-hidden="true">{{ sortKey() === 'published' ? (sortDir() === 'asc' ? '▲' : '▼') : '' }}</span></button>
+          </th>
+          <th scope="col" class="num" [attr.aria-sort]="ariaSort('views')">
+            <button type="button" class="sort" (click)="sortBy('views')">Views<span class="sort__dir" aria-hidden="true">{{ sortKey() === 'views' ? (sortDir() === 'asc' ? '▲' : '▼') : '' }}</span></button>
+          </th>
+          <th scope="col" class="num" [attr.aria-sort]="ariaSort('length')">
+            <button type="button" class="sort" (click)="sortBy('length')">Length<span class="sort__dir" aria-hidden="true">{{ sortKey() === 'length' ? (sortDir() === 'asc' ? '▲' : '▼') : '' }}</span></button>
+          </th>
+          <th scope="col" [attr.aria-sort]="ariaSort('progress')">
+            <button type="button" class="sort" (click)="sortBy('progress')">Pipeline<span class="sort__dir" aria-hidden="true">{{ sortKey() === 'progress' ? (sortDir() === 'asc' ? '▲' : '▼') : '' }}</span></button>
+          </th>
+          <th scope="col">Next step</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.video.id) {
+          <tr class="ep-table__row" (click)="open(row.video.id)">
+            <td class="ep-table__preview">
+              <div class="thumb">
+                @if (row.thumbnail) {
+                  <img [src]="row.thumbnail" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                } @else {
+                  <span class="thumb__none" aria-hidden="true">▶</span>
+                }
+                @if (row.duration) {
+                  <span class="thumb__len">{{ row.duration }}</span>
+                }
+              </div>
+            </td>
+            <td class="ep-table__name">
+              <a [routerLink]="['/manage', row.video.id]" (click)="$event.stopPropagation()">{{ row.name }}</a>
+            </td>
+            <td class="ep-table__date">
+              @if (row.published) {
+                {{ row.published | date: 'mediumDate' }}
+              } @else {
+                <span class="muted" title="No YouTube video linked, or not tracked yet">–</span>
+              }
+            </td>
+            <td class="num">{{ row.views == null ? '–' : compact(row.views) }}</td>
+            <td class="num">{{ row.duration ?? '–' }}</td>
+            <td>
+              <span class="ep-table__dots" [attr.aria-label]="row.done + ' of 8 tools done'">
+                @for (tool of toolTypes; track tool) {
+                  <span [class]="'status-dot status-dot--' + row.states[tool].status" [attr.title]="toolLabels[tool] + ': ' + row.states[tool].status"></span>
+                }
+                <span class="ep-table__done">{{ row.done }}/8</span>
+              </span>
+            </td>
+            <td class="ep-table__next">
+              @if (row.running) {
+                <span class="ep-table__working">Working…</span>
+              } @else if (row.next) {
+                {{ toolLabels[row.next.state.tool] }}
+              } @else {
+                <span class="muted">All done</span>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7" class="manage__no-match muted">
+              No episode matches these filters.
+              <button type="button" class="link-btn" (click)="clearFilters()">Clear filters</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
   </div>
 }
 
-<app-delete-confirm-dialog
-  [upload]="pendingDelete()"
-  (confirmed)="confirmDelete()"
-  (cancelled)="cancelDelete()"
-/>
+@if (uploadOpen()) {
+  <div class="dialog-backdrop" (click)="uploadOpen.set(false)">
+    <div class="manage__upload" role="dialog" aria-modal="true" aria-label="Upload an episode" (click)="$event.stopPropagation()">
+      <button type="button" class="btn btn--ghost btn--icon manage__upload-close" aria-label="Close" (click)="uploadOpen.set(false)">✕</button>
+      <app-upload (uploaded)="onUploaded()" />
+    </div>
+  </div>
+}

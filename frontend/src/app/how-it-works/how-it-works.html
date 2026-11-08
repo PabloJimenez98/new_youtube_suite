@@ -1,0 +1,57 @@
+<h1 class="page-heading">How it works</h1>
+<p class="hiw__intro">
+  YouTube Suite turns one podcast episode into a chain of data products. Each box below is a step; click one to see
+  its data flow, the model behind it and how to read its result. The lower half is the feedback loop: real performance
+  data that will retrain the custom models.
+</p>
+
+<section class="hiw__section glass-panel" aria-labelledby="hiw-system">
+  <h2 id="hiw-system">The whole pipeline</h2>
+  <app-flow-diagram [flow]="systemFlow" label="YouTube Suite data pipeline" (nodeClick)="open($event)" />
+</section>
+
+<section class="hiw__section glass-panel" aria-labelledby="hiw-models">
+  <h2 id="hiw-models">Model status</h2>
+  <p class="muted">
+    Every result stores the model version that produced it. The v0 heuristics are transparent baselines; the platform
+    collects the data to replace them with trained models.
+  </p>
+  <div class="hiw__table-wrap">
+    <table class="hiw__table">
+      <thead>
+        <tr>
+          <th scope="col">Tool</th>
+          <th scope="col">Model</th>
+          <th scope="col">Today</th>
+          <th scope="col">Next</th>
+          <th scope="col">Training label</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of models; track row.key) {
+          <tr>
+            <th scope="row">
+              <span class="hiw__tool">{{ docs[row.key].title }} <app-info [key]="row.key" /></span>
+            </th>
+            <td>{{ row.model }}</td>
+            <td><span class="model-chip">{{ row.today }}</span></td>
+            <td>{{ row.next }}</td>
+            <td class="muted">{{ row.label }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="hiw__section glass-panel" id="glossary" aria-labelledby="hiw-glossary">
+  <h2 id="hiw-glossary">Glossary</h2>
+  <dl class="hiw__glossary">
+    @for (entry of glossary; track entry.key) {
+      <div>
+        <dt>{{ entry.term }}</dt>
+        <dd>{{ entry.definition }}</dd>
+      </div>
+    }
+  </dl>
+</section>

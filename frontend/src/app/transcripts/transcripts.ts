@@ -6,9 +6,27 @@ export type SubtitleFormat = 'srt' | 'vtt';
 
 export const SUBTITLE_FORMATS: readonly SubtitleFormat[] = ['srt', 'vtt'];
 
+/** Mirrors `TranscriptOut` (backend/app/routers/transcripts.py, docs/decisions/0022 §4). */
+export interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+  speaker: string | null;
+}
+
+export interface TranscriptOut {
+  segments: TranscriptSegment[];
+  speakers: string[];
+}
+
 @Service()
 export class Transcripts {
   private readonly http = inject(HttpClient);
+
+  /** GET /uploads/{id}/transcript: the segments as JSON, for the in-app viewer. */
+  getTranscript(uploadId: number): Observable<TranscriptOut> {
+    return this.http.get<TranscriptOut>(`/uploads/${uploadId}/transcript`);
+  }
 
   /**
    * GET /uploads/{id}/transcript.{srt,vtt}. Fetched as a blob through

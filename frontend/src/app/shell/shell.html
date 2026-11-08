@@ -6,10 +6,13 @@
     <a routerLink="/dashboard" routerLinkActive="is-active">Dashboard</a>
     <a routerLink="/analytics" routerLinkActive="is-active">Analytics</a>
     <a routerLink="/manage" routerLinkActive="is-active">Manage</a>
+    <a routerLink="/how-it-works" routerLinkActive="is-active">How it works</a>
   </nav>
 
   <button type="button" class="btn btn--ghost" (click)="logout()">Log out</button>
 </header>
+
+<app-explain-dialog />
 
 <main class="shell-content">
   <router-outlet />

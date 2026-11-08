@@ -191,6 +191,27 @@ async def _reporting_poll() -> None:
     await reporting_daily_poll({})
 
 
+# ---- insights (precomputed Analytics, 0023) -----------------------------------------
+
+
+async def _insights_refresh(force: bool) -> None:
+    from app.insights.store import refresh_insights
+
+    report = await refresh_insights(async_session_factory, force=force)
+    print(f"{len(report.computed)} computed, {len(report.skipped)} unchanged in {report.seconds:.1f}s")
+
+
+async def _insights_status() -> None:
+    from app.models.insight import InsightResult
+
+    async with async_session_factory() as db:
+        rows = (await db.execute(select(InsightResult).order_by(InsightResult.name, InsightResult.format))).scalars().all()
+    if not rows:
+        print("no precomputed results yet: run `python -m app.cli insights refresh`")
+    for r in rows:
+        print(f"{r.name:<9} {r.format:<5} {r.computed_at:%Y-%m-%d %H:%M} UTC  {r.duration_ms:>6} ms  {r.source_key}")
+
+
 def _seed_refs() -> list[str]:
     entries = json.loads(SEED_FILE.read_text(encoding="utf-8"))["channels"]
     refs = []
@@ -220,6 +241,9 @@ def main() -> None:
     reporting = sub.add_parser("reporting").add_subparsers(dest="reporting_command", required=True)
     reporting.add_parser("status")
     reporting.add_parser("poll")
+    insights = sub.add_parser("insights").add_subparsers(dest="insights_command", required=True)
+    insights.add_parser("status")
+    insights.add_parser("refresh").add_argument("--force", action="store_true", help="recompute even if the sources are unchanged")
     args = parser.parse_args()
 
     if args.command == "create-user":
@@ -231,6 +255,9 @@ def main() -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)  # one line per request is noise
     if args.command == "analytics":
         asyncio.run(_analytics_status() if args.analytics_command == "status" else _analytics_pull())
+        return
+    if args.command == "insights":
+        asyncio.run(_insights_status() if args.insights_command == "status" else _insights_refresh(args.force))
         return
     if args.command == "reporting":
         asyncio.run(_reporting_status() if args.reporting_command == "status" else _reporting_poll())

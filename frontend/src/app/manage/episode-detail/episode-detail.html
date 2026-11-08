@@ -1,0 +1,59 @@
+<a class="detail__back" routerLink="/manage">← All episodes</a>
+
+@if (loading()) {
+  <p>Loading…</p>
+} @else if (upload(); as u) {
+  <header class="detail__head">
+    <div>
+      <div class="detail__title">
+        <h1 [attr.title]="u.filename">{{ name() }}</h1>
+        @if (duration()) {
+          <span class="detail__meta">{{ duration() }}</span>
+        }
+      </div>
+      <div class="detail__yt">
+        @if (editingLink()) {
+          <input
+            class="detail__yt-input"
+            aria-label="YouTube video ID"
+            placeholder="11-character video ID"
+            maxlength="11"
+            [value]="linkDraft()"
+            (input)="linkDraft.set($any($event.target).value)"
+            (keydown.enter)="saveLink()"
+          />
+          <button type="button" class="btn btn--primary detail__yt-btn" (click)="saveLink()">Save</button>
+          <button type="button" class="btn btn--ghost detail__yt-btn" (click)="editingLink.set(false)">Cancel</button>
+          @if (linkError()) {
+            <span class="detail__error">{{ linkError() }}</span>
+          }
+        } @else {
+          @if (u.youtube; as y) {
+            <span>Published {{ y.published_at | date: 'mediumDate' }}</span>
+            <span>{{ compact(y.view_count) }} views</span>
+            <span>{{ compact(y.like_count) }} likes</span>
+          } @else if (u.youtube_video_id) {
+            <span class="muted">Linked video not in the market data yet</span>
+          } @else {
+            <span class="muted">No YouTube video linked</span>
+          }
+          @if (u.youtube_video_id) {
+            <a [href]="'https://www.youtube.com/watch?v=' + u.youtube_video_id" target="_blank" rel="noopener noreferrer">Watch on YouTube ↗</a>
+          }
+          <button type="button" class="link-btn" (click)="startEditLink()">{{ u.youtube_video_id ? 'Change' : 'Link a video' }}</button>
+        }
+      </div>
+    </div>
+    <button type="button" class="btn btn--danger btn--icon detail__delete" (click)="pendingDelete.set(u)">Delete episode</button>
+  </header>
+
+  @if (errorMessage()) {
+    <p class="detail__error" role="alert">{{ errorMessage() }}</p>
+  }
+
+  <app-episode-workspace [upload]="u" [jobs]="jobs()" />
+
+  <app-delete-confirm-dialog [upload]="pendingDelete()" (confirmed)="confirmDelete()" (cancelled)="pendingDelete.set(null)" />
+} @else {
+  <p class="detail__error" role="alert">{{ errorMessage() }}</p>
+}

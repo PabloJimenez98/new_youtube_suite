@@ -419,7 +419,7 @@ Left out of M13 on purpose, or still open:
 - **Recognised thumbnail text** (full OCR, e.g. text that repeats the title): the owner chose
   detection only.
 - **Thumbnail candidate picker** (best frames from the episode): still deferred (v1-scope).
-- **Dashboard "Avg. predicted CTR" tile:** stays dummy; an average of relative scores across
+- **Dashboard "Avg. predicted CTR" tile:** **Removed 2026-11-08 with the other dummy tiles (0021); the note below still holds if it comes back:** stays dummy; an average of relative scores across
   episodes isn't meaningful anyway, so it needs a different metric before it's wired.
 - **Manual QA (open follow-up; M13 was closed without it on 2026-11-08):** the owner ranks 3–5
   candidate sets on 2–3 real episodes and compares them with the heuristic. The findings go in
@@ -449,7 +449,40 @@ Left out of M14 on purpose, or still open:
 - **Zero-shot LLM hook judge** (as in M7 relevance): not built, because the plan scopes M14
   to heuristics. It could later serve as a pseudo-label source for the ranker.
 - **Audio features** (energy, pitch, laughter): text-only v1 constraint (spec §2.8, §7).
-- **Dashboard "Top hook-scoring clip" tile:** stays dummy. Hook scores are relative within
+- **Dashboard "Top hook-scoring clip" tile:** **Removed 2026-11-08 with the other dummy tiles (0021); the note below still holds if it comes back:** stays dummy. Hook scores are relative within
   one episode, so "top across episodes" needs a different metric before it's wired.
 - **Manual QA (open follow-up; M14 was closed without it on 2026-11-08):** rank the clips of 2–3 episodes by their first
   15 s, then compare with the heuristic. The findings go in 0020.
+
+## 2026-11-08 — Frontend UX + explainability pass (outside the milestone plan)
+Plan in `docs/decisions/0021-frontend-ux-explainability.md`. Left out on purpose, or still open:
+- **Owner review of the popup copy (open):** the `ToolDoc` text in `frontend/src/app/explain/tool-docs.ts`
+  is what the TFM defends. Check every step, number and limitation against the decision records
+  each doc cites in `source`.
+- **Keep docs in sync (rule):** a change to a tool's pipeline updates its `ToolDoc` (steps, flow,
+  model card) in the same change. When M15 trains a model, flip its `training.planned` and replace
+  the planned flow with the real one.
+- **Analytics page:** not redesigned; it still shows its preview market chart. It could reuse the
+  ⓘ popups for `market` / `analytics` / `reporting`, which already exist.
+- **Not built (ideas):** per-episode data lineage (which model version produced each stored result,
+  shown in one table); a "compare episodes" view of relevance curves; the explanations in Spanish
+  (the owner chose English for now).
+
+## 2026-11-08 — Analytics & Dashboard data visualisation (outside the milestone plan)
+Plan in `docs/decisions/0022-analytics-dashboards.md`. Left out on purpose, or still open:
+- **Own-channel charts (open):** daily views, real CTR and retention render once the OAuth channel
+  has views (same follow-up as M11/M12). Until then they show why they're empty.
+- **View velocity (open):** needs ≥ 2 daily snapshots of the same videos (14-day window). Re-check
+  after a few daily pulls; then consider per-video trajectories instead of the cross-sectional
+  age curve.
+- **Breakout-videos analysis:** offered (age-adjusted residual z-scores, top over/under-performers),
+  not chosen by the owner. The residuals already exist in `app/insights/analysis.py`.
+- **Linking for the own channel:** `uploads.youtube_video_id` also joins `analytics_videos` /
+  `analytics_reach_snapshots` once the owner's own channel publishes episodes. This is the input
+  M13/M15 need to pair candidates with real CTR (the 0019 open question).
+- **Market timezone:** the publish heatmap uses Madrid time for every channel. Per-channel local
+  time (US channels) would need a timezone per channel.
+- **Precomputed Analytics (0023), resolved 2026-11-08:** the analyses moved out of the requests,
+  into `insight_results`, refreshed hourly by the worker (no-op when the sources are unchanged).
+  Still open: the growth payload (~150 KB) repeats channel names per point. A channel index
+  would shrink it if it ever matters.

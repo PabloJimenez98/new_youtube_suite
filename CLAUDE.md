@@ -22,7 +22,13 @@ predictor v0, heuristic) is done** (0019), pulled ahead while M12 waits, as the
 plan allows; the owner's manual QA on real episodes is an open follow-up.
 **M14 (hook-strength scorer v0, heuristic) is done** (0020), also pulled
 ahead while M12 waits (owner-confirmed); the owner's manual QA on real clips
-is an open follow-up. The next milestone after M12 closes is **M15**.
+is an open follow-up. A frontend UX + explainability pass (outside the
+milestone plan, decision 0021) is done; the owner's review of the popup copy is
+an open follow-up. A data-visualisation pass (Analytics/Dashboard charts,
+`/insights` API, episode ↔ YouTube link, transcript viewer; also outside the
+plan, decision 0022) is done, with its analyses precomputed by the worker into
+`insight_results` (0023); its own-channel charts wait on real views, which is
+an open follow-up. The next milestone after M12 closes is **M15**.
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 

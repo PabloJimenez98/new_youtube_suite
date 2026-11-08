@@ -4,6 +4,7 @@ hand (no worker/model involved)."""
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.job import Job
@@ -214,3 +215,38 @@ async def test_mixed_speaker_segment_is_split_in_the_download(
         "00:00:02.000 --> 00:00:04.000\n<v SPEAKER_01>Totally sure.\n"
     )
 
+
+
+# ---- JSON transcript for the in-app viewer (docs/decisions/0022 §4) ----------
+
+
+async def test_json_transcript_in_order_with_speakers(
+    client: AsyncClient, auth_headers: dict[str, str], db_session: AsyncSession
+) -> None:
+    upload = await _make_upload(db_session, "succeeded")
+    await _add_segments(db_session, upload)
+    response = await client.get(f"/uploads/{upload.id}/transcript", headers=auth_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert [s["text"] for s in body["segments"]] == ["First cue.", "Second <cue>."]
+    assert body["segments"][0] == {"start": 0.0, "end": 2.5, "text": "First cue.", "speaker": None}
+    assert body["speakers"] == []
+
+    for seg, label in zip(
+        (await db_session.execute(select(TranscriptSegment).order_by(TranscriptSegment.segment_index))).scalars(),
+        ["SPEAKER_01", "SPEAKER_00"],
+    ):
+        seg.speaker_label = label
+    await db_session.commit()
+    body = (await client.get(f"/uploads/{upload.id}/transcript", headers=auth_headers)).json()
+    assert [s["speaker"] for s in body["segments"]] == ["SPEAKER_01", "SPEAKER_00"]
+    assert body["speakers"] == ["SPEAKER_01", "SPEAKER_00"]  # order of first appearance
+
+
+@pytest.mark.parametrize(("statuses", "code"), [((), 404), (("running",), 409)])
+async def test_json_transcript_follows_the_subtitle_status_rules(
+    client: AsyncClient, auth_headers: dict[str, str], db_session: AsyncSession, statuses: tuple[str, ...], code: int
+) -> None:
+    upload = await _make_upload(db_session, *statuses)
+    response = await client.get(f"/uploads/{upload.id}/transcript", headers=auth_headers)
+    assert response.status_code == code

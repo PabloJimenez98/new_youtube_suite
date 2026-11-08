@@ -12,13 +12,15 @@ from app.database import get_db
 from app.models.clip import Clip
 from app.models.ctr import CtrPrediction
 from app.models.job import Job
+from app.models.market import MarketVideoSnapshot
 from app.models.upload import Upload
 from app.models.user import User
 from app.schemas.job import JobCreate, JobOut
 from app.routers.media import stream_file
-from app.schemas.upload import UploadOut
+from app.schemas.upload import UploadOut, UploadUpdate, YoutubeStatsOut
 from app.storage import LocalStorageBackend, StorageKeyNotFoundError
 from app.worker.pool import get_arq_pool
+from app.youtube_link import youtube_id_from_filename
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 settings = get_settings()
@@ -33,29 +35,52 @@ async def _get_upload_or_404(upload_id: int, db: AsyncSession) -> Upload:
     return upload
 
 
+async def _with_youtube(db: AsyncSession, uploads: list[Upload]) -> list[UploadOut]:
+    """Attach each linked video's latest market snapshot (docs/decisions/0022 §1)."""
+    ids = {u.youtube_video_id for u in uploads if u.youtube_video_id}
+    latest: dict[str, MarketVideoSnapshot] = {}
+    if ids:
+        rows = await db.execute(
+            select(MarketVideoSnapshot)
+            .where(MarketVideoSnapshot.youtube_video_id.in_(ids))
+            .order_by(MarketVideoSnapshot.youtube_video_id, MarketVideoSnapshot.snapshot_date.desc())
+            .distinct(MarketVideoSnapshot.youtube_video_id)
+        )
+        latest = {s.youtube_video_id: s for s in rows.scalars()}
+    out = []
+    for upload in uploads:
+        item = UploadOut.model_validate(upload)
+        snap = latest.get(upload.youtube_video_id or "")
+        if snap is not None:
+            item.youtube = YoutubeStatsOut.model_validate(snap, from_attributes=True)
+        out.append(item)
+    return out
+
+
 @router.post("", response_model=UploadOut, status_code=201)
 async def create_upload(
     file: UploadFile,
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_user),
-) -> Upload:
+) -> UploadOut:
     key = LocalStorageBackend.make_key(file.filename or "upload.bin")
     storage.save(key, file.file)
 
-    upload = Upload(filename=file.filename or key, storage_path=key)
+    filename = file.filename or key
+    upload = Upload(filename=filename, storage_path=key, youtube_video_id=youtube_id_from_filename(filename))
     db.add(upload)
     await db.commit()
     await db.refresh(upload)
-    return upload
+    return (await _with_youtube(db, [upload]))[0]
 
 
 @router.get("", response_model=list[UploadOut])
 async def list_uploads(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_user),
-) -> list[Upload]:
+) -> list[UploadOut]:
     result = await db.execute(select(Upload).order_by(Upload.uploaded_at.desc()))
-    return list(result.scalars().all())
+    return await _with_youtube(db, list(result.scalars().all()))
 
 
 @router.get("/{upload_id}", response_model=UploadOut)
@@ -63,8 +88,23 @@ async def get_upload(
     upload_id: int,
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_user),
-) -> Upload:
-    return await _get_upload_or_404(upload_id, db)
+) -> UploadOut:
+    return (await _with_youtube(db, [await _get_upload_or_404(upload_id, db)]))[0]
+
+
+@router.patch("/{upload_id}", response_model=UploadOut)
+async def update_upload(
+    upload_id: int,
+    body: UploadUpdate,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+) -> UploadOut:
+    """Link or unlink the episode's YouTube video by hand (0022 §1)."""
+    upload = await _get_upload_or_404(upload_id, db)
+    upload.youtube_video_id = body.youtube_video_id
+    await db.commit()
+    await db.refresh(upload)
+    return (await _with_youtube(db, [upload]))[0]
 
 
 @router.delete("/{upload_id}", status_code=status.HTTP_204_NO_CONTENT)

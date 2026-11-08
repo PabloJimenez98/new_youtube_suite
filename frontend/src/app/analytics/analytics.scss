@@ -1,30 +1,109 @@
-.analytics__panel {
-  margin-bottom: var(--space-5);
-
-  h2 {
-    font-size: 1.1rem;
-    margin-bottom: var(--space-4);
+.analytics {
+  &__intro {
+    max-width: 52rem;
+    margin: var(--space-2) 0 var(--space-5);
+    color: var(--color-text-secondary);
   }
-}
 
-.analytics__metrics {
-  display: flex;
-  gap: var(--space-7);
+  &__i {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    color: var(--color-accent-cyan);
+  }
 
-  div {
+  &__section {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--space-4);
+    margin-bottom: var(--space-7);
+  }
+
+  &__section-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+
+    h2 {
+      font-size: 1.2rem;
+    }
+
+    .muted {
+      font-size: 0.82rem;
+    }
+  }
+
+  &__filters {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    font-size: 0.82rem;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+
+    &--3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    @media (max-width: 960px) {
+      &,
+      &--3 {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+
+  &__tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: var(--space-4);
+  }
+
+  &__error {
+    color: var(--color-danger);
   }
 }
 
-.analytics__metric-label {
-  color: var(--color-text-secondary);
-  font-size: 0.85rem;
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+
+  &__label {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+  }
+
+  &__value {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+
+    &--text {
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+    }
+  }
+
+  &__hint {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+  }
 }
 
-.analytics__metric-value {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 700;
+.analytics__status {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-5);
+  font-size: 0.8rem;
+}
+
+.analytics__pending {
+  color: var(--color-warning);
 }

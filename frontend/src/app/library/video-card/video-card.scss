@@ -4,37 +4,56 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-3);
+  color: var(--color-text-primary);
+  text-decoration: none;
   @include mixins.neon-focus(var(--color-accent-pink));
 
   &__thumb {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 8rem;
+    aspect-ratio: 16 / 9;
     border-radius: var(--radius-md);
+    overflow: hidden;
     background: linear-gradient(135deg, var(--color-bg-raised), var(--color-bg-base));
     color: var(--color-text-muted);
     font-size: 1.5rem;
   }
 
+  &__frame {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+
+  &__duration {
+    position: absolute;
+    right: var(--space-2);
+    bottom: var(--space-2);
+    padding: 0 var(--space-1);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.75);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: #fff;
+  }
+
   &__title {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   &__meta {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-  }
-
-  &__duration {
-    font-family: var(--font-mono);
-    color: var(--color-text-muted);
-    font-size: 0.85rem;
   }
 
   &__date {

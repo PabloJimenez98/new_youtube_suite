@@ -237,3 +237,46 @@ async def test_0014_creates_hook_scores_unique_per_clip_with_cascade_and_reverts
     assert "hook_scores" not in tables and "ctr_predictions" in tables
 
     _run_alembic("downgrade", "base")
+
+
+async def test_0015_adds_youtube_video_id_backfilled_from_the_filename_and_reverts() -> None:
+    _run_alembic("downgrade", "base")
+    _run_alembic("upgrade", "0014")
+    engine = create_async_engine(get_settings().test_database_url)
+    try:
+        async with engine.begin() as conn:
+            for name in ["Show [abc] 1X09 [oSCkZ8yVz7M].mkv", "no id.mp4", "[short].mp4"]:
+                await conn.execute(text("INSERT INTO uploads (filename, storage_path) VALUES (:f, 'k')"), {"f": name})
+        _run_alembic("upgrade", "0015")
+        async with engine.begin() as conn:
+            rows = (await conn.execute(text("SELECT filename, youtube_video_id FROM uploads ORDER BY id"))).all()
+        assert [r[1] for r in rows] == ["oSCkZ8yVz7M", None, None]
+    finally:
+        await engine.dispose()
+
+    _run_alembic("downgrade", "0014")
+    _run_alembic("downgrade", "base")
+    # Leave the test DB at base, like the other migration tests (the
+    # per-test fixtures build the schema with create_all).
+
+
+async def test_0016_creates_insight_results_unique_per_analysis_and_format_and_reverts() -> None:
+    _run_alembic("downgrade", "base")
+    _run_alembic("upgrade", "head")
+    assert "insight_results" in await _table_names()
+    engine = create_async_engine(get_settings().test_database_url)
+    insert = text(
+        "INSERT INTO insight_results (name, format, payload, source_key, duration_ms) VALUES ('drivers', 'long', '{}', 'k', 5)"
+    )
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(insert)
+        with pytest.raises(IntegrityError):  # one row per (analysis, format)
+            async with engine.begin() as conn:
+                await conn.execute(insert)
+    finally:
+        await engine.dispose()
+
+    _run_alembic("downgrade", "0015")
+    assert "insight_results" not in await _table_names()
+    _run_alembic("downgrade", "base")

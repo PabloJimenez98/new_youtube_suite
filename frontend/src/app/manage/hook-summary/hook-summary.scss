@@ -1,0 +1,141 @@
+.hs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+
+    h3 {
+      font-family: var(--font-body);
+      font-size: 0.98rem;
+    }
+  }
+
+  &__lead {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+  }
+
+  &__w {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-text-primary);
+  }
+
+  &__table-wrap {
+    overflow-x: auto;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+
+    th {
+      text-align: left;
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--color-text-muted);
+      padding: var(--space-1) var(--space-2);
+      border-bottom: 1px solid var(--color-border-strong);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: var(--space-2);
+      border-bottom: 1px solid var(--color-border);
+      vertical-align: middle;
+    }
+  }
+
+  &__rank {
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--color-accent-pink);
+  }
+
+  &__clip {
+    padding: 0;
+    border: none;
+    background: none;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-accent-cyan);
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      text-decoration: underline;
+      outline: none;
+    }
+  }
+
+  &__why {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.72rem;
+  }
+
+  &__plus {
+    color: var(--color-text-secondary);
+  }
+
+  &__minus {
+    color: var(--color-text-muted);
+  }
+
+  &__score {
+    // A span inside the cell: flex on the <td> itself breaks the table row.
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 8rem;
+  }
+
+  &__score-num {
+    width: 2ch;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    text-align: right;
+  }
+
+  &__bar {
+    display: inline-block;
+    width: 4.5rem;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--color-bg-raised);
+    overflow: hidden;
+    vertical-align: middle;
+
+    span {
+      display: block;
+      height: 100%;
+      border-radius: 3px;
+      background: #3987e5;
+    }
+
+    &--score span {
+      background: var(--gradient-heading);
+    }
+  }
+
+  &__measured {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  &__note {
+    margin: 0;
+    font-size: 0.82rem;
+  }
+}

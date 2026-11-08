@@ -1,0 +1,74 @@
+.detail {
+  &__back {
+    display: inline-block;
+    margin-bottom: var(--space-3);
+    font-size: 0.88rem;
+    text-decoration: none;
+  }
+
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+
+  &__title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    min-width: 0;
+
+    h1 {
+      font-size: 1.35rem;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__meta {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+  }
+
+  &__delete {
+    flex: none;
+    font-size: 0.8rem;
+    padding: var(--space-1) var(--space-3);
+  }
+
+  &__error {
+    color: var(--color-danger);
+  }
+}
+
+.detail__yt {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-1);
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+
+  a {
+    text-decoration: none;
+  }
+}
+
+.detail__yt-input {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  width: 10rem;
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-raised);
+  color: var(--color-text-primary);
+}
+
+.detail__yt-btn {
+  padding: 4px var(--space-3);
+  font-size: 0.8rem;
+}

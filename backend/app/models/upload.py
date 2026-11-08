@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Float, String, func
+from sqlalchemy import CheckConstraint, DateTime, Float, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -22,6 +22,8 @@ class Upload(Base):
     # Key of the 16kHz mono WAV extracted by the transcribe job (M3).
     audio_storage_path: Mapped[str | None] = mapped_column(String, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # The episode's YouTube video, from the filename or set by hand (0022 §1).
+    youtube_video_id: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -12,6 +12,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -44,9 +45,8 @@ def _content_disposition(filename: str) -> str:
     return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename, safe='')}"
 
 
-async def _subtitle_response(
-    upload_id: int, fmt: Literal["srt", "vtt"], db: AsyncSession
-) -> Response:
+async def _require_transcript(upload_id: int, db: AsyncSession) -> Upload:
+    """The upload, if a transcript can be served for it (404 / 409 otherwise)."""
     upload = await db.get(Upload, upload_id)
     if upload is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Upload not found")
@@ -70,7 +70,13 @@ async def _subtitle_response(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found"
         )
+    return upload
 
+
+async def _subtitle_response(
+    upload_id: int, fmt: Literal["srt", "vtt"], db: AsyncSession
+) -> Response:
+    upload = await _require_transcript(upload_id, db)
     segments = (
         await db.execute(
             select(TranscriptSegment)
@@ -106,3 +112,40 @@ async def get_transcript_vtt(
     _current_user: User = Depends(get_current_user),
 ) -> Response:
     return await _subtitle_response(upload_id, "vtt", db)
+
+
+class TranscriptSegmentOut(BaseModel):
+    start: float
+    end: float
+    text: str
+    #: Majority speaker of the segment's words (M4); null before diarization.
+    speaker: str | None
+
+
+class TranscriptOut(BaseModel):
+    segments: list[TranscriptSegmentOut]
+    #: Distinct speakers, in order of first appearance; empty before diarization.
+    speakers: list[str]
+
+
+@router.get("/{upload_id}/transcript", response_model=TranscriptOut)
+async def get_transcript(
+    upload_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+) -> TranscriptOut:
+    """The transcript as JSON, for the in-app viewer (docs/decisions/0022 §4)."""
+    await _require_transcript(upload_id, db)
+    rows = (
+        await db.execute(
+            select(TranscriptSegment)
+            .where(TranscriptSegment.upload_id == upload_id)
+            .order_by(TranscriptSegment.segment_index)
+        )
+    ).scalars()
+    segments = [
+        TranscriptSegmentOut(start=s.start_seconds, end=s.end_seconds, text=s.text.strip(), speaker=s.speaker_label)
+        for s in rows
+    ]
+    speakers = list(dict.fromkeys(s.speaker for s in segments if s.speaker))
+    return TranscriptOut(segments=segments, speakers=speakers)

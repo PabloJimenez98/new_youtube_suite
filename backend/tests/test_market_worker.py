@@ -19,14 +19,17 @@ def test_cron_jobs_registered_with_expected_schedule() -> None:
         "cron:market_daily_pull",
         "cron:analytics_daily_pull",
         "cron:reporting_daily_poll",
+        "cron:insights_refresh",  # precomputed Analytics (docs/decisions/0023)
     }
     rss, daily = jobs["cron:market_rss_poll"], jobs["cron:market_daily_pull"]
     assert rss.minute == 5 and rss.hour is None
     assert daily.hour == 9 and daily.minute == 30
     assert rss.unique and daily.unique
+    insights = jobs["cron:insights_refresh"]
+    assert insights.minute == 45 and insights.hour is None and insights.run_at_startup
     assert WorkerSettings.timezone is timezone.utc
-    # The tool-job function is still there.
-    assert [f.__name__ for f in WorkerSettings.functions] == ["process_job"]
+    # The tool-job function, plus the refresh the API enqueues when a result is missing.
+    assert [f.__name__ for f in WorkerSettings.functions] == ["process_job", "insights_refresh"]
 
 
 @pytest.mark.parametrize("task", [tasks.market_daily_pull, tasks.market_rss_poll])

@@ -1,30 +1,261 @@
 <h1 class="page-heading">Analytics</h1>
+<p class="analytics__intro">
+  Two data sources: your connected channel’s private analytics, and public statistics of the podcast channels the
+  market pipeline tracks. Hover the <span class="analytics__i">i</span> on any chart for what it shows and how it was
+  computed. <app-info key="market" />
+</p>
+<p class="analytics__status" role="status">
+  @if (pending()) {
+    <span class="analytics__pending">Computing the analyses in the background… the charts fill in as soon as they’re ready.</span>
+  } @else if (computedAt()) {
+    <span class="muted">Precomputed {{ computedAt() | date: 'medium' }} · refreshed hourly when new data arrives</span>
+  }
+</p>
 
-<app-youtube-connection />
-
-<app-preview-banner
-  message="The connection card is live (M11). The panels below are still a mock preview: they will show real data once the market-analysis pipeline ships (M10+)."
-/>
-
-<section class="glass-panel analytics__panel">
-  <h2>Your channel</h2>
-  <div class="analytics__metrics">
-    <div>
-      <span class="analytics__metric-label">Impressions</span>
-      <span class="analytics__metric-value">{{ channelMetrics.impressions | number }}</span>
-    </div>
-    <div>
-      <span class="analytics__metric-label">Avg. CTR</span>
-      <span class="analytics__metric-value">{{ channelMetrics.avgCtr }}</span>
-    </div>
-    <div>
-      <span class="analytics__metric-label">Avg. retention</span>
-      <span class="analytics__metric-value">{{ channelMetrics.avgRetention }}</span>
-    </div>
+<!-- ---- Your channel ------------------------------------------------------- -->
+<section class="analytics__section" aria-labelledby="own-heading">
+  <div class="analytics__section-head">
+    <h2 id="own-heading">Your channel</h2>
+    <span class="muted">YouTube Analytics + Reporting APIs (OAuth)</span>
+    <app-info key="analytics" />
   </div>
+
+  <app-youtube-connection />
+
+  @if (channel().data; as c) {
+    <div class="analytics__grid analytics__grid--3">
+      <app-chart-card
+        title="Daily views"
+        [help]="help['channelViews']"
+        [table]="channelViews()?.table ?? null"
+        [empty]="!channelViews()"
+        [emptyText]="c.connected ? 'No daily rows yet: Analytics data arrives 48–72 h after a video gets views.' : 'Connect your channel above to see its daily views.'"
+      >
+        @if (channelViews(); as b) {
+          <app-chart [option]="b.option" [height]="220" label="Daily views of your channel" />
+        }
+      </app-chart-card>
+      <app-chart-card
+        title="Real CTR"
+        [help]="help['channelCtr']"
+        [table]="channelCtr()?.table ?? null"
+        [empty]="!channelCtr()"
+        [emptyText]="c.connected ? 'No reach reports yet: YouTube posts the first one within 48 h of the reporting job.' : 'Connect your channel to collect real CTR.'"
+      >
+        @if (channelCtr(); as b) {
+          <app-chart [option]="b.option" [height]="220" label="Daily click-through rate" />
+        }
+      </app-chart-card>
+      <app-chart-card
+        title="Audience retention"
+        [help]="help['retention']"
+        [table]="retention()?.table ?? null"
+        [empty]="!retention()"
+        [emptyText]="c.connected ? 'No retention curves yet: they need videos with views.' : 'Connect your channel to see how long viewers stay.'"
+      >
+        @if (retention(); as b) {
+          <app-chart [option]="b.option" [height]="220" label="Average audience retention curve" />
+        }
+      </app-chart-card>
+    </div>
+  } @else if (channel().error) {
+    <p class="analytics__error" role="alert">Could not load your channel’s data.</p>
+  }
 </section>
 
-<section class="glass-panel analytics__panel">
-  <h2>Trending in curated public channels</h2>
-  <app-market-chart [trends]="trends" />
+<!-- ---- Market ------------------------------------------------------------ -->
+<section class="analytics__section" aria-labelledby="market-heading">
+  <div class="analytics__section-head">
+    <h2 id="market-heading">Podcast market</h2>
+    <span class="muted">YouTube Data API v3 · daily public snapshots</span>
+    <app-info key="market" />
+  </div>
+
+  <div class="analytics__filters" role="group" aria-label="Video format">
+    <div class="segmented">
+      @for (f of formats; track f.id) {
+        <button type="button" [class.is-active]="format() === f.id" [attr.aria-pressed]="format() === f.id" (click)="setFormat(f.id)">
+          {{ f.label }}
+        </button>
+      }
+    </div>
+    @if (overview().data; as o) {
+      <span class="muted">{{ o.videos | number }} videos · {{ o.channels.length }} channels · snapshot {{ o.snapshot_date ?? '–' }}</span>
+    }
+  </div>
+
+  @if (overview().error) {
+    <p class="analytics__error" role="alert">Could not load the market data.</p>
+  }
+
+  @if (overview().data; as o) {
+    <div class="analytics__tiles">
+      <div class="tile glass-panel">
+        <span class="tile__label">Videos tracked</span>
+        <span class="tile__value">{{ compact(o.videos) }}</span>
+        <span class="tile__hint">{{ o.channels.length }} channels</span>
+      </div>
+      <div class="tile glass-panel">
+        <span class="tile__label">Your median views</span>
+        <span class="tile__value">{{ compact(ownChannel()?.views_median) }}</span>
+        <span class="tile__hint">
+          @if (ownRank(); as r) {
+            #{{ r.rank }} of {{ r.of }} channels
+          } @else {
+            Your channel isn’t tracked
+          }
+        </span>
+      </div>
+      <div class="tile glass-panel">
+        <span class="tile__label">Your likes per view</span>
+        <span class="tile__value">{{ pct(ownChannel()?.like_rate, 1) }}</span>
+        <span class="tile__hint">median per video</span>
+      </div>
+      <div class="tile glass-panel">
+        <span class="tile__label">Strongest view driver</span>
+        <span class="tile__value tile__value--text">{{ topDriver()?.label ?? '–' }}</span>
+        <span class="tile__hint">
+          @if (topDriver(); as t) {
+            Spearman ρ {{ t.rho.toFixed(2) }}
+          }
+        </span>
+      </div>
+    </div>
+
+    <div class="analytics__grid">
+      <app-chart-card
+        title="Views per video, by channel"
+        subtitle="median and spread"
+        [help]="help['views']"
+        [table]="views()?.table ?? null"
+        [empty]="!o.channels.length"
+        emptyText="No videos of this format in the market data."
+      >
+        @if (views(); as b) {
+          <app-chart [option]="b.option" [height]="b.height ?? 300" label="Views distribution per channel" />
+        }
+      </app-chart-card>
+      <app-chart-card
+        title="Engagement by channel"
+        subtitle="likes per view"
+        [help]="help['likes']"
+        [table]="likes()?.table ?? null"
+        [empty]="!o.channels.length"
+        emptyText="No videos of this format in the market data."
+      >
+        @if (likes(); as b) {
+          <app-chart [option]="b.option" [height]="b.height ?? 300" label="Median likes per view per channel" />
+        }
+      </app-chart-card>
+    </div>
+
+    <app-chart-card title="Market output" subtitle="videos published per month" [help]="help['months']" [table]="months()?.table ?? null" [empty]="!o.monthly.length">
+      @if (months(); as b) {
+        <app-chart [option]="b.option" [height]="220" label="Videos published per month" />
+      }
+    </app-chart-card>
+  } @else if (overview().loading) {
+    <p class="muted">Loading the market data…</p>
+  }
+</section>
+
+<!-- ---- Data-science insights ----------------------------------------------- -->
+<section class="analytics__section" aria-labelledby="ds-heading">
+  <div class="analytics__section-head">
+    <h2 id="ds-heading">Insights</h2>
+    <span class="muted">Clustering, rank correlation and regression on the market data</span>
+  </div>
+
+  <app-chart-card
+    title="Channels like yours"
+    [subtitle]="clusterInfo() ? 'k-means (k = ' + clusterInfo()!.k + ', silhouette ' + clusterInfo()!.silhouette.toFixed(2) + ') on PCA axes' : null"
+    [help]="help['clusters']"
+    [table]="clusterChart()?.table ?? null"
+    [empty]="!clusterChart()"
+    [emptyText]="waiting(clusters()) ? 'Computing…' : 'Not enough channels with complete data to cluster.'"
+  >
+    @if (clusterChart(); as b) {
+      <app-chart [option]="b.option" [height]="b.height ?? 360" label="Channel clusters on the first two principal components" />
+    }
+  </app-chart-card>
+
+  <div class="analytics__grid">
+    <app-chart-card
+      title="What goes with more views"
+      subtitle="Spearman ρ, 95% CI"
+      [help]="help['drivers']"
+      [table]="driverChart()?.table ?? null"
+      [empty]="!driverChart()"
+      [emptyText]="waiting(drivers()) ? 'Computing…' : 'Not enough videos of this format yet.'"
+    >
+      @if (driverChart(); as b) {
+        <app-chart [option]="b.option" [height]="b.height ?? 300" label="Correlation of video traits with age-adjusted views" />
+      }
+    </app-chart-card>
+    <app-chart-card
+      title="Title words"
+      subtitle="views vs expected"
+      [help]="help['keywords']"
+      [table]="keywordChart()?.table ?? null"
+      [empty]="!keywordChart()"
+      [emptyText]="waiting(keywords()) ? 'Computing…' : (keywords().data?.reason ?? 'Not enough videos of this format yet.')"
+    >
+      @if (keywordChart(); as b) {
+        <app-chart [option]="b.option" [height]="b.height ?? 300" label="Title words and their lift on views" />
+      }
+    </app-chart-card>
+  </div>
+
+  <app-chart-card
+    title="When videos are published"
+    subtitle="weekday × hour, Madrid time"
+    [help]="help['heatmap']"
+    [table]="heatmap()?.table ?? null"
+    [empty]="!heatmap()"
+    [emptyText]="waiting(drivers()) ? 'Computing…' : 'Not enough videos of this format yet.'"
+  >
+    @if (heatmap(); as b) {
+      <app-chart [option]="b.option" [height]="b.height ?? 300" label="Views versus expected by publication weekday and hour" />
+    }
+  </app-chart-card>
+
+  <div class="analytics__grid">
+    <app-chart-card
+      title="Views vs video age"
+      subtitle="log-log"
+      [help]="help['age']"
+      [table]="ageChart()?.table ?? null"
+      [empty]="!ageChart()"
+      [emptyText]="waiting(growth()) ? 'Computing…' : 'Not enough videos of this format yet.'"
+    >
+      @if (ageChart(); as b) {
+        <app-chart [option]="b.option" [height]="b.height ?? 340" label="Views against days since publication" />
+      }
+    </app-chart-card>
+    <app-chart-card
+      title="Growth exponent per channel"
+      subtitle="views ∝ age^b"
+      [help]="help['slopes']"
+      [table]="slopes()?.table ?? null"
+      [empty]="!slopes()?.table?.rows?.length"
+      [emptyText]="waiting(growth()) ? 'Computing…' : 'No channel has 20 videos of this format yet.'"
+    >
+      @if (slopes(); as b) {
+        <app-chart [option]="b.option" [height]="b.height ?? 300" label="Growth exponent per channel" />
+      }
+    </app-chart-card>
+  </div>
+
+  <app-chart-card
+    title="View velocity"
+    subtitle="views gained per day, by video age"
+    [help]="help['velocity']"
+    [table]="velocityChart()?.table ?? null"
+    [empty]="!velocityChart()"
+    [emptyText]="velocityReason()"
+  >
+    @if (velocityChart(); as b) {
+      <app-chart [option]="b.option" [height]="240" label="Median views per day by video age" />
+    }
+  </app-chart-card>
 </section>

@@ -1,0 +1,197 @@
+<div class="ws">
+  <div class="ws__top">
+    <div class="ws__player">
+      <video #player class="ws__video" [src]="videoUrl()" controls preload="metadata"></video>
+    </div>
+    <app-pipeline-stepper
+      [states]="states()"
+      [suggestion]="suggestion()"
+      [starting]="runningToolType()"
+      (selectTool)="openToolTab($event)"
+      (runSuggested)="onSuggestedAction($event)"
+    />
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Tools">
+    @for (tab of tabs; track tab.id) {
+      <button
+        type="button"
+        role="tab"
+        class="tabs__tab"
+        [id]="'tab-' + tab.id"
+        [class.is-active]="activeTab() === tab.id"
+        [attr.aria-selected]="activeTab() === tab.id"
+        [attr.aria-controls]="'panel-' + tab.id"
+        (click)="selectTab(tab.id)"
+      >
+        <span [class]="'status-dot status-dot--' + tabStatus(tab)" aria-hidden="true"></span>
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+
+  <ng-template #toolBar let-tool>
+    @let s = stateOf(tool);
+    <div class="tool-bar" [attr.data-tool]="tool">
+      <div class="tool-bar__title">
+        <span class="tool-bar__name">{{ labelOf(tool) }}</span>
+        <app-info [key]="tool" />
+        <span class="model-chip" [attr.title]="docOf(tool).model.name">{{ docOf(tool).model.kind }}</span>
+        @if (s.job; as job) {
+          <app-job-status-badge [status]="job.status" [error]="job.error_message" />
+        }
+      </div>
+
+      <div class="tool-bar__actions">
+        @if (s.blockedReason && s.status !== 'running' && s.status !== 'queued') {
+          <span class="tool-bar__blocked">
+            {{ s.blockedReason }}
+            @if (s.unblockedBy && s.unblockedBy !== tool) {
+              · <button type="button" class="link-btn" (click)="openToolTab(s.unblockedBy)">{{ toolLabels[s.unblockedBy] }} →</button>
+            }
+          </span>
+        }
+        @if (tool === 'shorts' && s.status !== 'running' && s.status !== 'queued') {
+          <select
+            class="tool-bar__select"
+            aria-label="Shorts aspect ratio"
+            [value]="shortsAspect()"
+            (change)="setShortsAspect($any($event.target).value)"
+          >
+            @for (ratio of aspectRatios; track ratio) {
+              <option [value]="ratio">{{ ratio }}</option>
+            }
+          </select>
+          <label class="tool-bar__check">
+            <input type="checkbox" [checked]="shortsCaptions()" (change)="shortsCaptions.set($any($event.target).checked)" />
+            Captions
+          </label>
+        }
+        @if (s.status !== 'running' && s.status !== 'queued') {
+          <button
+            type="button"
+            class="btn tool-bar__run"
+            [class.btn--primary]="!s.hasResult && !s.blockedReason"
+            [class.btn--ghost]="s.hasResult"
+            [disabled]="runningToolType() === tool || !canRun(tool)"
+            [attr.title]="s.blockedReason"
+            (click)="runTool(tool)"
+          >
+            {{ runningToolType() === tool ? 'Starting…' : s.hasResult ? 'Re-run' : 'Run' }}
+          </button>
+        }
+      </div>
+    </div>
+  </ng-template>
+
+  <ng-template #empty let-tool>
+    <div class="ws__empty">
+      <p>{{ docOf(tool).oneLiner }}</p>
+      <p class="muted">
+        @if (stateOf(tool).blockedReason; as reason) {
+          {{ reason }}: run the earlier step first, then the results appear here.
+        } @else {
+          Run it to see the results here. The ⓘ next to its name explains each step.
+        }
+      </p>
+    </div>
+  </ng-template>
+
+  <!-- Transcript & speakers -->
+  <section class="ws__panel" role="tabpanel" id="panel-transcript" aria-labelledby="tab-transcript" [hidden]="activeTab() !== 'transcript'">
+    <ng-container *ngTemplateOutlet="toolBar; context: { $implicit: 'transcribe' }" />
+    <ng-container *ngTemplateOutlet="toolBar; context: { $implicit: 'diarize' }" />
+    @if (hasTranscript()) {
+      <div class="ws__downloads">
+        <span>Subtitles</span>
+        @for (format of subtitleFormats; track format) {
+          <button
+            type="button"
+            class="btn btn--ghost ws__download"
+            [disabled]="downloadingFormat() === format"
+            [attr.aria-label]="'Download .' + format + ' subtitles'"
+            (click)="downloadSubtitle(format)"
+          >
+            .{{ format }}
+          </button>
+        }
+        <span class="muted">
+          {{ states().diarize.hasResult ? 'With speaker names.' : 'Run Speakers to add speaker names.' }}
+        </span>
+      </div>
+      <app-transcript-viewer [uploadId]="upload().id" [version]="transcriptVersion()" (seek)="seekTo($event)" />
+    } @else {
+      <ng-container *ngTemplateOutlet="empty; context: { $implicit: 'transcribe' }" />
+    }
+  </section>
+
+  <!-- Chapters -->
+  <section class="ws__panel" role="tabpanel" id="panel-chapters" aria-labelledby="tab-chapters" [hidden]="activeTab() !== 'chapters'">
+    <ng-container *ngTemplateOutlet="toolBar; context: { $implicit: 'chapters' }" />
+    @if (chapters()?.length) {
+      @let list = chapters()!;
+      <div class="ws__chapters" aria-label="Chapters">
+        <div class="ws__chapters-head">
+          <span class="model-chip" title="Model version that produced these chapters">{{ list[0].model_version }}</span>
+          <button type="button" class="btn btn--ghost ws__copy" (click)="copyChapters()">
+            {{ copied() ? 'Copied!' : 'Copy for YouTube' }}
+          </button>
+        </div>
+        <ol class="ws__chapter-list">
+          @for (chapter of list; track chapter.order_index) {
+            <li>
+              <span class="ws__chapter-time">{{ formatTimestamp(chapter.start_seconds, chaptersWithHours()) }}</span>
+              {{ chapter.title }}
+            </li>
+          }
+        </ol>
+      </div>
+    } @else {
+      <ng-container *ngTemplateOutlet="empty; context: { $implicit: 'chapters' }" />
+    }
+  </section>
+
+  <!-- Relevance -->
+  <section class="ws__panel" role="tabpanel" id="panel-relevance" aria-labelledby="tab-relevance" [hidden]="activeTab() !== 'relevance'">
+    <ng-container *ngTemplateOutlet="toolBar; context: { $implicit: 'relevance' }" />
+    @if (relevance()?.windows?.length) {
+      <app-relevance-panel [relevance]="relevance()!" (seek)="seekTo($event)" />
+    } @else {
+      <ng-container *ngTemplateOutlet="empty; context: { $implicit: 'relevance' }" />
+    }
+  </section>
+
+  <!-- Shorts & hooks -->
+  <section class="ws__panel" role="tabpanel" id="panel-shorts" aria-labelledby="tab-shorts" [hidden]="activeTab() !== 'shorts'">
+    <ng-container *ngTemplateOutlet="toolBar; context: { $implicit: 'shorts' }" />
+    <ng-container *ngTemplateOutlet="toolBar; context: { $implicit: 'hook' }" />
+    @if (clips()?.length) {
+      <app-hook-summary [clips]="clips()!" (seek)="seekTo($event)" />
+      <app-shorts-panel [clips]="clips()!" [token]="token()" (seek)="seekTo($event)" />
+    } @else {
+      <ng-container *ngTemplateOutlet="empty; context: { $implicit: 'shorts' }" />
+    }
+  </section>
+
+  <!-- Show notes -->
+  <section class="ws__panel" role="tabpanel" id="panel-shownotes" aria-labelledby="tab-shownotes" [hidden]="activeTab() !== 'shownotes'">
+    <ng-container *ngTemplateOutlet="toolBar; context: { $implicit: 'shownotes' }" />
+    @if (showNotes(); as notes) {
+      <app-show-notes-panel [uploadId]="upload().id" [notes]="notes" />
+    } @else {
+      <ng-container *ngTemplateOutlet="empty; context: { $implicit: 'shownotes' }" />
+    }
+  </section>
+
+  <!-- Titles & thumbnails (CTR) -->
+  <section class="ws__panel" role="tabpanel" id="panel-ctr" aria-labelledby="tab-ctr" [hidden]="activeTab() !== 'ctr'">
+    <ng-container *ngTemplateOutlet="toolBar; context: { $implicit: 'ctr' }" />
+    <app-ctr-panel
+      [uploadId]="upload().id"
+      [token]="token()"
+      [scoredJobId]="succeededCtrJobId()"
+      [hasShowNotes]="showNotes() !== null"
+      (candidateCount)="ctrCandidates.set($event)"
+    />
+  </section>
+</div>

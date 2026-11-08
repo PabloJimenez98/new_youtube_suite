@@ -1,0 +1,57 @@
+<figure class="flow">
+  <div class="flow__scroll">
+    <svg
+      class="flow__svg"
+      role="img"
+      [attr.aria-label]="label()"
+      [attr.viewBox]="'0 0 ' + layout().width + ' ' + layout().height"
+      [attr.width]="layout().width"
+      [attr.height]="layout().height"
+    >
+      <defs>
+        <marker id="flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" class="flow__arrowhead" />
+        </marker>
+      </defs>
+
+      @for (edge of layout().edges; track edge.from + '>' + edge.to) {
+        <path class="flow__edge" [class.flow__edge--long]="edge.long" [attr.d]="edge.path" marker-end="url(#flow-arrow)" />
+        @if (edge.label) {
+          <text class="flow__edge-label" [attr.x]="edge.labelX" [attr.y]="edge.labelY">{{ edge.label }}</text>
+        }
+      }
+
+      @for (node of layout().nodes; track node.id) {
+        <g
+          class="flow__node"
+          [class]="'flow__node flow__node--' + node.kind"
+          [class.flow__node--link]="!!node.link"
+          [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
+          [attr.tabindex]="node.link ? 0 : null"
+          [attr.role]="node.link ? 'button' : null"
+          [attr.aria-label]="node.link ? 'Explain ' + node.label : null"
+          (click)="activate(node)"
+          (keydown.enter)="activate(node)"
+        >
+          <rect class="flow__shape" [attr.width]="nodeW" [attr.height]="nodeH" rx="10" />
+          <foreignObject [attr.width]="nodeW" [attr.height]="nodeH">
+            <div class="flow__text">
+              <span class="flow__label">{{ node.label }}</span>
+              @if (node.detail) {
+                <span class="flow__detail">{{ node.detail }}</span>
+              }
+            </div>
+          </foreignObject>
+        </g>
+      }
+    </svg>
+  </div>
+
+  @if (showLegend()) {
+    <figcaption class="flow__legend">
+      @for (k of kinds(); track k.kind) {
+        <span class="flow__legend-item"><span class="flow__swatch" [class]="'flow__swatch flow__swatch--' + k.kind"></span>{{ k.label }}</span>
+      }
+    </figcaption>
+  }
+</figure>

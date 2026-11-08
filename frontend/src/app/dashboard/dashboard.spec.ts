@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { JobOut } from '../jobs/job.model';
@@ -69,6 +70,7 @@ describe('Dashboard', () => {
         { provide: Uploads, useValue: uploadsStub },
         { provide: Jobs, useValue: jobsStub },
         { provide: Shorts, useValue: shortsStub },
+        provideRouter([]),
       ],
     }).compileComponents();
 
@@ -102,13 +104,20 @@ describe('Dashboard', () => {
     );
   });
 
-  it('renders preview badges for the dummy tiles', () => {
+  it('shows real data only: no preview (dummy) tiles', () => {
     fixture.detectChanges();
-    const previewBadges = (fixture.nativeElement as HTMLElement).querySelectorAll(
-      'app-preview-badge',
-    );
-    // 2 dummy stat-tiles (CTR, top hook clip); shorts generated is real since M8
-    expect(previewBadges.length).toBeGreaterThanOrEqual(2);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelectorAll('app-preview-badge').length).toBe(0);
+    expect(el.querySelector('.badge--preview')).toBeNull();
+  });
+
+  it('shows pipeline coverage per tool', () => {
+    fixture.detectChanges();
+    const coverage = fixture.componentInstance['coverage']();
+    expect(coverage).toHaveLength(8);
+    expect(coverage.find((c) => c.tool === 'chapters')).toMatchObject({ done: 1, total: 2, pct: 50 });
+    expect(coverage.find((c) => c.tool === 'transcribe')).toMatchObject({ done: 0, total: 2 });
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.dashboard__coverage li').length).toBe(8);
   });
 
   it('shows the real number of generated shorts', () => {

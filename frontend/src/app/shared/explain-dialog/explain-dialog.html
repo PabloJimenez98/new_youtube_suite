@@ -1,0 +1,131 @@
+@if (doc(); as d) {
+  <div class="dialog-backdrop" (click)="explain.close()">
+    <div
+      #panel
+      class="explain glass-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="explain-title"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+      (keydown.tab)="trapFocus($event)"
+      (keydown.shift.tab)="trapFocus($event)"
+    >
+      <header class="explain__header">
+        <div>
+          <span class="explain__eyebrow">How it works · {{ d.model.kind }}</span>
+          <h2 id="explain-title">{{ d.title }}</h2>
+        </div>
+        <button type="button" class="btn btn--ghost btn--icon" aria-label="Close" (click)="explain.close()">✕</button>
+      </header>
+
+      <div class="explain__body">
+        <p class="explain__lead">{{ d.oneLiner }}</p>
+
+        <div class="explain__io">
+          <div>
+            <h3>Input</h3>
+            <ul>
+              @for (i of d.inputs; track $index) {
+                <li>{{ i }}</li>
+              }
+            </ul>
+          </div>
+          <div>
+            <h3>Output</h3>
+            <ul>
+              @for (o of d.outputs; track $index) {
+                <li>{{ o }}</li>
+              }
+            </ul>
+          </div>
+        </div>
+
+        <section aria-labelledby="explain-flow">
+          <div class="explain__section-head">
+            <h3 id="explain-flow">Data flow</h3>
+            @if (d.training) {
+              <div class="segmented" role="group" aria-label="Flow to show">
+                <button type="button" [class.is-active]="view() === 'inference'" [attr.aria-pressed]="view() === 'inference'" (click)="view.set('inference')">
+                  Inference
+                </button>
+                <button type="button" [class.is-active]="view() === 'training'" [attr.aria-pressed]="view() === 'training'" (click)="view.set('training')">
+                  Training{{ d.training.planned ? ' (planned)' : '' }}
+                </button>
+              </div>
+            }
+          </div>
+          @if (view() === 'training' && d.training) {
+            <p class="explain__note">{{ d.training.summary }}</p>
+          }
+          @if (flow(); as f) {
+            <app-flow-diagram [flow]="f" [label]="d.title + ' ' + view() + ' flow'" />
+          }
+        </section>
+
+        <section aria-labelledby="explain-steps">
+          <h3 id="explain-steps">Step by step</h3>
+          <ol class="explain__steps">
+            @for (step of d.steps; track $index; let i = $index) {
+              <li>
+                <span class="explain__step-num" aria-hidden="true">{{ i + 1 }}</span>
+                <div>
+                  <strong>{{ step.title }}</strong>
+                  <p>{{ step.detail }}</p>
+                  @if (step.terms?.length) {
+                    <div class="explain__terms">
+                      @for (t of step.terms; track $index) {
+                        <app-term [key]="t" />
+                      }
+                    </div>
+                  }
+                </div>
+              </li>
+            }
+          </ol>
+        </section>
+
+        <section class="explain__card" aria-labelledby="explain-model">
+          <h3 id="explain-model">Model card</h3>
+          <dl>
+            <dt>Model</dt>
+            <dd>{{ d.model.name }}</dd>
+            <dt>Type</dt>
+            <dd>{{ d.model.kind }}</dd>
+            <dt>Runs on</dt>
+            <dd>{{ d.model.runtime }}</dd>
+            @if (d.dependsOn.length) {
+              <dt>Needs</dt>
+              <dd>
+                @for (dep of d.dependsOn; track $index; let last = $last) {
+                  {{ toolLabels[dep] }}{{ last ? '' : ', ' }}
+                }
+              </dd>
+            }
+            <dt>Source</dt>
+            <dd>{{ d.source }}</dd>
+          </dl>
+        </section>
+
+        @if (d.metric; as m) {
+          <section aria-labelledby="explain-metric">
+            <h3 id="explain-metric">How to read it: {{ m.name }}</h3>
+            <p class="explain__means"><span>Means</span>{{ m.means }}</p>
+            <p class="explain__means explain__means--not"><span>Does not mean</span>{{ m.doesNotMean }}</p>
+          </section>
+        }
+
+        @if (d.limitations.length) {
+          <section aria-labelledby="explain-limits">
+            <h3 id="explain-limits">Limitations</h3>
+            <ul class="explain__limits">
+              @for (l of d.limitations; track $index) {
+                <li>{{ l }}</li>
+              }
+            </ul>
+          </section>
+        }
+      </div>
+    </div>
+  </div>
+}

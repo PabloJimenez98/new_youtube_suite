@@ -1,0 +1,66 @@
+<section class="tv" aria-label="Transcript">
+  @if (loading() && !data()) {
+    <p class="muted">Loading the transcript…</p>
+  } @else if (error()) {
+    <p class="tv__error" role="alert">Could not load the transcript.</p>
+  } @else if (data(); as d) {
+    <div class="tv__head">
+      <span class="muted">{{ d.segments.length }} segments · ~{{ words() | number }} words</span>
+      <input
+        class="tv__search"
+        type="search"
+        placeholder="Search the transcript"
+        aria-label="Search the transcript"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+      />
+      @if (query()) {
+        <span class="muted">{{ visible().length }} matching {{ hasSpeakers() ? 'turns' : 'paragraphs' }}</span>
+      }
+    </div>
+
+    @if (share().length) {
+      <div class="tv__speakers" aria-label="Speaking time">
+        <div class="tv__share" aria-hidden="true">
+          @for (s of share(); track s.speaker) {
+            <span [style.flex-grow]="s.share" [style.background]="speakerColor(s.speaker)"></span>
+          }
+        </div>
+        <ul class="tv__legend">
+          @for (s of share(); track s.speaker) {
+            <li>
+              <span class="tv__swatch" [style.background]="speakerColor(s.speaker)"></span>
+              {{ speakerName(s.speaker) }} · {{ (s.share * 100).toFixed(0) }}% of speaking time
+            </li>
+          }
+        </ul>
+      </div>
+    } @else {
+      <p class="tv__note muted">No speaker labels yet: run Speakers to see who says what.</p>
+    }
+
+    <ol class="tv__turns">
+      @for (t of visible(); track t.start) {
+        <li class="tv__turn" [style.border-left-color]="t.speaker ? speakerColor(t.speaker) : null">
+          <div class="tv__meta">
+            <button type="button" class="tv__time" [attr.aria-label]="'Play from ' + ts(t.start)" (click)="seek.emit(t.start)">{{ ts(t.start) }}</button>
+            @if (t.speaker) {
+              <span class="tv__speaker" [style.color]="speakerColor(t.speaker)">{{ speakerName(t.speaker) }}</span>
+            }
+          </div>
+          <p>
+            @for (p of parts(t.text); track $index) {
+              @if (p.hit) {
+                <mark>{{ p.text }}</mark>
+              } @else {
+                {{ p.text }}
+              }
+            }
+          </p>
+        </li>
+      } @empty {
+        <li class="muted">Nothing matches “{{ query() }}”.</li>
+      }
+    </ol>
+  }
+</section>

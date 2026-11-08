@@ -17,6 +17,7 @@ from app.config import get_settings
 from app.database import async_session_factory
 from app.diarization.pipeline import startup_healthcheck
 from app.analytics.tasks import analytics_daily_pull
+from app.insights.tasks import insights_refresh
 from app.market.tasks import market_daily_pull, market_rss_poll
 from app.reporting.tasks import reporting_daily_poll
 from app.worker.tasks import MAX_TRIES, fail_interrupted_jobs, process_job
@@ -47,7 +48,7 @@ async def startup(ctx: dict[str, Any]) -> None:
 
 
 class WorkerSettings:
-    functions = [process_job]
+    functions = [process_job, insights_refresh]
     # M10 market pipeline (docs/decisions/0015 §4). `unique=True` (the
     # default) stops overlapping runs of the same cron.
     cron_jobs = [
@@ -57,6 +58,8 @@ class WorkerSettings:
         cron(analytics_daily_pull, hour=10, minute=15),
         # M12 Reporting API: real CTR/impressions (docs/decisions/0018 §2).
         cron(reporting_daily_poll, hour=11, minute=0),
+        # Precomputed Analytics (0023): a no-op unless the market or channel data changed.
+        cron(insights_refresh, minute=45, run_at_startup=True),
     ]
     # arq evaluates cron schedules in the host timezone unless told
     # otherwise; the schedule above is UTC.
