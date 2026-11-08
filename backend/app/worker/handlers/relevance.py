@@ -39,16 +39,20 @@ def words_from_segments(segments: list[TranscriptSegment]) -> list[Word]:
     return words
 
 
-async def get_or_create_version(db: AsyncSession, label: str, description: dict) -> ModelVersion:
-    """The `relevance` row for this label; created live when no relevance version is live yet."""
+async def get_or_create_version(
+    db: AsyncSession, label: str, description: dict, *, model_name: str = "relevance"
+) -> ModelVersion:
+    """The `model_name` row for this label; created live when no version of that model is live yet.
+
+    Shared with the CTR handler (M13, `model_name="ctr"`)."""
     version = await db.scalar(
-        select(ModelVersion).where(ModelVersion.model_name == "relevance", ModelVersion.version_label == label)
+        select(ModelVersion).where(ModelVersion.model_name == model_name, ModelVersion.version_label == label)
     )
     if version is None:
         live = await db.scalar(
-            select(ModelVersion.id).where(ModelVersion.model_name == "relevance", ModelVersion.is_live)
+            select(ModelVersion.id).where(ModelVersion.model_name == model_name, ModelVersion.is_live)
         )
-        version = ModelVersion(model_name="relevance", version_label=label, is_live=live is None, **description)
+        version = ModelVersion(model_name=model_name, version_label=label, is_live=live is None, **description)
         db.add(version)
         await db.flush()
     return version

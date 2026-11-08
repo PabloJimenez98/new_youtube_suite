@@ -407,3 +407,24 @@ Plan in `docs/decisions/0018-reporting-api-reach.md`. Left out of M12 on purpose
   - The WSL clone was fast-forwarded to M11 (`git pull`). M12 is developed and tested there.
   - The gitignored test media were copied over from the Windows tree.
   - ~~**Still open:** `backend/.env` only in the Windows tree~~ **Resolved 2026-11-08:** the owner copied it to the WSL clone; the 4 diarization tests pass again.
+
+## 2026-11-08 — M13 planning/development (CTR predictor v0, heuristic)
+Plan in `docs/decisions/0019-ctr-heuristic-v0.md`; evidence in `docs/research/ctr-heuristic-evidence.md`.
+Left out of M13 on purpose, or still open:
+- **Calibrating the v0 weights against our own CTR (open, M15 territory):** once
+  `analytics_reach_snapshots` has real CTR for published videos, check whether the four
+  weighted features (and the zero-weight ones stored in `ctr_predictions.features`) track
+  real CTR. This needs the same open link as M11/M12: which candidate became the published
+  title/thumbnail of which video.
+- **Standalone candidates** (`upload_id` NULL, no episode): deferred by the owner.
+- **Recognised thumbnail text** (full OCR, e.g. text that repeats the title): the owner chose
+  detection only.
+- **Thumbnail candidate picker** (best frames from the episode): still deferred (v1-scope).
+- **Dashboard "Avg. predicted CTR" tile:** stays dummy; an average of relative scores across
+  episodes isn't meaningful anyway, so it needs a different metric before it's wired.
+- **Manual QA (open follow-up; M13 was closed without it on 2026-11-08):** the owner ranks 3–5
+  candidate sets on 2–3 real episodes and compares them with the heuristic. The findings go in
+  0019. Frames are ready in `C:\Users\Pablo\Downloads\ctr-qa-frames\`.
+- **Dev env: `STORAGE_BASE_PATH` (open):** the uploaded episodes live in `/home/pablo/yts-data/uploads`,
+  but the WSL clone's `backend/.env` resolves storage to `../uploads` (empty). The owner should set
+  `STORAGE_BASE_PATH=/home/pablo/yts-data/uploads` before running `scripts/dev.sh` from the WSL clone.

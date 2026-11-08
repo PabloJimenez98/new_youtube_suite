@@ -10,6 +10,7 @@ from app.auth.security import get_current_user, get_current_user_for_media
 from app.config import get_settings
 from app.database import get_db
 from app.models.clip import Clip
+from app.models.ctr import CtrPrediction
 from app.models.job import Job
 from app.models.upload import Upload
 from app.models.user import User
@@ -74,11 +75,15 @@ async def delete_upload(
 ) -> None:
     upload = await _get_upload_or_404(upload_id, db)
 
-    # The extracted audio (M3) and rendered shorts (M8) go with the
-    # video. Files already gone don't block cleaning up the row (and its
-    # jobs/transcript/clip rows, via ON DELETE CASCADE).
-    clip_keys = (await db.execute(select(Clip.storage_path).where(Clip.upload_id == upload.id))).scalars()
-    for key in (upload.storage_path, upload.audio_storage_path, *clip_keys):
+    # The extracted audio (M3), rendered shorts (M8) and CTR candidate
+    # thumbnails (M13) go with the video. Files already gone don't block
+    # cleaning up the row (and its jobs/transcript/clip/candidate rows, via
+    # ON DELETE CASCADE).
+    clip_keys = (await db.execute(select(Clip.storage_path).where(Clip.upload_id == upload.id))).scalars().all()
+    thumbnail_keys = (
+        await db.execute(select(CtrPrediction.candidate_thumbnail_path).where(CtrPrediction.upload_id == upload.id))
+    ).scalars().all()
+    for key in (upload.storage_path, upload.audio_storage_path, *clip_keys, *thumbnail_keys):
         if key is None:
             continue
         try:

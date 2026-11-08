@@ -280,7 +280,30 @@ describe('VideoRow', () => {
       const disabled = (fixture.nativeElement as HTMLElement).querySelectorAll(
         '.video-row__run:disabled',
       );
-      expect(disabled.length).toBe(5); // Speakers, Chapters, Relevance, Show notes, and Shorts (needs relevance)
+      expect(disabled.length).toBe(6); // Speakers, Chapters, Relevance, Show notes, Shorts (needs relevance) and CTR (needs candidates)
+    });
+  });
+
+  describe('CTR (M13)', () => {
+    const ctrRun = () =>
+      [...(fixture.nativeElement as HTMLElement).querySelectorAll('.video-row__tool')]
+        .find((t) => t.textContent!.includes('CTR score'))!
+        .querySelector('.video-row__run') as HTMLButtonElement;
+
+    it('blocks Run until the panel reports candidates', () => {
+      fixture.componentRef.setInput('jobs', []);
+      fixture.detectChanges();
+      expect(ctrRun().disabled).toBe(true);
+      expect(ctrRun().getAttribute('title')).toBe('Add title/thumbnail candidates first');
+
+      (fixture.componentInstance as unknown as { ctrCandidates: { set(n: number): void } }).ctrCandidates.set(2);
+      fixture.detectChanges();
+      expect(ctrRun().disabled).toBe(false);
+    });
+
+    it('always shows the candidates panel', () => {
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).querySelector('app-ctr-panel')).not.toBeNull();
     });
   });
 

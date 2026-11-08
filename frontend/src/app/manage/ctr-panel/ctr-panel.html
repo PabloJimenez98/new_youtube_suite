@@ -1,0 +1,202 @@
+<section class="ctr-panel" aria-label="Title and thumbnail candidates">
+  <header class="ctr-panel__header">
+    <span class="ctr-panel__label">Title / thumbnail candidates</span>
+    <span class="ctr-panel__hint"
+      >Relative score (heuristic v0), not a CTR %. Score with the CTR “Run” above.</span
+    >
+  </header>
+
+  @if (error(); as e) {
+    <p class="ctr-panel__error" role="alert">{{ e }}</p>
+  }
+
+  @if (loadError()) {
+    <p class="ctr-panel__muted">Could not load the candidates.</p>
+    <button type="button" class="btn btn--ghost" (click)="refresh()">Retry</button>
+  } @else {
+    @if (candidates().length === 0) {
+      <p class="ctr-panel__muted ctr-panel__empty">
+        No candidates yet. Add a title (and a thumbnail) below, or take the titles from the show
+        notes.
+      </p>
+    } @else {
+      @if (anyStale()) {
+        <p class="ctr-panel__muted ctr-panel__stale">
+          Some candidates are new or changed: run CTR to score them.
+        </p>
+      }
+      <ol class="ctr-panel__list">
+        @for (c of candidates(); track c.id) {
+          <li class="ctr-panel__item" [class.ctr-panel__item--unscored]="c.group === 'unscored'">
+            <div class="ctr-panel__thumb">
+              @if (c.has_thumbnail) {
+                <img [src]="thumbnailUrl(c)" alt="Thumbnail candidate" loading="lazy" />
+              } @else {
+                <span class="ctr-panel__no-thumb">No thumbnail</span>
+              }
+              <label class="btn btn--ghost ctr-panel__replace">
+                {{ c.has_thumbnail ? 'Replace' : 'Add image' }}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  (change)="replaceThumbnail(c, $event)"
+                  hidden
+                />
+              </label>
+            </div>
+
+            <div class="ctr-panel__main">
+              @if (editing() === c.id) {
+                <div class="ctr-panel__edit">
+                  <input
+                    class="ctr-panel__input"
+                    aria-label="Candidate title"
+                    [value]="editTitle()"
+                    [attr.maxlength]="maxTitle"
+                    (input)="editTitle.set($any($event.target).value)"
+                    (keydown.enter)="saveEdit(c)"
+                  />
+                  <span class="ctr-panel__count"
+                    >{{ editTitle().trim().length }}/{{ maxTitle }}</span
+                  >
+                  <button
+                    type="button"
+                    class="btn btn--primary ctr-panel__save"
+                    (click)="saveEdit(c)"
+                  >
+                    Save
+                  </button>
+                  <button type="button" class="btn btn--ghost" (click)="editing.set(null)">
+                    Cancel
+                  </button>
+                </div>
+              } @else {
+                <p class="ctr-panel__title">
+                  {{ c.candidate_title }}
+                  <span class="ctr-panel__count"
+                    >{{ c.candidate_title.length }}/{{ maxTitle }}</span
+                  >
+                </p>
+              }
+
+              <div class="ctr-panel__score-row">
+                @if (c.predicted_score !== null) {
+                  <span class="ctr-panel__rank">#{{ c.rank }}</span>
+                  <span class="ctr-panel__bar" aria-hidden="true">
+                    <span class="ctr-panel__bar-fill" [style.width.%]="c.predicted_score"></span>
+                  </span>
+                  <span class="ctr-panel__score">{{ c.predicted_score }}</span>
+                  @if (c.partial) {
+                    <span
+                      class="badge ctr-panel__badge"
+                      title="Scored from the title alone; add a thumbnail"
+                      >title only</span
+                    >
+                  }
+                } @else if (c.features?.error) {
+                  <span class="ctr-panel__error-inline">{{ c.features?.error }}</span>
+                } @else {
+                  <span class="badge ctr-panel__badge">not scored</span>
+                }
+                @if (c.source === 'show_notes') {
+                  <span class="ctr-panel__source">from show notes</span>
+                }
+              </div>
+
+              @if (c.predicted_score !== null) {
+                <button type="button" class="btn btn--ghost ctr-panel__why" (click)="toggle(c.id)">
+                  {{ expanded().has(c.id) ? 'Hide breakdown' : 'Why this score?' }}
+                </button>
+                @if (expanded().has(c.id)) {
+                  <div class="ctr-panel__breakdown">
+                    <ul class="ctr-panel__subs">
+                      @for (s of subScores(c); track s.key) {
+                        <li>
+                          <span>{{ s.label }}</span>
+                          <span>{{ s.value.toFixed(2) }} × {{ s.weight }}</span>
+                        </li>
+                      }
+                    </ul>
+                    <p class="ctr-panel__muted">
+                      Measured, not counted in v0 (no CTR evidence yet):
+                    </p>
+                    <ul class="ctr-panel__logged">
+                      @for (f of loggedFeatures(c); track f.key) {
+                        <li>{{ f.key }}: {{ f.value }}</li>
+                      }
+                    </ul>
+                  </div>
+                }
+              }
+            </div>
+
+            <div class="ctr-panel__actions">
+              @if (editing() !== c.id) {
+                <button
+                  type="button"
+                  class="btn btn--ghost ctr-panel__edit-btn"
+                  (click)="startEdit(c)"
+                >
+                  Edit
+                </button>
+              }
+              <button
+                type="button"
+                class="btn btn--danger btn--icon ctr-panel__delete"
+                aria-label="Delete candidate"
+                (click)="remove(c)"
+              >
+                ✕
+              </button>
+            </div>
+          </li>
+        }
+      </ol>
+    }
+
+    <div class="ctr-panel__add">
+      <input
+        class="ctr-panel__input ctr-panel__new-title"
+        aria-label="New candidate title"
+        placeholder="Candidate title"
+        [value]="newTitle()"
+        [attr.maxlength]="maxTitle"
+        [disabled]="full()"
+        (input)="newTitle.set($any($event.target).value)"
+        (keydown.enter)="add()"
+      />
+      <span class="ctr-panel__count">{{ newTitle().trim().length }}/{{ maxTitle }}</span>
+      <label class="btn btn--ghost ctr-panel__file" [class.ctr-panel__file--set]="newThumbnail()">
+        {{ newThumbnail()?.name ?? 'Thumbnail…' }}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          (change)="pickThumbnail($event)"
+          hidden
+          [disabled]="full()"
+        />
+      </label>
+      <button
+        type="button"
+        class="btn btn--primary ctr-panel__add-btn"
+        [disabled]="!canAdd()"
+        (click)="add()"
+      >
+        Add
+      </button>
+      @if (hasShowNotes()) {
+        <button
+          type="button"
+          class="btn btn--ghost ctr-panel__from-notes"
+          [disabled]="busy() || full()"
+          (click)="addFromShowNotes()"
+        >
+          Add titles from show notes
+        </button>
+      }
+      @if (full()) {
+        <span class="ctr-panel__muted">At most {{ maxCandidates }} candidates.</span>
+      }
+    </div>
+  }
+</section>

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import auth, chapters, clips, jobs, relevance, show_notes, transcripts, uploads, youtube
+from app.routers import auth, chapters, clips, ctr, jobs, relevance, show_notes, transcripts, uploads, youtube
 
 app = FastAPI(title="YouTube Suite API")
 
@@ -12,6 +12,7 @@ app.include_router(chapters.router)
 app.include_router(show_notes.router)
 app.include_router(relevance.router)
 app.include_router(clips.router)
+app.include_router(ctr.router)
 app.include_router(youtube.router)
 
 

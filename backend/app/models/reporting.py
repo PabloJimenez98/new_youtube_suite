@@ -80,7 +80,7 @@ class ReportingReport(Base):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    job_id: Mapped[int] = mapped_column(ForeignKey("reporting_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    job_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("reporting_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
     youtube_report_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -114,6 +114,6 @@ class AnalyticsReachSnapshot(Base):
     video_thumbnail_impressions: Mapped[int] = mapped_column(BigInteger, nullable=False)
     video_thumbnail_impressions_ctr: Mapped[float | None] = mapped_column(Float, nullable=True)
     source_report_id: Mapped[int | None] = mapped_column(
-        ForeignKey("reporting_reports.id", ondelete="SET NULL"), nullable=True
+        BigInteger, ForeignKey("reporting_reports.id", ondelete="SET NULL"), nullable=True
     )
     pulled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

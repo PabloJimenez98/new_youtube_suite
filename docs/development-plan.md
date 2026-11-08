@@ -38,7 +38,7 @@ Updated as milestones complete — this table is the source of truth for
 | M10 — Market-analysis pipeline v0 | Done |
 | M11 — OAuth + Analytics API v2 | Done |
 | M12 — YouTube Reporting API | In progress |
-| M13 — Title/thumbnail CTR predictor v0 | Not started |
+| M13 — Title/thumbnail CTR predictor v0 | Done |
 | M14 — Hook-strength scorer v0 | Not started |
 | M15 — Model retraining pipeline | Not started |
 

@@ -114,4 +114,12 @@
   @if (showNotes(); as notes) {
     <app-show-notes-panel [uploadId]="upload().id" [notes]="notes" />
   }
+
+  <app-ctr-panel
+    [uploadId]="upload().id"
+    [token]="token()"
+    [scoredJobId]="succeededCtrJobId()"
+    [hasShowNotes]="showNotes() !== null"
+    (candidateCount)="ctrCandidates.set($event)"
+  />
 </article>

@@ -231,6 +231,34 @@ aspect ratio (9:16, 1:1, 4:5, 16:9) and a captions toggle before Run.
 
 See [`docs/decisions/0013-shorts-generator.md`](docs/decisions/0013-shorts-generator.md).
 
+**CTR predictor (M13, heuristic v0).** It ranks title/thumbnail
+candidates for one episode.
+- **How:** in Manage, the video's candidates panel lets you add up to 10
+  candidates. Each is a title (≤ 100 chars) plus an optional JPEG, PNG or
+  WebP thumbnail of up to 2 MB. Titles can also be taken from the show
+  notes. The CTR **Run** button scores them.
+- **The score:** a **relative score (0–100) between this episode's
+  candidates, not a CTR %**. It weighs title length, the number and size
+  of faces, and how much of the thumbnail is text. Title-only candidates
+  are ranked apart, as "title only".
+- **Breakdown:** "Why this score?" shows the sub-scores, plus the measured
+  features that carry no weight yet (numbers, questions, caps,
+  brightness…). There is no CTR evidence for those yet; see
+  [`docs/research/ctr-heuristic-evidence.md`](docs/research/ctr-heuristic-evidence.md).
+- **Setup:** faces reuse the YuNet model above. Download the text
+  detector (~2.3 MB, Apache-2.0) once:
+  ```bash
+  mkdir -p backend/models/ctr
+  curl -L -o backend/models/ctr/text_detection_en_ppocrv3_2023may.onnx \
+    https://github.com/opencv/opencv_zoo/raw/main/models/text_detection_ppocr/text_detection_en_ppocrv3_2023may.onnx
+  ```
+  `CTR_TEXT_MODEL_PATH` defaults to that path.
+- **Runtime:** CPU only.
+- **Without a model:** a `ctr` job that has thumbnails to score fails
+  fast with a clear message. Title-only candidates still score.
+
+See [`docs/decisions/0019-ctr-heuristic-v0.md`](docs/decisions/0019-ctr-heuristic-v0.md).
+
 **Market pipeline (M10).** Daily public-stat snapshots of a curated list
 of podcast channels, from the YouTube Data API v3. Backend and CLI only:
 the Analytics page still shows dummy data.
@@ -412,7 +440,10 @@ headless — no Chrome/browser install required).
   `google/mt5-small` (Apache-2.0). Language ID in the experiment:
   fastText `lid.176` (CC BY-SA 3.0).
 - Shorts face detection (M8): [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
-  `face_detection_yunet_2023mar.onnx` (MIT), run by OpenCV.
+  `face_detection_yunet_2023mar.onnx` (MIT), run by OpenCV. Also used
+  for CTR thumbnails (M13).
+- CTR thumbnail text detection (M13): [PP-OCRv3 via opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/text_detection_ppocr)
+  `text_detection_en_ppocrv3_2023may.onnx` (Apache-2.0), run by OpenCV's DB detector.
 - Test face image: scikit-image's `astronaut` (NASA, public domain).
 - Test/healthcheck audio: LibriSpeech (CC BY 4.0). See
   `backend/tests/fixtures/ATTRIBUTION.md` and

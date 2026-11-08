@@ -9,6 +9,7 @@ import { Relevance, RelevanceOut } from '../../relevance/relevance';
 import { JobStatusBadge } from '../../shared/job-status-badge/job-status-badge';
 import { ClipOut, Shorts } from '../../shorts/shorts';
 import { ShowNotes, ShowNotesOut } from '../../shownotes/shownotes';
+import { CtrPanel } from '../ctr-panel/ctr-panel';
 import { RelevancePanel } from '../relevance-panel/relevance-panel';
 import { ShortsPanel } from '../shorts-panel/shorts-panel';
 import { ShowNotesPanel } from '../show-notes-panel/show-notes-panel';
@@ -21,7 +22,7 @@ import {
 
 @Component({
   selector: 'app-video-row',
-  imports: [JobStatusBadge, RelevancePanel, ShortsPanel, ShowNotesPanel],
+  imports: [CtrPanel, JobStatusBadge, RelevancePanel, ShortsPanel, ShowNotesPanel],
   templateUrl: './video-row.html',
   styleUrl: './video-row.scss',
 })
@@ -50,6 +51,8 @@ export class VideoRow {
   protected readonly showNotes = signal<ShowNotesOut | null>(null);
   protected readonly relevance = signal<RelevanceOut | null>(null);
   protected readonly clips = signal<ClipOut[] | null>(null);
+  /** How many CTR candidates the panel holds (M13): Run is blocked at zero. */
+  protected readonly ctrCandidates = signal(0);
   /** Options for the next shorts run (docs/decisions/0013 §8). */
   protected readonly aspectRatios = ASPECT_RATIOS;
   protected readonly shortsAspect = signal<AspectRatio>('9:16');
@@ -85,6 +88,8 @@ export class VideoRow {
   private readonly succeededRelevanceJobId = computed(() => this.newestSucceededJobId('relevance'));
   /** Same for shorts (M8). */
   private readonly succeededShortsJobId = computed(() => this.newestSucceededJobId('shorts'));
+  /** Same for CTR (M13): the panel refetches the ranking. */
+  protected readonly succeededCtrJobId = computed(() => this.newestSucceededJobId('ctr'));
 
   constructor() {
     // The parent re-polls jobs every 3 s; only fetch chapters when the
@@ -224,6 +229,7 @@ export class VideoRow {
   protected runBlockedReason(tool: ToolType): string | null {
     if (this.needsTranscript(tool)) return 'Needs a transcript';
     if (this.needsRelevance(tool)) return 'Needs relevance scores';
+    if (tool === 'ctr' && this.ctrCandidates() === 0) return 'Add title/thumbnail candidates first';
     return null;
   }
 

@@ -42,6 +42,7 @@ EXPECTED_TABLES = {
     "reporting_jobs",
     "reporting_reports",
     "analytics_reach_snapshots",
+    "ctr_predictions",
 }
 ANALYTICS_TABLES = {"oauth_credentials", "analytics_videos", "analytics_snapshots", "analytics_retention_curve"}
 MARKET_TABLES = {"market_channels", "market_videos", "market_video_snapshots"}
@@ -161,5 +162,34 @@ async def test_0012_creates_reporting_tables_with_constraints_and_reverts() -> N
     _run_alembic("downgrade", "0011")
     tables = await _table_names()
     assert not (REPORTING_TABLES & tables) and ANALYTICS_TABLES <= tables
+
+    _run_alembic("downgrade", "base")
+
+
+async def test_0013_creates_ctr_predictions_with_cascade_and_reverts() -> None:
+    _run_alembic("downgrade", "base")
+    _run_alembic("upgrade", "head")
+    assert "ctr_predictions" in await _table_names()
+
+    engine = create_async_engine(get_settings().test_database_url)
+    try:
+        async with engine.begin() as conn:
+            upload_id = (
+                await conn.execute(text("INSERT INTO uploads (filename, storage_path) VALUES ('a', 'k') RETURNING id"))
+            ).scalar_one()
+            await conn.execute(
+                text("INSERT INTO ctr_predictions (upload_id, candidate_title) VALUES (:u, 't')"), {"u": upload_id}
+            )
+            await conn.execute(text("DELETE FROM uploads WHERE id = :u"), {"u": upload_id})
+            assert (await conn.execute(text("SELECT count(*) FROM ctr_predictions"))).scalar_one() == 0
+        with pytest.raises(IntegrityError):  # source CHECK
+            async with engine.begin() as conn:
+                await conn.execute(text("INSERT INTO ctr_predictions (candidate_title, source) VALUES ('t', 'llm')"))
+    finally:
+        await engine.dispose()
+
+    _run_alembic("downgrade", "0012")
+    tables = await _table_names()
+    assert "ctr_predictions" not in tables and REPORTING_TABLES <= tables
 
     _run_alembic("downgrade", "base")

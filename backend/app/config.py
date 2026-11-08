@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     # makes `shorts` jobs fail fast.
     shorts_face_model_path: Path | None = Path("models/shorts/face_detection_yunet_2023mar.onnx")
 
+    # CTR predictor v0 (M13) -- see docs/decisions/0019-ctr-heuristic-v0.md.
+    # PP-OCRv3 text detector (opencv_zoo, Apache-2.0), downloaded by hand
+    # (gitignored, see README). Faces reuse SHORTS_FACE_MODEL_PATH. A missing
+    # file makes `ctr` jobs fail fast.
+    ctr_text_model_path: Path | None = Path("models/ctr/text_detection_en_ppocrv3_2023may.onnx")
+
     # Market-analysis pipeline (M10) -- see docs/decisions/0015-market-pipeline-v0.md.
     # Read-only key with YouTube Data API v3 enabled. Unset -> the market
     # cron tasks log a skip and return (the tool jobs are unaffected).

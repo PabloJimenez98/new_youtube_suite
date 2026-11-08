@@ -16,8 +16,11 @@ plan, decision 0016) is implemented; the owner's blind review of 4B vs
 9B is pending. M11 has an open follow-up: verify real Analytics rows once
 the test channel has views (0017). The OAuth app stays in Testing until
 the end of the project (0017 amendment). **M12 (Reporting API, real CTR/impressions) is in progress** (0018): code and
-unit tests are done; the live two-phase integration test is pending (needs
-`backend/.env` in the WSL clone, then ≥ 48 h of reporting lag).
+unit tests are done; live phase 1 passed, live phase 2 is pending (re-run
+`pytest -m youtube_reporting -s` after 2026-11-10 12:38 UTC). **M13 (CTR
+predictor v0, heuristic) is done** (0019), pulled ahead while M12 waits, as the
+plan allows; the owner's manual QA on real episodes is an open follow-up. The
+next milestone after M12 closes is **M14**.
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 
