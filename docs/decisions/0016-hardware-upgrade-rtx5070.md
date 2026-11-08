@@ -1,7 +1,7 @@
 # Decision: Hardware upgrade pass, GTX 1060 → RTX 5070 (before M11)
 
 **Date:** 2026-11-07
-**Status:** Implemented 2026-11-07 (see "Outcome" at the end). The owner's blind review (C3–C5) is pending. This is a pass outside the milestone plan, at the owner's request,
+**Status:** Implemented 2026-11-07 (see "Outcome" at the end). The owner's blind review (C3–C5) chose the 9B on all three, 2026-11-08. This is a pass outside the milestone plan, at the owner's request,
 before M11. It follows the same planning → development → testing discipline.
 
 ## Context
@@ -168,8 +168,10 @@ Measurements and tables are in `docs/research/hw-upgrade-rtx5070.md`.
 
 ### Pending
 
-- **The owner's blind review** (`experiments/hw-upgrade/blind/blind_sheet.md`): C3 titles,
-  C4 relevance top-5, C5 show notes. If the 4B wins, switch `current` and the live relevance
-  version back by hand.
+- ~~**The owner's blind review**~~ **Done 2026-11-08:** the owner chose the **9B** for all of
+  C3 (titles), C4 (relevance top-5) and C5 (show notes)
+  (`experiments/hw-upgrade/blind/blind_sheet.md`). The 9B is already `current` and
+  `relevance-p3` is already live, so nothing switches. The 4B bundle is no longer needed
+  for the review.
 - **`backend/.env`** still holds the M9 values. The agent can't edit it (permission rule);
   the owner updates it (lines in the handoff).

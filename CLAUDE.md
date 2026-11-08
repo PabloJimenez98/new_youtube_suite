@@ -12,8 +12,8 @@ development plan (`docs/development-plan.md`). **Milestones M0 (backend
 hardening), M10 (market-analysis pipeline v0) and M11 (OAuth + Analytics
 API v2) are done** — see `docs/decisions/` (0002–0020) for what was
 decided. A hardware pass for the new RTX 5070 (outside the milestone
-plan, decision 0016) is implemented; the owner's blind review of 4B vs
-9B is pending. M11 has an open follow-up: verify real Analytics rows once
+plan, decision 0016) is implemented; the owner's blind review chose the 9B
+(2026-11-08). M11 has an open follow-up: verify real Analytics rows once
 the test channel has views (0017). The OAuth app stays in Testing until
 the end of the project (0017 amendment). **M12 (Reporting API, real CTR/impressions) is in progress** (0018): code and
 unit tests are done; live phase 1 passed, live phase 2 is pending (re-run

@@ -358,9 +358,8 @@ Plan in `docs/decisions/0015-market-pipeline-v0.md`. Left out of M10 on purpose
   time. Measure first.
 - **VRAM headroom is ~1.6 GB** with every model resident (10.6 of 12.2 GB). A heavy GPU app
   on the Windows desktop can push a job into OOM, which is retried as transient.
-- **Owner's blind review pending** (C3–C5, `experiments/hw-upgrade/blind/`): 4B vs 9B for
-  titles, relevance top-5 and show notes. If the 4B wins, switch the bundle `current` and
-  the live relevance version back by hand (the switch mechanism is M15's).
+- ~~**Owner's blind review pending**~~ **Resolved 2026-11-08:** the owner chose the 9B for C3–C5
+  (titles, relevance top-5, show notes). The 9B stays live, and M15's pseudo-labels use it (0016).
 - **`backend/.env` still has the M9 values** and overrides the new defaults until the owner
   updates it (the agent can't edit `.env`).
 
