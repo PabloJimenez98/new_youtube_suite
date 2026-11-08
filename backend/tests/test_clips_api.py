@@ -41,7 +41,7 @@ async def test_200_lists_clips_by_rank(
     assert body[0] | {"id": 0} == {
         "id": 0, "rank": 1, "start": 100.0, "end": 130.0, "duration": 30.0, "score": 0.9,
         "aspect_ratio": "9:16", "caption_burned_in": True,
-        "framing": {"shots": [{"start": 0, "end": 30, "mode": "crop"}]},
+        "framing": {"shots": [{"start": 0, "end": 30, "mode": "crop"}]}, "hook": None,
     }
 
 

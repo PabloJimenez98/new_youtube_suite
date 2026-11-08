@@ -63,3 +63,10 @@ scipy==1.18.1
 # Market-analysis pipeline (M10): YouTube Data API v3 + RSS client.
 # Was dev-only (the test client) before -- docs/decisions/0015 §6.
 httpx==0.27.2
+
+# Hook-strength scorer v0 (M14): sentence splits, POS/morphology and NER for
+# the opening-window features, ES + EN; the emotion model (xlm-emo-t) runs on
+# the transformers above. See docs/decisions/0020-hook-heuristic-v0.md.
+spacy==3.8.18
+es_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.8.0/es_core_news_sm-3.8.0-py3-none-any.whl
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

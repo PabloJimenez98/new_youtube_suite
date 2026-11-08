@@ -10,7 +10,7 @@ development plan (`docs/development-plan.md`). **Milestones M0 (backend
 (speaker diarization), M5 (chapter generator), M6 (show notes & metadata generator), M7
 (relevance-detection model v0), M8 (shorts generator), M9 (full-suite
 hardening), M10 (market-analysis pipeline v0) and M11 (OAuth + Analytics
-API v2) are done** — see `docs/decisions/` (0002–0017) for what was
+API v2) are done** — see `docs/decisions/` (0002–0020) for what was
 decided. A hardware pass for the new RTX 5070 (outside the milestone
 plan, decision 0016) is implemented; the owner's blind review of 4B vs
 9B is pending. M11 has an open follow-up: verify real Analytics rows once
@@ -19,8 +19,10 @@ the end of the project (0017 amendment). **M12 (Reporting API, real CTR/impressi
 unit tests are done; live phase 1 passed, live phase 2 is pending (re-run
 `pytest -m youtube_reporting -s` after 2026-11-10 12:38 UTC). **M13 (CTR
 predictor v0, heuristic) is done** (0019), pulled ahead while M12 waits, as the
-plan allows; the owner's manual QA on real episodes is an open follow-up. The
-next milestone after M12 closes is **M14**.
+plan allows; the owner's manual QA on real episodes is an open follow-up.
+**M14 (hook-strength scorer v0, heuristic) is done** (0020), also pulled
+ahead while M12 waits (owner-confirmed); the owner's manual QA on real clips
+is an open follow-up. The next milestone after M12 closes is **M15**.
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 

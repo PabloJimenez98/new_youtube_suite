@@ -88,6 +88,11 @@ class Settings(BaseSettings):
     # file makes `ctr` jobs fail fast.
     ctr_text_model_path: Path | None = Path("models/ctr/text_detection_en_ppocrv3_2023may.onnx")
 
+    # Hook-strength scorer v0 (M14) -- see docs/decisions/0020-hook-heuristic-v0.md.
+    # Multilingual emotion classifier (HF name or a local path), CPU, loaded
+    # lazily from the HF cache. Its features are stored with weight 0.
+    hook_emotion_model: str = "MilaNLProc/xlm-emo-t"
+
     # Market-analysis pipeline (M10) -- see docs/decisions/0015-market-pipeline-v0.md.
     # Read-only key with YouTube Data API v3 enabled. Unset -> the market
     # cron tasks log a skip and return (the tool jobs are unaffected).

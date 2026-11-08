@@ -428,3 +428,25 @@ Left out of M13 on purpose, or still open:
 - **Dev env: `STORAGE_BASE_PATH` (open):** the uploaded episodes live in `/home/pablo/yts-data/uploads`,
   but the WSL clone's `backend/.env` resolves storage to `../uploads` (empty). The owner should set
   `STORAGE_BASE_PATH=/home/pablo/yts-data/uploads` before running `scripts/dev.sh` from the WSL clone.
+
+## 2026-11-08 — M14 planning/development (hook-strength scorer v0, heuristic)
+Plan in `docs/decisions/0020-hook-heuristic-v0.md`.
+Left out of M14 on purpose, or still open:
+- **Training the LightGBM ranker (M15 territory):** the `hook_scores.feature_vector`s are its
+  inputs. It needs a label: Shorts retention, or "viewed vs swiped away" per published short.
+  That needs a link nobody has built yet, from a `clips` row to the YouTube Short it became
+  (the same open linking question as M11–M13).
+- **`start` (dead air, weight 0.30) never varies on this channel:** M8 cuts clips at segment
+  starts, so every real clip had 0.0 s lead silence (dry run, 25 clips, 2026-11-08). Keep it
+  for clips trimmed by hand, or move its weight once real data exists. This is for the
+  manual QA to decide.
+- **`address` mostly measures the hosts talking to each other:** "tú" between the two hosts
+  counts as direct address even when it isn't aimed at the audience. Telling the two apart
+  would need speaker/turn context (diarization exists) or an LLM. Open.
+- **Zero-shot LLM hook judge** (as in M7 relevance): not built, because the plan scopes M14
+  to heuristics. It could later serve as a pseudo-label source for the ranker.
+- **Audio features** (energy, pitch, laughter): text-only v1 constraint (spec §2.8, §7).
+- **Dashboard "Top hook-scoring clip" tile:** stays dummy. Hook scores are relative within
+  one episode, so "top across episodes" needs a different metric before it's wired.
+- **Manual QA (open follow-up; M14 was closed without it on 2026-11-08):** rank the clips of 2–3 episodes by their first
+  15 s, then compare with the heuristic. The findings go in 0020.

@@ -88,6 +88,8 @@ export class VideoRow {
   private readonly succeededRelevanceJobId = computed(() => this.newestSucceededJobId('relevance'));
   /** Same for shorts (M8). */
   private readonly succeededShortsJobId = computed(() => this.newestSucceededJobId('shorts'));
+  /** Same for hook scores (M14): they ride on the clips, so a newer one refetches the clips. */
+  private readonly succeededHookJobId = computed(() => this.newestSucceededJobId('hook'));
   /** Same for CTR (M13): the panel refetches the ranking. */
   protected readonly succeededCtrJobId = computed(() => this.newestSucceededJobId('ctr'));
 
@@ -126,6 +128,7 @@ export class VideoRow {
     });
     effect(() => {
       const jobId = this.succeededShortsJobId();
+      this.succeededHookJobId(); // tracked: a newer hook run refetches too
       if (jobId === null) return;
       untracked(() =>
         this.shortsService.getClips(this.upload().id).subscribe({
@@ -230,6 +233,7 @@ export class VideoRow {
     if (this.needsTranscript(tool)) return 'Needs a transcript';
     if (this.needsRelevance(tool)) return 'Needs relevance scores';
     if (tool === 'ctr' && this.ctrCandidates() === 0) return 'Add title/thumbnail candidates first';
+    if (tool === 'hook' && !this.clips()?.length) return 'Run Shorts first';
     return null;
   }
 

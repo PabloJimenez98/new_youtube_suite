@@ -280,7 +280,7 @@ describe('VideoRow', () => {
       const disabled = (fixture.nativeElement as HTMLElement).querySelectorAll(
         '.video-row__run:disabled',
       );
-      expect(disabled.length).toBe(6); // Speakers, Chapters, Relevance, Show notes, Shorts (needs relevance) and CTR (needs candidates)
+      expect(disabled.length).toBe(7); // Speakers, Chapters, Relevance, Show notes, Shorts (needs relevance), CTR (needs candidates) and Hook (needs shorts)
     });
   });
 
@@ -432,7 +432,7 @@ describe('VideoRow', () => {
     const clips: ClipOut[] = [
       {
         id: 21, rank: 1, start: 120, end: 151, duration: 31, score: 0.8, aspect_ratio: '1:1',
-        caption_burned_in: false, framing: { shots: [{ start: 0, end: 31, mode: 'fit' }] },
+        caption_burned_in: false, framing: { shots: [{ start: 0, end: 31, mode: 'fit' }] }, hook: null,
       },
     ];
     const el = () => fixture.nativeElement as HTMLElement;
@@ -499,6 +499,46 @@ describe('VideoRow', () => {
       vi.spyOn(player, 'play').mockResolvedValue(undefined);
       el().querySelector<HTMLButtonElement>('.shorts__seek')!.click();
       expect(player.currentTime).toBe(120);
+    });
+
+    describe('hook score (M14)', () => {
+      const hookButton = () =>
+        [...el().querySelectorAll('.video-row__tool')]
+          .find((c) => c.querySelector('.video-row__tool-label')?.textContent?.trim() === 'Hook score')!
+          .querySelector<HTMLButtonElement>('.video-row__run')!;
+      const shortsDone = makeJob({ id: 9, tool_type: 'shorts', status: 'succeeded' });
+
+      it('blocks Run until the episode has shorts', () => {
+        fixture.componentRef.setInput('jobs', [relevanceDone]);
+        fixture.detectChanges();
+        expect(hookButton().disabled).toBe(true);
+        expect(hookButton().getAttribute('title')).toBe('Run Shorts first');
+
+        shortsStub.getClips.mockReturnValue(of(clips));
+        fixture.componentRef.setInput('jobs', [relevanceDone, shortsDone]);
+        fixture.detectChanges();
+        expect(hookButton().disabled).toBe(false);
+      });
+
+      it('refetches the clips when a newer hook job succeeds', () => {
+        shortsStub.getClips.mockReturnValue(of(clips));
+        fixture.componentRef.setInput('jobs', [relevanceDone, shortsDone]);
+        fixture.detectChanges();
+        expect(shortsStub.getClips).toHaveBeenCalledTimes(1);
+
+        const scored: ClipOut[] = [
+          { ...clips[0], hook: { score: 81, rank: 1, scored_at: '2026-11-08T12:00:00Z', features: {} } },
+        ];
+        shortsStub.getClips.mockReturnValue(of(scored));
+        fixture.componentRef.setInput('jobs', [relevanceDone, shortsDone, makeJob({ id: 12, tool_type: 'hook', status: 'running' })]);
+        fixture.detectChanges();
+        expect(shortsStub.getClips).toHaveBeenCalledTimes(1);
+
+        fixture.componentRef.setInput('jobs', [relevanceDone, shortsDone, makeJob({ id: 12, tool_type: 'hook', status: 'succeeded' })]);
+        fixture.detectChanges();
+        expect(shortsStub.getClips).toHaveBeenCalledTimes(2);
+        expect(el().querySelector('.shorts__hook-badge')!.textContent!.replace(/\s+/g, ' ').trim()).toBe('Hook 81 · #1');
+      });
     });
   });
 

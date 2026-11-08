@@ -58,6 +58,62 @@
     gap: var(--space-1);
   }
 
+  &__hint {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+  }
+
+  &__hook {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: 0.7rem;
+  }
+
+  &__hook-badge {
+    font-variant-numeric: tabular-nums;
+
+    &--none {
+      color: var(--color-text-muted);
+    }
+  }
+
+  &__why {
+    padding: 0 var(--space-1);
+    font-size: 0.7rem;
+  }
+
+  &__breakdown {
+    font-size: 0.7rem;
+
+    ul {
+      list-style: none;
+      margin: 0 0 var(--space-1);
+      padding: 0;
+    }
+  }
+
+  &__subs li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__inputs,
+  &__logged {
+    color: var(--color-text-muted);
+    overflow-wrap: anywhere;
+  }
+
+  &__muted {
+    margin: 0 0 var(--space-1);
+    color: var(--color-text-muted);
+  }
+
   &__seek,
   &__download {
     padding: var(--space-1) var(--space-2);

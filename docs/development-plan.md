@@ -39,7 +39,7 @@ Updated as milestones complete — this table is the source of truth for
 | M11 — OAuth + Analytics API v2 | Done |
 | M12 — YouTube Reporting API | In progress |
 | M13 — Title/thumbnail CTR predictor v0 | Done |
-| M14 — Hook-strength scorer v0 | Not started |
+| M14 — Hook-strength scorer v0 | Done |
 | M15 — Model retraining pipeline | Not started |
 
 **Hardware pass (pre-M11, outside the milestone plan): In progress.** Moves the

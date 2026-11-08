@@ -40,6 +40,7 @@ async def test_missing_api_key_logs_skip_and_returns(
     assert "YOUTUBE_API_KEY not set" in caplog.text
 
 
+@pytest.mark.usefixtures("dummy_hook")
 async def test_worker_with_market_crons_still_processes_tool_jobs(
     client, auth_headers, session_factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:

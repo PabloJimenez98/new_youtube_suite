@@ -1,6 +1,11 @@
 <section class="shorts" aria-label="Shorts">
   <header class="shorts__header">
     <span class="shorts__label">Shorts · {{ clips().length }} · {{ clips()[0]?.aspect_ratio }}</span>
+    @if (anyHook()) {
+      <span class="shorts__hint">
+        Hook score (heuristic v0): relative to this episode's clips, not a retention %
+      </span>
+    }
   </header>
 
   <ol class="shorts__list">
@@ -19,6 +24,44 @@
           </span>
           <span class="shorts__score" title="Relevance peak">{{ (clip.score * 100).toFixed(0) }}</span>
         </div>
+        <div class="shorts__hook">
+          @if (clip.hook; as hook) {
+            <span class="badge shorts__hook-badge" title="Hook score (heuristic v0), relative to this episode's clips, not a retention %">
+              Hook {{ hook.score.toFixed(0) }} · #{{ hook.rank }}
+            </span>
+            <button type="button" class="btn btn--ghost shorts__why" (click)="toggle(clip.id)">
+              {{ expanded().has(clip.id) ? 'Hide' : 'Why this score?' }}
+            </button>
+          } @else {
+            <span class="badge shorts__hook-badge shorts__hook-badge--none">Hook: not scored</span>
+          }
+        </div>
+        @if (clip.hook && expanded().has(clip.id)) {
+          <div class="shorts__breakdown">
+            <ul class="shorts__subs">
+              @for (s of subScores(clip); track s.key) {
+                <li>
+                  <span>{{ s.label }}</span>
+                  <span>{{ s.value.toFixed(2) }} × {{ s.weight }}</span>
+                </li>
+              }
+            </ul>
+            <ul class="shorts__inputs">
+              @for (f of scoredInputs(clip); track f.key) {
+                <li>{{ f.key }}: {{ f.value }}</li>
+              }
+            </ul>
+            <p class="shorts__muted">Measured, not counted in v0 (no retention evidence yet):</p>
+            <ul class="shorts__logged">
+              @for (f of loggedFeatures(clip); track f.key) {
+                <li>{{ f.key }}: {{ f.value }}</li>
+              }
+            </ul>
+            @if (languageNote(clip); as note) {
+              <p class="shorts__muted">{{ note }}</p>
+            }
+          </div>
+        }
         <div class="shorts__actions">
           <button type="button" class="btn btn--ghost shorts__seek" (click)="seek.emit(clip.start)">
             Show in episode

@@ -259,6 +259,29 @@ candidates for one episode.
 
 See [`docs/decisions/0019-ctr-heuristic-v0.md`](docs/decisions/0019-ctr-heuristic-v0.md).
 
+**Hook-strength scorer (M14).** The Shorts panel's clip cards show a
+hook score for each clip's opening 15 s. Click the `hook` tool's **Run**
+to score every clip of the episode. It needs shorts first.
+- **The score:** a **relative score (0–100) between this episode's
+  clips, not a retention %**. It weighs four things:
+  - dead air before the first word
+  - delivery pace (words/s)
+  - whether the opening is a question or a curiosity gap
+  - direct address ("you", imperatives)
+- **Breakdown:** "Why this score?" shows the four sub-scores. It also
+  shows the measured features that carry no weight yet: emotion,
+  numbers, superlatives, named entities, readability, title overlap…
+- **Languages:** Spanish and English (spaCy small models). Other
+  languages fall back to English, and the breakdown says so.
+- **Setup:** `pip install -r requirements.txt` installs spaCy and both
+  language models. The emotion model `MilaNLProc/xlm-emo-t` (~1.1 GB)
+  downloads into the Hugging Face cache on the first `hook` job.
+  `HOOK_EMOTION_MODEL` can point to a local copy instead.
+- **Runtime:** CPU only.
+- **Without a model:** the job fails with a clear message.
+
+See [`docs/decisions/0020-hook-heuristic-v0.md`](docs/decisions/0020-hook-heuristic-v0.md).
+
 **Market pipeline (M10).** Daily public-stat snapshots of a curated list
 of podcast channels, from the YouTube Data API v3. Backend and CLI only:
 the Analytics page still shows dummy data.
@@ -444,6 +467,10 @@ headless — no Chrome/browser install required).
   for CTR thumbnails (M13).
 - CTR thumbnail text detection (M13): [PP-OCRv3 via opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/text_detection_ppocr)
   `text_detection_en_ppocrv3_2023may.onnx` (Apache-2.0), run by OpenCV's DB detector.
+- Hook scorer (M14): spaCy `es_core_news_sm` / `en_core_web_sm` 3.8.0 (MIT,
+  trained on CC BY-SA / LDC data per their model cards) and
+  [`MilaNLProc/xlm-emo-t`](https://huggingface.co/MilaNLProc/xlm-emo-t) (XLM-T emotion,
+  ES+EN; MIT code, data restrictions per its model card).
 - Test face image: scikit-image's `astronaut` (NASA, public domain).
 - Test/healthcheck audio: LibriSpeech (CC BY 4.0). See
   `backend/tests/fixtures/ATTRIBUTION.md` and

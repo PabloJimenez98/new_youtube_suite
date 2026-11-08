@@ -21,7 +21,56 @@ export interface ClipOut {
   aspect_ratio: AspectRatio;
   caption_burned_in: boolean;
   framing: { source?: number[]; output?: number[]; shots?: ClipShot[] };
+  /** Latest hook score (M14), null until the `hook` job has scored the clip. */
+  hook: HookScore | null;
 }
+
+/** Mirrors `HookOut` / the stored feature vector (docs/decisions/0020 §2-5). */
+export interface HookScore {
+  score: number; // 0-100, relative among this episode's clips
+  rank: number; // ties share a rank
+  scored_at: string;
+  features: {
+    version?: string;
+    language?: string;
+    language_fallback?: boolean;
+    title_source?: string;
+    sub_scores?: Record<string, number>;
+    weights?: Record<string, number>;
+    features?: Record<string, unknown>;
+  };
+}
+
+export const HOOK_SUB_SCORE_LABELS: Record<string, string> = {
+  start: 'Starts at once (no dead air)',
+  pace: 'Pace (words/s)',
+  framing: 'Opens with a question / curiosity gap',
+  address: 'Direct address ("you", imperatives)',
+};
+
+/** The measured inputs of the four sub-scores (0020 §3). */
+export const HOOK_SCORED_INPUTS = [
+  'lead_silence_s',
+  'words_per_second',
+  'first_is_question',
+  'first_curiosity',
+  'first_unresolved_demonstratives',
+  'second_person',
+  'imperatives',
+] as const;
+
+/** Measured but weight 0 in v0, shown in the breakdown (0020 §2). */
+export const HOOK_LOGGED_FEATURES = [
+  'emotion_max',
+  'exclamations',
+  'superlatives',
+  'numerics',
+  'entity_density',
+  'readability',
+  'title_overlap',
+  'words',
+  'sentences',
+] as const;
 
 @Service()
 export class Shorts {

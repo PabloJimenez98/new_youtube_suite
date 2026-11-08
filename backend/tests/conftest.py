@@ -31,6 +31,7 @@ FORCED_CPU_ENV = [k for k in CPU_PINS if k not in os.environ]
 for _key, _value in CPU_PINS.items():
     os.environ.setdefault(_key, _value)
 
+import pytest
 import pytest_asyncio
 from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
@@ -146,3 +147,16 @@ async def auth_headers(client: AsyncClient, test_user: User) -> dict[str, str]:
     )
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def dummy_hook(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run `hook` jobs through the M2 dummy handler.
+
+    The M2 state-machine and real-worker tests used `hook` as "the dummy
+    tool"; since M14 every `tool_type` has a real handler, so they patch
+    it back (docs/decisions/0020 §5)."""
+    from app.worker import handlers
+    from app.worker.handlers import dummy
+
+    monkeypatch.setitem(handlers.HANDLERS, "hook", dummy.run)

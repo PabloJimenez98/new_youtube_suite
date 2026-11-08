@@ -16,8 +16,11 @@ from app.worker.tasks import MAX_TRIES, fail_interrupted_jobs, is_transient, pro
 
 settings = get_settings()
 
+# `hook` is the dummy tool of these M2 tests (see conftest `dummy_hook`).
+pytestmark = pytest.mark.usefixtures("dummy_hook")
 
-# `hook` still runs the M2 dummy handler; `transcribe` is real as of M3
+
+# `hook` runs the M2 dummy handler here (patched, see `pytestmark`); `transcribe` is real as of M3
 # (and covered by its own real-worker test at the bottom of this file).
 async def _create_job(db_session: AsyncSession, tool_type: str = "hook") -> Job:
     upload = Upload(filename="clip.mp4", storage_path="fake-key")

@@ -4,6 +4,7 @@ Status rules mirror chapters/relevance: 404 when no `shorts` job has
 ever succeeded, 409 when none has yet but one is queued or running. A
 previous run's clips keep being served during a re-run (the handler
 swaps rows in one transaction). See docs/decisions/0013-shorts-generator.md §7.
+Since M14 each clip carries its latest hook score (docs/decisions/0020 §5).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -15,11 +16,12 @@ from app.auth.security import get_current_user, get_current_user_for_media
 from app.config import get_settings
 from app.database import get_db
 from app.models.clip import Clip
+from app.models.hook import HookScore
 from app.models.job import Job
 from app.models.upload import Upload
 from app.models.user import User
 from app.routers.media import stream_file
-from app.schemas.clip import ClipOut
+from app.schemas.clip import ClipOut, HookOut
 from app.storage import LocalStorageBackend
 
 router = APIRouter(tags=["clips"])
@@ -33,6 +35,12 @@ async def count_clips(
 ) -> dict[str, int]:
     """All rendered shorts, for the dashboard tile."""
     return {"count": await db.scalar(select(func.count()).select_from(Clip)) or 0}
+
+
+def _hook_out(h: HookScore, all_scores) -> HookOut:
+    """Ties share a rank: 1 + the number of strictly higher scores (0020 §5)."""
+    rank = 1 + sum(1 for o in all_scores if o.score > h.score)
+    return HookOut(score=h.score, rank=rank, features=h.feature_vector, scored_at=h.scored_at)
 
 
 @router.get("/uploads/{upload_id}/clips", response_model=list[ClipOut])
@@ -53,11 +61,16 @@ async def list_clips(
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Shorts not ready")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shorts not found")
 
+    hooks = {
+        h.clip_id: h
+        for h in (await db.execute(select(HookScore).where(HookScore.clip_id.in_([c.id for c in rows])))).scalars()
+    }
     return [
         ClipOut(
             id=c.id, rank=c.rank, start=c.start_seconds, end=c.end_seconds,
             duration=c.end_seconds - c.start_seconds, score=c.score, aspect_ratio=c.aspect_ratio,
             caption_burned_in=c.caption_burned_in, framing=c.framing,
+            hook=_hook_out(hooks[c.id], hooks.values()) if c.id in hooks else None,
         )
         for c in rows
     ]
