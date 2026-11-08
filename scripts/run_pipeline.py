@@ -5,7 +5,7 @@ Not a product feature: it is how the M9 season run drives the app
 (unless an upload with the same filename exists), then runs the tool
 chain in order, waiting for each job:
 
-    transcribe -> diarize -> chapters -> relevance -> shownotes -> shorts
+    transcribe -> diarize -> chapters -> relevance -> shownotes -> shorts -> hook (M14)
 
 - Resumable: a tool that already has a succeeded job is skipped
   (`--rerun` runs the chosen tools again anyway).
@@ -34,7 +34,7 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 from app.auth.security import create_access_token  # noqa: E402
 
-TOOLS = ("transcribe", "diarize", "chapters", "relevance", "shownotes", "shorts")
+TOOLS = ("transcribe", "diarize", "chapters", "relevance", "shownotes", "shorts", "hook")
 VIDEO_EXTS = {".mp4", ".mkv", ".webm", ".mov"}
 TERMINAL = {"succeeded", "failed"}
 
