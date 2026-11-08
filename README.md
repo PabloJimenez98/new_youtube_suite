@@ -81,6 +81,11 @@ pending migrations, API, worker (with the CUDA libs on
 `LD_LIBRARY_PATH`) and the Angular dev server, with prefixed output.
 Ctrl+C stops the app processes; the containers keep running.
 
+From Windows, double-click `scripts/start-wsl.cmd`. It runs `scripts/dev.sh`
+in the WSL clone (`~/projects/new_youtube_suite` on `Ubuntu-24.04`; override
+with `YTS_WSL_REPO` / `YTS_WSL_DISTRO`), because the venv, `node_modules` and
+the CUDA build of `llama-cpp-python` live there. Docker Desktop must be running.
+
 ### Backend
 
 ```bash

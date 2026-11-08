@@ -24,6 +24,17 @@ die() { printf '\033[1;31m[dev]\033[0m %s\n' "$*" >&2; exit 1; }
 # ---- Preflight -------------------------------------------------------
 
 command -v docker >/dev/null || die "docker not found"
+docker info >/dev/null 2>&1 || die "docker daemon not reachable -- is Docker Desktop running?"
+# Node usually comes from nvm, which only loads in interactive shells; load
+# it here so the script also works when launched non-interactively
+# (scripts/start-wsl.cmd).
+if ! command -v npx >/dev/null && [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]]; then
+  set +u
+  # shellcheck disable=SC1091
+  source "${NVM_DIR:-$HOME/.nvm}/nvm.sh"
+  set -u
+fi
+command -v npx >/dev/null || die "npx not found (install Node, e.g. via nvm)"
 command -v ffmpeg >/dev/null || die "ffmpeg not found (sudo apt install ffmpeg) -- transcription needs it"
 [[ -x "$VENV/bin/python" ]] || die "backend venv missing: see README 'Getting started'"
 [[ -f "$BACKEND/.env" ]] || die "backend/.env missing: cp backend/.env.example backend/.env"

@@ -424,9 +424,13 @@ Left out of M13 on purpose, or still open:
 - **Manual QA (open follow-up; M13 was closed without it on 2026-11-08):** the owner ranks 3–5
   candidate sets on 2–3 real episodes and compares them with the heuristic. The findings go in
   0019. Frames are ready in `C:\Users\Pablo\Downloads\ctr-qa-frames\`.
-- **Dev env: `STORAGE_BASE_PATH` (open):** the uploaded episodes live in `/home/pablo/yts-data/uploads`,
+- ~~**Dev env: `STORAGE_BASE_PATH` (open):** the uploaded episodes live in `/home/pablo/yts-data/uploads`,
   but the WSL clone's `backend/.env` resolves storage to `../uploads` (empty). The owner should set
-  `STORAGE_BASE_PATH=/home/pablo/yts-data/uploads` before running `scripts/dev.sh` from the WSL clone.
+  `STORAGE_BASE_PATH=/home/pablo/yts-data/uploads` before running `scripts/dev.sh` from the WSL clone.~~
+  **Resolved 2026-11-08:** set in the WSL clone's `backend/.env` (backup `backend/.env.bak-2026-11-08`).
+  All 446 storage keys in the DB (63 uploads, 63 audio, 315 clips, 5 CTR thumbnails) now resolve to
+  existing files. The 5 thumbnails had been written to the old `../uploads` and were copied over.
+  `scripts/start-wsl.cmd` launches the stack from Windows.
 
 ## 2026-11-08 — M14 planning/development (hook-strength scorer v0, heuristic)
 Plan in `docs/decisions/0020-hook-heuristic-v0.md`.
