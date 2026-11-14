@@ -48,7 +48,9 @@ describe('tool docs', () => {
       expect(TOOL_DOCS[key].training, key).toBeDefined();
     }
     expect(TOOL_DOCS.chapters.training!.planned).toBe(false);
-    expect(TOOL_DOCS.relevance.training!.planned).toBe(true);
+    expect(TOOL_DOCS.relevance.training!.planned).toBe(false);
+    expect(TOOL_DOCS.ctr.training!.planned).toBe(true);
+    expect(TOOL_DOCS.hook.training!.planned).toBe(true);
   });
 
   it('state what a relative score does not mean', () => {

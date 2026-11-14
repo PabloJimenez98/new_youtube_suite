@@ -399,6 +399,6 @@ rows), and the revocation check. Verifying real rows is a follow-up (below).
   logged the WARNING, stopped with `needs_reconsent (invalid_grant: Token has been expired or
   revoked.)`, and stored that in `last_error`. Not silent.
 
-**Follow-up (open): verify real rows.** Once the channel has views (≥ 48–72 h after them),
+**Follow-up (closed 2026-11-14, owner confirmed): verify real rows.** Once the channel has views (≥ 48–72 h after them),
 run `python -m app.cli analytics pull` and `pytest -m youtube_oauth`, then check that
 `analytics_snapshots` and `analytics_retention_curve` have rows with plausible values.

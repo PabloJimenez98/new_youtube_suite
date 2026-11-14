@@ -24,6 +24,16 @@ Usage:
     # Reporting API: real CTR/impressions (M12, docs/decisions/0018 §4)
     python -m app.cli reporting status   # job, report counts, reach rows
     python -m app.cli reporting poll     # the daily reporting poll, now
+
+    # Relevance BiLSTM (M15, docs/decisions/0024 §5). Stop the worker first.
+    python -m app.cli relevance pseudo-label [--upload ID] [--force]
+    python -m app.cli relevance train --label bilstm-e5s-YYYYMMDD-i1
+    python -m app.cli relevance eval <label>        # offline metrics + gate
+    python -m app.cli relevance ab-sheet <label>    # blind top-5 A/B for the owner
+    python -m app.cli relevance ab-score <label>    # after filling the sheet
+    python -m app.cli relevance status <label>
+    python -m app.cli models list [--name relevance]
+    python -m app.cli models set-live relevance <label>   # also the rollback
 """
 
 import argparse
@@ -212,6 +222,100 @@ async def _insights_status() -> None:
         print(f"{r.name:<9} {r.format:<5} {r.computed_at:%Y-%m-%d %H:%M} UTC  {r.duration_ms:>6} ms  {r.source_key}")
 
 
+# ---- relevance BiLSTM + model versions (M15, 0024 §5) ----------------------------
+
+
+async def _relevance(args: argparse.Namespace) -> None:
+    from app.relevance import retrain
+    from app.relevance.training import TrainConfig
+
+    cmd = args.relevance_command
+    try:
+        if cmd == "pseudo-label":
+            r = await retrain.pseudo_label(async_session_factory, args.upload or None, args.force)
+            print(f"teacher {r['teacher']}: {r['labelled']} uploads labelled, {r['skipped']} skipped")
+        elif cmd == "train":
+            from app.relevance.bilstm import resolve_device
+            from app.config import get_settings
+
+            cfg = TrainConfig(
+                hidden=args.hidden, layers=args.layers, patience=args.patience, combine_mode=args.combine,
+                lambdas=tuple(float(x) for x in args.lambdas.split(",")),
+                seeds=tuple(range(args.seeds)),
+                device=resolve_device(get_settings().relevance_device),
+            )
+            encoder = None
+            if args.encoder_dir:
+                encoder = retrain.EncoderSpec(Path(args.encoder_dir), args.encoder_name, args.encoder_prefix)
+            v = await retrain.train_version(async_session_factory, args.label, teacher_label=args.teacher,
+                                            cfg=cfg, encoder=encoder, cache_dir=retrain.bilstm.default_cache_dir())
+            t = v.metrics["train"]
+            print(f"trained {v.version_label} (not live): lambda {t['lambda']}, seed {t['seed']}, "
+                  f"val spearman {t['val_spearman']:.4f}; episodes {t['episodes']}; bundle {v.artifact_path}")
+            print(f"next: python -m app.cli relevance eval {v.version_label}")
+        elif cmd == "eval":
+            r = await retrain.eval_version(async_session_factory, args.label,
+                                           cache_dir=retrain.bilstm.default_cache_dir())
+            print(f"test episodes: {r['episodes']} (teacher {r['teacher']})")
+            for method, m in r["summary"].items():
+                print(f"  {method:<9} " + "  ".join(f"{k} {v:.3f}" for k, v in m.items()))
+            g = r["gate"]
+            print(f"offline gate: {'PASSED' if g['passed'] else 'FAILED'} "
+                  f"(BiLSTM {g['bilstm_spearman']:.3f} vs heuristic {g['heuristic_spearman']:.3f})")
+        elif cmd == "ab-sheet":
+            sheet, key = await retrain.write_ab_sheet(async_session_factory, args.label,
+                                                      Path(args.out) if args.out else None,
+                                                      cache_dir=retrain.bilstm.default_cache_dir())
+            print(f"sheet: {sheet}\nkey (don't open before answering): {key}")
+        elif cmd == "ab-score":
+            r = await retrain.score_ab_sheet(async_session_factory, args.label, Path(args.out) if args.out else None)
+            print(f"candidate: {r['wins']} wins, {r['ties']} ties, {r['losses']} losses -> "
+                  f"A/B {'PASSED' if r['passed'] else 'FAILED'}")
+        elif cmd == "status":
+            s = await retrain.promotion_status(async_session_factory, args.label)
+            print(f"{s['label']}: offline gate {s['offline_gate']}, A/B {s['ab']} -> "
+                  f"{'promotable' if s['promotable'] else 'not promotable'}; live is {s['live']}")
+    except (retrain.RetrainError, LookupError) as exc:
+        raise SystemExit(f"ERROR: {exc}") from exc
+
+
+async def _models(args: argparse.Namespace) -> None:
+    from app.model_registry import VersionNotFoundError, list_versions, set_live
+    from app.models.model_version import ModelVersion
+
+    async with async_session_factory() as db:
+        if args.models_command == "list":
+            for v in await list_versions(db, args.name):
+                m = v.metrics or {}
+                gate = (m.get("test") or {}).get("gate", {}).get("passed")
+                ab = (m.get("ab") or {}).get("passed")
+                extra = "" if v.artifact_path is None else f"  gate={gate} ab={ab}"
+                print(f"{v.model_name:<9} {'LIVE' if v.is_live else '    '} {v.version_label}{extra}")
+            return
+        target = await db.scalar(select(ModelVersion).where(ModelVersion.model_name == args.name,
+                                                            ModelVersion.version_label == args.label))
+        if target is not None and target.artifact_path is not None and not args.force and args.name == "relevance":
+            from app.relevance.retrain import promotion_status
+
+            s = await promotion_status(async_session_factory, args.label)
+            if not s["promotable"]:
+                raise SystemExit(
+                    f"REFUSED: {args.label} is not promotable (offline gate {s['offline_gate']}, A/B {s['ab']}); "
+                    "see docs/decisions/0024 §7, or pass --force"
+                )
+        try:
+            switch = await set_live(db, args.name, args.label)
+        except (VersionNotFoundError, FileNotFoundError) as exc:
+            raise SystemExit(f"ERROR: {exc}") from exc
+        except Exception as exc:  # a broken bundle
+            raise SystemExit(f"ERROR: {exc}") from exc
+    if switch.changed:
+        print(f"{switch.model_name}: live {switch.previous} -> {switch.current}")
+        print(f"rollback: python -m app.cli models set-live {switch.model_name} {switch.previous}")
+    else:
+        print(f"{switch.model_name}: {switch.current} is already live")
+
+
 def _seed_refs() -> list[str]:
     entries = json.loads(SEED_FILE.read_text(encoding="utf-8"))["channels"]
     refs = []
@@ -244,6 +348,34 @@ def main() -> None:
     insights = sub.add_parser("insights").add_subparsers(dest="insights_command", required=True)
     insights.add_parser("status")
     insights.add_parser("refresh").add_argument("--force", action="store_true", help="recompute even if the sources are unchanged")
+    relevance = sub.add_parser("relevance").add_subparsers(dest="relevance_command", required=True)
+    pl = relevance.add_parser("pseudo-label", help="run the teacher on uploads it hasn't labelled")
+    pl.add_argument("--upload", type=int, action="append", help="only these upload ids (repeatable)")
+    pl.add_argument("--force", action="store_true", help="relabel uploads that already have labels")
+    tr = relevance.add_parser("train", help="train a BiLSTM version (registered not live)")
+    tr.add_argument("--label", required=True)
+    tr.add_argument("--teacher", help="teacher version label (default: the one with the most labelled uploads)")
+    tr.add_argument("--hidden", type=int, default=128)
+    tr.add_argument("--layers", type=int, default=1)
+    tr.add_argument("--lambdas", default="0,0.1,0.5")
+    tr.add_argument("--seeds", type=int, default=3)
+    tr.add_argument("--patience", type=int, default=40)
+    tr.add_argument("--combine", choices=["heads", "exact_heuristic"], default="heads",
+                    help="exact_heuristic: compute the heuristic exactly, BiLSTM for the LLM part (0024 §9)")
+    tr.add_argument("--encoder-dir", help="default: the chapters bundle's encoder/")
+    tr.add_argument("--encoder-name", default="intfloat/multilingual-e5-small")
+    tr.add_argument("--encoder-prefix", default="passage: ")
+    for name in ("eval", "ab-sheet", "ab-score", "status"):
+        p = relevance.add_parser(name)
+        p.add_argument("label")
+        if name in ("ab-sheet", "ab-score"):
+            p.add_argument("--out", help="sheet directory (default: <storage>/../m15-ab/<label>)")
+    models = sub.add_parser("models").add_subparsers(dest="models_command", required=True)
+    models.add_parser("list").add_argument("--name", choices=["relevance", "ctr", "hook"])
+    sl = models.add_parser("set-live", help="switch the live version (also the rollback)")
+    sl.add_argument("name", choices=["relevance", "ctr", "hook"])
+    sl.add_argument("label")
+    sl.add_argument("--force", action="store_true", help="skip the promotion check (0024 §7)")
     args = parser.parse_args()
 
     if args.command == "create-user":
@@ -258,6 +390,12 @@ def main() -> None:
         return
     if args.command == "insights":
         asyncio.run(_insights_status() if args.insights_command == "status" else _insights_refresh(args.force))
+        return
+    if args.command == "relevance":
+        asyncio.run(_relevance(args))
+        return
+    if args.command == "models":
+        asyncio.run(_models(args))
         return
     if args.command == "reporting":
         asyncio.run(_reporting_status() if args.reporting_command == "status" else _reporting_poll())

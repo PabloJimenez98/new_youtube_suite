@@ -176,6 +176,6 @@
 - **Content source:** the popup text is the content the owner will defend in the TFM. When a tool
   changes, its `ToolDoc` must change with it. The `source` field names the decision record to
   re-check.
-- **Review (open):** the owner reviews the popup copy (brainstorm).
+- **Review (closed 2026-11-14):** the owner reviewed and approved the popup copy.
 - **M15:** when M15 trains a model, its `training.planned` flips to `false` and its flow is replaced
   with the real pipeline.

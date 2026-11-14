@@ -77,6 +77,13 @@ class Settings(BaseSettings):
     # 0 = weights in RAM with the prefill on the GPU (M9, 0014 §2).
     llm_n_gpu_layers: int = -1
 
+    # Relevance BiLSTM (M15) -- see docs/decisions/0024-relevance-bilstm-m15.md.
+    # Trained bundles live under this root (gitignored), with the frozen
+    # split in `split.json`. A live version's `artifact_path` points at its
+    # bundle. `cuda` falls back to CPU when no GPU is available.
+    relevance_model_root: Path = Path("models/relevance")
+    relevance_device: str = "cuda"
+
     # Shorts (M8) -- see docs/decisions/0013-shorts-generator.md. YuNet face
     # detector, downloaded by hand (gitignored, see README). A missing file
     # makes `shorts` jobs fail fast.

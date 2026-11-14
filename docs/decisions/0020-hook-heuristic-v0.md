@@ -330,7 +330,7 @@ The findings go in this record. They may adjust the shapes, but not the scope.
 ## Milestone closed (2026-11-08)
 
 The owner closed M14 on the automated test results, as for M13. The plan's manual QA is an
-**open follow-up**, not a blocker: compare the heuristic's clip ranking with the owner's own
+follow-up (**closed 2026-11-14**: the owner confirmed the manual QA), not a blocker: compare the heuristic's clip ranking with the owner's own
 ranking on 2–3 real episodes.
 
 - **Ready to use:** the 5 episodes in the dev DB already have shorts. Run the `hook` tool on

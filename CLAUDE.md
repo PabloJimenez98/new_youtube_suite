@@ -13,22 +13,28 @@ hardening), M10 (market-analysis pipeline v0) and M11 (OAuth + Analytics
 API v2) are done** — see `docs/decisions/` (0002–0020) for what was
 decided. A hardware pass for the new RTX 5070 (outside the milestone
 plan, decision 0016) is implemented; the owner's blind review chose the 9B
-(2026-11-08). M11 has an open follow-up: verify real Analytics rows once
-the test channel has views (0017). The OAuth app stays in Testing until
-the end of the project (0017 amendment). **M12 (Reporting API, real CTR/impressions) is in progress** (0018): code and
-unit tests are done; live phase 1 passed, live phase 2 is pending (re-run
-`pytest -m youtube_reporting -s` after 2026-11-10 12:38 UTC). **M13 (CTR
-predictor v0, heuristic) is done** (0019), pulled ahead while M12 waits, as the
-plan allows; the owner's manual QA on real episodes is an open follow-up.
-**M14 (hook-strength scorer v0, heuristic) is done** (0020), also pulled
-ahead while M12 waits (owner-confirmed); the owner's manual QA on real clips
-is an open follow-up. A frontend UX + explainability pass (outside the
-milestone plan, decision 0021) is done; the owner's review of the popup copy is
-an open follow-up. A data-visualisation pass (Analytics/Dashboard charts,
+(2026-11-08). M11's follow-up (verify real Analytics rows) was closed by
+the owner on 2026-11-14 (0017). The OAuth app stays in Testing until
+the end of the project (0017 amendment). **M12 (Reporting API, real
+CTR/impressions) is done** (0018): live phase 2 passed on 2026-11-14 (33
+header-only reports, 0 failed). Open, non-blocking: pin `CTR_SCALE` once the
+first non-empty reach file arrives. **M13 (CTR predictor v0, heuristic) is
+done** (0019) and **M14 (hook-strength scorer v0, heuristic) is done** (0020).
+Both were pulled ahead while M12 waited, and their manual QA was closed by the
+owner on 2026-11-14. A frontend UX + explainability pass (outside the
+milestone plan, decision 0021) is done; the owner approved the popup copy
+(2026-11-14). A data-visualisation pass (Analytics/Dashboard charts,
 `/insights` API, episode ↔ YouTube link, transcript viewer; also outside the
 plan, decision 0022) is done, with its analyses precomputed by the worker into
-`insight_results` (0023); its own-channel charts wait on real views, which is
-an open follow-up. The next milestone after M12 closes is **M15**.
+`insight_results` (0023). **M15 (relevance BiLSTM + retraining pipeline) is
+done** (0024, 2026-11-14). Iteration 1 failed the offline gate. Iteration 2,
+`bilstm-e5s-20261114-i2` (exact heuristic + a BiLSTM for the LLM part), passed
+it (0.652 vs 0.545) and the owner's blind A/B (3–2), and is **live**. Roll back
+with `python -m app.cli models set-live relevance
+heuristic-v0+Qwen3.5-9B-Q4_K_M+relevance-p3`. Open follow-up: the owner reviews
+the rendered clips of uploads 5, 35 and 43. CTR and hook training are
+follow-ups after v1, not M15 (owner, 2026-11-14). **All milestones M0–M15 are
+done.**
 Do not skip ahead in milestone order, and do not build a milestone's
 scope beyond what that milestone specifies without discussing it first.
 

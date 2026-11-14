@@ -37,10 +37,10 @@ Updated as milestones complete — this table is the source of truth for
 | M9 — Full-suite hardening | Done |
 | M10 — Market-analysis pipeline v0 | Done |
 | M11 — OAuth + Analytics API v2 | Done |
-| M12 — YouTube Reporting API | In progress |
+| M12 — YouTube Reporting API | Done |
 | M13 — Title/thumbnail CTR predictor v0 | Done |
 | M14 — Hook-strength scorer v0 | Done |
-| M15 — Model retraining pipeline | Not started |
+| M15 — Model retraining pipeline | Done |
 
 **Hardware pass (pre-M11, outside the milestone plan): In progress.** Moves the
 stack and local models from the GTX 1060 3 GB to the RTX 5070 12 GB; see

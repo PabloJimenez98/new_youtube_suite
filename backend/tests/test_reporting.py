@@ -378,6 +378,9 @@ async def test_task_skips_loudly_on_needs_reconsent(session_factory, monkeypatch
 
 async def test_task_runs_and_logs_one_line(session_factory, monkeypatch, caplog) -> None:
     google = FakeGoogle()
+    # The task reads the real clock, so the fake's job must be created "now":
+    # with the fake's fixed 2026-11-08 clock this test expired 48 h later.
+    google.reporting.now = datetime.now(timezone.utc)
     await _connect(session_factory, google)
     caplog.set_level(logging.INFO, logger="app.reporting")
     report = await _task(session_factory, google, monkeypatch)

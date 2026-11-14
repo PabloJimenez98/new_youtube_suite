@@ -205,6 +205,6 @@ phase 2 and M15 are unchanged.
 
 - **More data, better charts.** As the daily pull adds snapshots, velocity becomes available and
   the cross-sectional age curve can be complemented by real per-video trajectories.
-- **Own-channel charts** fill in once the OAuth channel has views (M11 follow-up).
+- **Own-channel charts** fill in once the OAuth channel has views (M11 follow-up). **Closed 2026-11-14:** the owner confirmed it.
 - **The analyses are descriptive** (correlation, not causation). The tooltips say so. Their
   residuals and features are natural inputs for M15's CTR and hook models.

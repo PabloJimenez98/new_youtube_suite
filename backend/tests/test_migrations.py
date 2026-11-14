@@ -44,6 +44,7 @@ EXPECTED_TABLES = {
     "analytics_reach_snapshots",
     "ctr_predictions",
     "hook_scores",
+    "relevance_pseudo_labels",
 }
 ANALYTICS_TABLES = {"oauth_credentials", "analytics_videos", "analytics_snapshots", "analytics_retention_curve"}
 MARKET_TABLES = {"market_channels", "market_videos", "market_video_snapshots"}
@@ -279,4 +280,48 @@ async def test_0016_creates_insight_results_unique_per_analysis_and_format_and_r
 
     _run_alembic("downgrade", "0015")
     assert "insight_results" not in await _table_names()
+    _run_alembic("downgrade", "base")
+
+
+async def test_0017_creates_relevance_pseudo_labels_backfilled_from_teacher_rows_and_reverts() -> None:
+    """Only teacher versions (no artifact_path) are copied; one row per (upload, window, teacher). 0024 §2."""
+    _run_alembic("downgrade", "base")
+    _run_alembic("upgrade", "0016")
+    engine = create_async_engine(get_settings().test_database_url)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("INSERT INTO uploads (id, filename, storage_path) VALUES (1, 'a.mp4', 'k')"))
+            await conn.execute(text(
+                "INSERT INTO model_versions (id, model_name, version_label, is_live, artifact_path) VALUES "
+                "(1, 'relevance', 'p3', true, NULL), (2, 'relevance', 'bilstm', false, 'models/relevance/bilstm')"
+            ))
+            await conn.execute(text(
+                "INSERT INTO relevance_scores (upload_id, window_index, window_start_seconds, window_end_seconds, "
+                "score, heuristic_score, llm_score, model_version_id) VALUES "
+                "(1, 0, 0, 15, 0.5, 0.4, 0.6, 1), (1, 1, 7.5, 22.5, 0.3, 0.3, NULL, 1)"
+            ))
+        _run_alembic("upgrade", "0017")
+        async with engine.begin() as conn:
+            rows = (await conn.execute(text(
+                "SELECT window_index, heuristic_score, llm_score, teacher_version_id "
+                "FROM relevance_pseudo_labels ORDER BY window_index"
+            ))).all()
+        assert [tuple(r) for r in rows] == [(0, 0.4, 0.6, 1), (1, 0.3, None, 1)]
+        dup = text(
+            "INSERT INTO relevance_pseudo_labels (upload_id, window_index, window_start_seconds, "
+            "window_end_seconds, heuristic_score, teacher_version_id) VALUES (1, 0, 0, 15, 0.1, 1)"
+        )
+        with pytest.raises(IntegrityError):
+            async with engine.begin() as conn:
+                await conn.execute(dup)
+        async with engine.begin() as conn:  # another teacher may label the same window
+            await conn.execute(text(
+                "INSERT INTO relevance_pseudo_labels (upload_id, window_index, window_start_seconds, "
+                "window_end_seconds, heuristic_score, teacher_version_id) VALUES (1, 0, 0, 15, 0.1, 2)"
+            ))
+    finally:
+        await engine.dispose()
+
+    _run_alembic("downgrade", "0016")
+    assert "relevance_pseudo_labels" not in await _table_names()
     _run_alembic("downgrade", "base")

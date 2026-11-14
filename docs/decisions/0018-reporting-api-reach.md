@@ -354,6 +354,26 @@ the test is **two phases**, with the wait written into the test:
   `pytest -m youtube_reporting -s`, which passed phase 1.
 - **Dev DB adoption:** `python -m app.cli reporting poll` then **adopted** the same job in the
   dev DB (no duplicate). The card shows "waiting for the first report".
-- **Phase 2 (open):** re-run `pytest -m youtube_reporting -s` after **2026-11-10 12:38 UTC**,
+- **Phase 2:** done on 2026-11-14 (see below). The original note: re-run `pytest -m youtube_reporting -s` after **2026-11-10 12:38 UTC**,
   then pin `CTR_SCALE` from the printed CSV header and values. Header-only files are expected
   while the test channel has no impressions.
+
+## Live phase 2 (2026-11-14): milestone closed
+
+- **Run:** `pytest -m youtube_reporting -s` in the WSL clone, 140.6 h after job creation.
+  **1 passed.**
+- **Job:** `14f8221d-…` was adopted again (no duplicate job).
+- **Reports:** 33 new reports, starting from 2026-10-09 (the ~30-day backfill). All 33 are
+  `downloaded`: 0 superseded, 0 failed, 0 pending. The run made 35 API calls with 0 errors.
+- **Rows:** 0 reach rows and 0 channel-level rows. Every file has a header only, as expected
+  while the test channel has no thumbnail impressions.
+- **Header verified:**
+  `date,channel_id,video_id,video_thumbnail_impressions,video_thumbnail_impressions_ctr`.
+  It matches `REQUIRED_COLUMNS`. `channel_id` is extra and is ignored, as designed.
+- **Not verifiable yet:** the date format and the CTR scale need at least one data row.
+  - `CTR_SCALE` stays `"auto"`. That is its designed pre-verification mode: a file with any
+    value above 1 is read as percentages.
+  - **Follow-up (open, non-blocking):** when the first non-empty reach file arrives, check
+    the date format and the CTR values, then pin `CTR_SCALE` to `"fraction"` or `"percent"`.
+- **M12 is done.** No code changed in this phase, so the regression baseline stays the one from
+  the 0021–0023 commit.

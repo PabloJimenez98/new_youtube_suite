@@ -377,7 +377,7 @@ Plan in `docs/decisions/0017-oauth-analytics-v2.md`. Left out of M11 on purpose:
   (plan: `<user>.github.io` with `index.html` + `privacy.html`, add that subdomain as an
   authorized domain, fill the Branding page, then Audience → Publish app; don't submit for
   verification). Until then, re-connect the channel from `/analytics` every ~7 days.
-- **M11 follow-up (open): verify real Analytics rows** once the test channel has views
+- **M11 follow-up (closed 2026-11-14, owner confirmed): verify real Analytics rows** once the test channel has views
   (48–72 h lag). See 0017 "First live run". Until then, the live run only proved 0-row pulls.
 - **Dev-env drift (open):** the WSL clone `~/projects/new_youtube_suite` (which holds the venv
   and `node_modules`) is still at M9. M11 was run from the Windows tree using that clone's venv
@@ -392,7 +392,7 @@ Plan in `docs/decisions/0018-reporting-api-reach.md`. Left out of M12 on purpose
 - **`channel_reach_combined_a1`** (traffic source / device / OS breakdown of impressions and
   CTR): not in M12, which covers basic only. Add it if the M13/M15 CTR model wants per-surface
   CTR (e.g. browse vs suggested). It would be a second job type on the same pipeline.
-- **Verify on the first real CSV (open):**
+- **Verify on the first real CSV (partly done 2026-11-14: header verified in phase 2; date format and CTR scale still open, since every file so far is header-only):**
   - the header spelling
   - the date format (`YYYY-MM-DD` vs `YYYYMMDD`; both accepted)
   - the CTR scale. `CTR_SCALE="auto"` reads a file with any value > 1 as percentages, so a
@@ -421,7 +421,7 @@ Left out of M13 on purpose, or still open:
 - **Thumbnail candidate picker** (best frames from the episode): still deferred (v1-scope).
 - **Dashboard "Avg. predicted CTR" tile:** **Removed 2026-11-08 with the other dummy tiles (0021); the note below still holds if it comes back:** stays dummy; an average of relative scores across
   episodes isn't meaningful anyway, so it needs a different metric before it's wired.
-- **Manual QA (open follow-up; M13 was closed without it on 2026-11-08):** the owner ranks 3–5
+- **Manual QA (closed 2026-11-14, owner confirmed; M13 was closed without it on 2026-11-08):** the owner ranks 3–5
   candidate sets on 2–3 real episodes and compares them with the heuristic. The findings go in
   0019. Frames are ready in `C:\Users\Pablo\Downloads\ctr-qa-frames\`.
 - ~~**Dev env: `STORAGE_BASE_PATH` (open):** the uploaded episodes live in `/home/pablo/yts-data/uploads`,
@@ -451,12 +451,12 @@ Left out of M14 on purpose, or still open:
 - **Audio features** (energy, pitch, laughter): text-only v1 constraint (spec §2.8, §7).
 - **Dashboard "Top hook-scoring clip" tile:** **Removed 2026-11-08 with the other dummy tiles (0021); the note below still holds if it comes back:** stays dummy. Hook scores are relative within
   one episode, so "top across episodes" needs a different metric before it's wired.
-- **Manual QA (open follow-up; M14 was closed without it on 2026-11-08):** rank the clips of 2–3 episodes by their first
+- **Manual QA (closed 2026-11-14, owner confirmed; M14 was closed without it on 2026-11-08):** rank the clips of 2–3 episodes by their first
   15 s, then compare with the heuristic. The findings go in 0020.
 
 ## 2026-11-08 — Frontend UX + explainability pass (outside the milestone plan)
 Plan in `docs/decisions/0021-frontend-ux-explainability.md`. Left out on purpose, or still open:
-- **Owner review of the popup copy (open):** the `ToolDoc` text in `frontend/src/app/explain/tool-docs.ts`
+- **Owner review of the popup copy (closed 2026-11-14, owner approved):** the `ToolDoc` text in `frontend/src/app/explain/tool-docs.ts`
   is what the TFM defends. Check every step, number and limitation against the decision records
   each doc cites in `source`.
 - **Keep docs in sync (rule):** a change to a tool's pipeline updates its `ToolDoc` (steps, flow,
@@ -470,7 +470,7 @@ Plan in `docs/decisions/0021-frontend-ux-explainability.md`. Left out on purpose
 
 ## 2026-11-08 — Analytics & Dashboard data visualisation (outside the milestone plan)
 Plan in `docs/decisions/0022-analytics-dashboards.md`. Left out on purpose, or still open:
-- **Own-channel charts (open):** daily views, real CTR and retention render once the OAuth channel
+- **Own-channel charts (closed 2026-11-14, owner confirmed):** daily views, real CTR and retention render once the OAuth channel
   has views (same follow-up as M11/M12). Until then they show why they're empty.
 - **View velocity (open):** needs ≥ 2 daily snapshots of the same videos (14-day window). Re-check
   after a few daily pulls; then consider per-video trajectories instead of the cross-sectional
@@ -486,3 +486,27 @@ Plan in `docs/decisions/0022-analytics-dashboards.md`. Left out on purpose, or s
   into `insight_results`, refreshed hourly by the worker (no-op when the sources are unchanged).
   Still open: the growth payload (~150 KB) repeats channel names per point. A channel index
   would shrink it if it ever matters.
+
+## 2026-11-14 — M15 planning (relevance BiLSTM)
+Plan in `docs/decisions/0024-relevance-bilstm-m15.md`. Left out of M15 on purpose, or still open:
+- **The CTR `ToolDoc` over-promises (open):** `frontend/src/app/explain/tool-docs.ts` says "M15
+  learns the weights from real CTR". The plan's M15 entry covers the relevance model only, so CTR
+  and hook training stay fast-follows (plan M13/M14 "Fast-follow"). Fix the copy in M15's ToolDoc
+  change, or keep it if the owner wants M15's scope extended (discuss first).
+- **Retention-derived relevance labels (spec §2.4 step 3):** blocked on views; `analytics_retention_curve`
+  had 0 rows on 2026-11-14.
+- **Scheduled retraining (spec §6.4):** M15 ships CLI commands. A periodic job only pays off once
+  retention/CTR labels exist.
+- **The M12 `CTR_SCALE` pin** is still waiting on the first non-empty reach file (0018).
+- **After M15 i2 (open, not built):**
+  - Levers 3 (`multilingual-e5-base`) and 4 (expected-value LLM labels, ~8–9 h of GPU) were not
+    needed to pass the gate. Both are candidates if the A/B fails or for a later retrain.
+  - Retrain when the season grows: new episodes join train and the test split stays frozen.
+  - In `exact_heuristic` mode the heuristic head is trained but unused. Drop it only if a later
+    version needs the capacity.
+  - A live BiLSTM writes no pseudo-labels. New episodes get labels only through
+    `relevance pseudo-label`, which runs the LLM teacher.
+- **M15 closed (2026-11-14):** `bilstm-e5s-20261114-i2` is live (0024 "Promotion").
+  - **Open (the owner):** review the rendered clips of uploads 5, 35 and 43.
+  - **Not built:** rescoring the other 60 episodes with i2. Their p3 scores and clips stay valid
+    until re-run (the M9 season runner can do it in seconds per episode now).

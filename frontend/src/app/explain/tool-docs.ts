@@ -328,40 +328,43 @@ const relevance: ToolDoc = {
     ],
   },
   training: {
-    planned: true,
+    planned: false,
     summary:
-      'v0 has no training: it is the bootstrap. Its scores are stored as pseudo-labels, and M15 trains the real model on them: a BiLSTM over frozen sentence embeddings with a sigmoid head, evaluated offline and against v0 before it goes live.',
+      'v0 is the teacher. Its two components (heuristic and LLM) are kept per window as pseudo-labels in their own table, so a later model can never overwrite them. M15 distils them into a BiLSTM over frozen multilingual-e5 window embeddings, with two heads (one per component, combined 0.4 / 0.6 like v0) and a temporal-smoothness penalty. Episodes are split 48 / 7 / 8 (train / validation / test, frozen). A trained version goes live only if it agrees with v0 better than the heuristic alone on the test episodes and the owner prefers or ties it on at least 3 of 5 in a blind top-5 comparison. Switching back is one command.',
     flow: {
       nodes: [
-        { id: 'v0', label: 'v0 scores, many episodes', detail: 'heuristic + LLM', kind: 'data' },
-        { id: 'pl', label: 'Pseudo-labels', detail: 'LLM expected value', kind: 'process' },
-        { id: 'emb', label: 'Frozen embeddings', detail: 'per window', kind: 'planned' },
-        { id: 'train', label: 'Train BiLSTM', detail: 'sigmoid · temporal smoothness', kind: 'planned' },
-        { id: 'eval', label: 'Offline eval + A/B', detail: 'vs v0 on real episodes', kind: 'planned' },
-        { id: 'live', label: 'New model_version', detail: 'is_live switch', kind: 'planned' },
+        { id: 'v0', label: 'v0 scores, 63 episodes', detail: 'heuristic + LLM', kind: 'data' },
+        { id: 'pl', label: 'Pseudo-labels', detail: 'own table · per teacher', kind: 'data' },
+        { id: 'emb', label: 'Frozen embeddings', detail: 'multilingual-e5-small · cached', kind: 'model' },
+        { id: 'train', label: 'Train BiLSTM', detail: '2 heads · Huber + smoothness · 3 seeds', kind: 'process' },
+        { id: 'eval', label: 'Offline gate', detail: 'test split · vs heuristic alone', kind: 'decision' },
+        { id: 'ab', label: 'Blind A/B', detail: 'owner · top 5 · 5 episodes', kind: 'decision' },
+        { id: 'live', label: 'set-live', detail: 'new model_version · rollback', kind: 'output' },
       ],
       edges: [
         { from: 'v0', to: 'pl' },
         { from: 'pl', to: 'train', label: 'targets' },
         { from: 'emb', to: 'train', label: 'inputs' },
         { from: 'train', to: 'eval' },
-        { from: 'eval', to: 'live', label: 'only if it wins' },
+        { from: 'eval', to: 'ab', label: 'if passed' },
+        { from: 'ab', to: 'live', label: 'only if it wins' },
       ],
     },
   },
-  model: { name: 'Heuristic v0 + Qwen3.5-9B zero-shot (relevance-p2)', kind: 'hybrid', runtime: 'CPU (features) + GPU (LLM)' },
+  model: { name: 'Heuristic v0 + Qwen3.5-9B zero-shot (relevance-p3), live until a trained BiLSTM wins', kind: 'hybrid', runtime: 'CPU (features) + GPU (LLM)' },
   metric: {
     name: 'Relevance score (0–1 per window)',
     means: 'How well a moment would stand alone as a short, by v0’s rules, compared with the rest of this episode.',
     doesNotMean: 'Not a prediction of views or retention, and not comparable across episodes: the topic feature is scaled to each episode.',
   },
   limitations: [
-    'The v0 quality ceiling is low by design: it is a bootstrap until M15.',
+    'The v0 quality ceiling is low by design: it is the teacher a trained model learns from.',
+    'A trained BiLSTM learns to imitate v0, so it cannot be judged on v0’s labels alone: going live needs the owner’s blind comparison.',
     'The LLM scores are somewhat noisy; the two averaged passes reduce, not remove, that noise.',
     'Without diarization the speaker-change feature is dropped and the other weights are rescaled.',
   ],
   dependsOn: ['transcribe'],
-  source: 'Decisions 0012, 0014',
+  source: 'Decisions 0012, 0014, 0024',
 };
 
 const shorts: ToolDoc = {
@@ -502,7 +505,7 @@ const hook: ToolDoc = {
   training: {
     planned: true,
     summary:
-      'v0 is a hand-weighted heuristic. Every feature vector is stored so that M15 can train a LightGBM ranker once published shorts have a real label: retention, or viewed vs swiped away.',
+      'v0 is a hand-weighted heuristic. Every feature vector is stored so that a LightGBM ranker can be trained once published shorts have a real label: retention, or viewed vs swiped away. That is a follow-up after v1, not part of M15: no published short has a label yet.',
     flow: {
       nodes: [
         { id: 'fv', label: 'Stored feature vectors', detail: 'every clip', kind: 'data' },
@@ -652,7 +655,7 @@ const ctr: ToolDoc = {
   training: {
     planned: true,
     summary:
-      'v0 is a hand-weighted heuristic. M12 now collects the channel’s real CTR and impressions; once each published title/thumbnail is linked to its video, the stored features become a training set and M15 learns the weights from real CTR.',
+      'v0 is a hand-weighted heuristic. M12 collects the channel’s real CTR and impressions. Once the channel has impressions and each published title/thumbnail is linked to its video, the stored features become a training set for learning the weights from real CTR. That is a follow-up after v1, not part of M15: the connected channel has no impressions yet.',
     flow: {
       nodes: [
         { id: 'fv', label: 'Stored features', detail: 'every candidate', kind: 'data' },
@@ -846,25 +849,25 @@ const reporting: ToolDoc = {
 
 const m15: ToolDoc = {
   key: 'm15',
-  title: 'Trained models (M15, planned)',
+  title: 'Trained models (M15)',
   oneLiner:
-    'The v0 heuristics are a transparent starting point. M15 retrains the three custom models on the data the platform accumulates.',
+    'The v0 heuristics are a transparent starting point. M15 trains the relevance model on v0’s pseudo-labels; the CTR and hook models wait for real labels from the channel.',
   inputs: ['v0 relevance scores (pseudo-labels)', 'Real CTR and impressions', 'Audience retention', 'Stored feature vectors'],
   outputs: ['New model versions, switched live only if they beat v0'],
   steps: [
     {
       title: 'Relevance',
-      detail: 'A BiLSTM over frozen sentence embeddings, trained on the v0 pseudo-labels.',
+      detail: 'A BiLSTM over frozen multilingual-e5 window embeddings, distilled from the v0 pseudo-labels (M15).',
       terms: ['pseudo-label', 'bilstm'],
     },
     {
       title: 'CTR',
-      detail: 'Feature weights learned from the channel’s real CTR, once candidates are linked to published videos.',
+      detail: 'Later, after v1: feature weights learned from the channel’s real CTR, once it has impressions and candidates are linked to published videos.',
       terms: ['ctr'],
     },
     {
       title: 'Hook',
-      detail: 'A LightGBM ranker over the stored hook features, labelled with Shorts retention.',
+      detail: 'Later, after v1: a LightGBM ranker over the stored hook features, labelled with Shorts retention.',
       terms: ['retention'],
     },
     {
@@ -875,10 +878,11 @@ const m15: ToolDoc = {
   ],
   flow: {
     nodes: [
-      { id: 'data', label: 'Accumulated data', detail: 'pseudo-labels · CTR · retention', kind: 'data' },
-      { id: 'train', label: 'Train', detail: 'BiLSTM · weights · LightGBM', kind: 'planned' },
-      { id: 'eval', label: 'Evaluate vs v0', kind: 'planned' },
-      { id: 'live', label: 'Go live', detail: 'new model_version', kind: 'planned' },
+      { id: 'data', label: 'Pseudo-labels', detail: 'v0 relevance', kind: 'data' },
+      { id: 'train', label: 'Train BiLSTM', detail: 'relevance', kind: 'process' },
+      { id: 'eval', label: 'Evaluate vs v0', detail: 'offline gate + blind A/B', kind: 'decision' },
+      { id: 'live', label: 'Go live', detail: 'new model_version', kind: 'output' },
+      { id: 'later', label: 'CTR · hook', detail: 'after v1 · need real labels', kind: 'planned' },
     ],
     edges: [
       { from: 'data', to: 'train' },
@@ -886,10 +890,13 @@ const m15: ToolDoc = {
       { from: 'eval', to: 'live', label: 'only if better' },
     ],
   },
-  model: { name: 'Planned', kind: 'planned', runtime: 'GPU training' },
-  limitations: ['There is no guarantee the first trained relevance model beats the heuristic: it ships only if it does.'],
+  model: { name: 'Relevance BiLSTM (trained); CTR and hook planned', kind: 'trained', runtime: 'GPU training, offline (CLI)' },
+  limitations: [
+    'There is no guarantee the first trained relevance model beats the heuristic: it ships only if it does.',
+    'The CTR and hook models stay heuristic until the channel produces real labels.',
+  ],
   dependsOn: [],
-  source: 'docs/development-plan.md (M15)',
+  source: 'docs/development-plan.md (M15), decision 0024',
 };
 
 export const TOOL_DOCS: Record<DocKey, ToolDoc> = {
@@ -923,7 +930,7 @@ export const SYSTEM_FLOW: Flow = {
     { id: 'market', label: 'Market data', detail: 'Data API', kind: 'data', link: 'market', minLayer: 5 },
     { id: 'analytics', label: 'Channel analytics', detail: 'retention', kind: 'data', link: 'analytics', minLayer: 5 },
     { id: 'reporting', label: 'Real CTR', detail: 'Reporting API', kind: 'data', link: 'reporting', minLayer: 5 },
-    { id: 'm15', label: 'Trained models', detail: 'M15 · replace v0', kind: 'planned', link: 'm15' },
+    { id: 'm15', label: 'Trained models', detail: 'M15 · relevance BiLSTM', kind: 'model', link: 'm15' },
   ],
   edges: [
     { from: 'upload', to: 'transcribe' },

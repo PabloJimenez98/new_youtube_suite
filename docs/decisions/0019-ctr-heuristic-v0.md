@@ -319,7 +319,7 @@ they may adjust the shapes, but not the scope.
 ## Milestone closed (2026-11-08)
 
 The owner closed M13 on the automated test results. The plan's manual QA (comparing the
-heuristic's ranking with the owner's own ranking on real episodes) is an **open follow-up**,
+heuristic's ranking with the owner's own ranking on real episodes) is a follow-up (**closed 2026-11-14**: the owner confirmed the manual QA),
 not a blocker:
 
 - Candidate frames for it were extracted outside the repo, in

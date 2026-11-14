@@ -25,6 +25,7 @@ CPU_PINS = {
     "WHISPER_COMPUTE_TYPE": "int8",
     "DIARIZATION_DEVICE": "cpu",
     "CHAPTERS_DEVICE": "cpu",
+    "RELEVANCE_DEVICE": "cpu",
     "LLM_N_GPU_LAYERS": "0",
 }
 FORCED_CPU_ENV = [k for k in CPU_PINS if k not in os.environ]
