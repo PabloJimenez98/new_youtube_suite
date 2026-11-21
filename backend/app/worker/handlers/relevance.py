@@ -26,7 +26,8 @@ from app.models.upload import Upload
 from app.relevance import bilstm, pipeline
 from app.relevance.pipeline import WindowScore
 from app.relevance.windows import Word
-from app.llm import runtime
+from app.llm import registry, runtime
+from app.settings_store import job_llm
 from app.worker.gpu import gpu_lock
 
 
@@ -46,9 +47,10 @@ def words_from_segments(segments: list[TranscriptSegment]) -> list[Word]:
 
 
 async def get_or_create_version(
-    db: AsyncSession, label: str, description: dict, *, model_name: str = "relevance"
+    db: AsyncSession, label: str, description: dict, *, model_name: str = "relevance", can_go_live: bool = True
 ) -> ModelVersion:
-    """The `model_name` row for this label; created live when no version of that model is live yet.
+    """The `model_name` row for this label; created live when no version of that model is live yet
+    (unless `can_go_live` is False: runs with our own LLM never become live by accident, M16).
 
     Shared with the CTR handler (M13, `model_name="ctr"`)."""
     version = await db.scalar(
@@ -58,7 +60,8 @@ async def get_or_create_version(
         live = await db.scalar(
             select(ModelVersion.id).where(ModelVersion.model_name == model_name, ModelVersion.is_live)
         )
-        version = ModelVersion(model_name=model_name, version_label=label, is_live=live is None, **description)
+        version = ModelVersion(model_name=model_name, version_label=label, is_live=can_go_live and live is None,
+                               **description)
         db.add(version)
         await db.flush()
     return version
@@ -98,6 +101,21 @@ async def run(job: Job, db: AsyncSession) -> None:
     duration = upload.duration_seconds or max(s.end_seconds for s in segments)
     words = words_from_segments(segments)
 
+    choice = job_llm(job.params)
+    if choice != registry.QWEN:
+        # Our own LLM (M16, 0025 §11): the zero-shot version over it, whatever version is live.
+        # Its scores are NOT written as pseudo-labels: those are the BiLSTM's training targets and
+        # come from the Qwen teacher only (0024 §2).
+        label, description, result = await score_with_teacher(words, duration, chapters, choice)
+        try:
+            version = await get_or_create_version(db, label, description, can_go_live=False)
+            await _write_scores(db, upload.id, version, result.scores)
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+        return
+
     live = await db.scalar(
         select(ModelVersion).where(ModelVersion.model_name == "relevance", ModelVersion.is_live)
     )
@@ -120,12 +138,14 @@ async def run(job: Job, db: AsyncSession) -> None:
         raise
 
 
-async def score_with_teacher(words: list[Word], duration: float, chapters: list[tuple[float, str]]):
+async def score_with_teacher(words: list[Word], duration: float, chapters: list[tuple[float, str]],
+                             llm: str = registry.QWEN):
     """(label, description, result) from heuristics + LLM, inside the GPU lock."""
+    extra = () if llm == registry.QWEN else (llm,)  # Qwen keeps the exact pre-M16 call
     # The LLM's prompt prefill runs on the GPU with the CUDA build (0014 §2).
     async with gpu_lock:
         try:
-            return await asyncio.to_thread(pipeline.score_relevance, words, duration, chapters)
+            return await asyncio.to_thread(pipeline.score_relevance, words, duration, chapters, *extra)
         finally:
             # Free the LLM's ~1 GB of VRAM for Whisper/pyannote (0014 §2).
             await asyncio.to_thread(runtime.release_all)

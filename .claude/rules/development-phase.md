@@ -1,6 +1,6 @@
 # Development-phase rules
 
-- Work is organized into milestones (`docs/development-plan.md`, M0–M15).
+- Work is organized into milestones (`docs/development-plan.md`, M0–M16).
   Implement them **in order** — don't start a later milestone's scope
   before an earlier one is done, and don't silently expand a
   milestone's scope beyond what its entry describes.
@@ -17,7 +17,7 @@
   If you notice something a later milestone will need, note it in
   `docs/brainstorm.md` or the relevant milestone's entry rather than
   building it early.
-- Risk notes in the development plan (M8, M12, M15) are real —
+- Risk notes in the development plan (M8, M12, M15, M16) are real —
   budget iteration time for those rather than treating estimates as
   fixed-cost.
 - Keep the `docs/decisions/` log current: it's the source of truth for

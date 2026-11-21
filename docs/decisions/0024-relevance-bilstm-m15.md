@@ -400,7 +400,7 @@ prominence statistics are logged.
   - All 19,348 pseudo-labels (63 uploads) are intact.
   - `relevance_scores`: 3 uploads now come from i2 and 60 still come from p3. They aren't
     rescored automatically (§6).
-- **Open follow-up (the owner, non-blocking):** watch the rendered clips of uploads 5, 35 and 43
-  in Manage. If they disappoint, roll back (see above) and re-run those three episodes.
+- **Follow-up closed (2026-11-14):** the owner watched the rendered clips of uploads 5, 35 and 43
+  in Manage and approved them. i2 stays live.
 - **M15 is done:** the pipeline is built and tested, two train → evaluate cycles are
   documented, and i2 is promoted.

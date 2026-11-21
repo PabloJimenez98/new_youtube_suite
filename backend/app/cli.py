@@ -232,7 +232,7 @@ async def _relevance(args: argparse.Namespace) -> None:
     cmd = args.relevance_command
     try:
         if cmd == "pseudo-label":
-            r = await retrain.pseudo_label(async_session_factory, args.upload or None, args.force)
+            r = await retrain.pseudo_label(async_session_factory, args.upload or None, args.force, args.llm)
             print(f"teacher {r['teacher']}: {r['labelled']} uploads labelled, {r['skipped']} skipped")
         elif cmd == "train":
             from app.relevance.bilstm import resolve_device
@@ -352,6 +352,8 @@ def main() -> None:
     pl = relevance.add_parser("pseudo-label", help="run the teacher on uploads it hasn't labelled")
     pl.add_argument("--upload", type=int, action="append", help="only these upload ids (repeatable)")
     pl.add_argument("--force", action="store_true", help="relabel uploads that already have labels")
+    pl.add_argument("--llm", choices=("qwen", "own"), default="qwen",
+                    help="the teacher's LLM (M16, 0025 §11); own-model labels get their own version")
     tr = relevance.add_parser("train", help="train a BiLSTM version (registered not live)")
     tr.add_argument("--label", required=True)
     tr.add_argument("--teacher", help="teacher version label (default: the one with the most labelled uploads)")

@@ -53,6 +53,13 @@ describe('tool docs', () => {
     expect(TOOL_DOCS.hook.training!.planned).toBe(true);
   });
 
+  it('explain our own LLM with its training flow and what its gates do not mean', () => {
+    const doc = TOOL_DOCS.ownllm;
+    expect(doc.training?.planned).toBe(false);
+    expect(doc.metric?.doesNotMean).toBeTruthy();
+    expect(SYSTEM_FLOW.nodes.some((n) => n.link === 'ownllm')).toBe(true);
+  });
+
   it('state what a relative score does not mean', () => {
     for (const key of ['ctr', 'hook', 'relevance'] as const) {
       expect(TOOL_DOCS[key].metric?.doesNotMean).toBeTruthy();

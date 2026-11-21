@@ -1,0 +1,48 @@
+# A3 step 2 (0025 §9.2): task SFT on the Qwen teacher calls (llm.task_data: 259 train + 15 val
+# episodes; titles, show-notes map/reduce, relevance) in the exact prompts the app sends,
+# plus general-SFT replay. Replay is ~15 % of the *loss* tokens (0.24M of 1.54M): measured on
+# loss tokens because task prompts are long transcripts with short answers, so a 15 % share
+# of rows would have been 69 % of the loss. 3 epochs (1.3M task target tokens is small).
+# Starts from a3-sft-general; half its lr.
+name: a3-sft-tasks
+model:
+  vocab_size: 32768
+  d_model: 768
+  n_layers: 12
+  n_heads: 12
+  n_kv_heads: 4
+  rope_theta: 100000.0
+  qk_norm: false
+  max_seq_len: 4096
+data:
+  kind: sft
+  sft_dir: ~/yts-experiments/m16-llm/data/sft/packed-tasks
+tokenizer: ~/yts-experiments/m16-llm/tokenizer/tokenizer.json
+init_from: ~/yts-experiments/m16-llm/runs/a3-sft-general/final_model.pt
+total_tokens: 85500000         # 3 epochs of 6,959 rows x 4096
+seq_len: 4096
+micro_batch: 4
+batch_tokens: 131072        # 8 micro-batches of 4 x 4096 per optimizer step
+optimizer: adamw
+lr: 0.00015
+warmup_tokens: 2000000
+schedule: wsd
+decay_fraction: 0.2
+weight_decay: 0.1
+grad_clip: 1.0
+seed: 1337
+device: cuda
+compile: true
+mem_fraction: 0.92
+min_free_vram_gib: 9.5
+autosave_minutes: 15
+keep_last: 2
+permanent_every_fraction: 0.5
+eval_every_tokens: 10000000
+eval_batches: 20
+log_every_steps: 10
+sample_prompts:
+  - "<|im_start|>user\n¿Cuál es la capital de Francia?<|im_end|>\n<|im_start|>assistant\n"
+  - "<|im_start|>user\nDame tres consejos para empezar un podcast.<|im_end|>\n<|im_start|>assistant\n"
+  - "<|im_start|>user\nExplain in one sentence what a podcast is.<|im_end|>\n<|im_start|>assistant\n"
+sample_tokens: 96

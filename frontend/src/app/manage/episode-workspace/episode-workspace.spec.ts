@@ -9,6 +9,7 @@ import { Explain } from '../../explain/explain';
 import { JobOut, ToolType } from '../../jobs/job.model';
 import { Jobs } from '../../jobs/jobs';
 import { Relevance, RelevanceOut } from '../../relevance/relevance';
+import { LlmChoice, LlmSettings, LlmSettingsOut } from '../../settings/llm-settings';
 import { ClipOut, Shorts } from '../../shorts/shorts';
 import { ShowNotes, ShowNotesOut } from '../../shownotes/shownotes';
 import { Transcripts } from '../../transcripts/transcripts';
@@ -652,5 +653,92 @@ describe('EpisodeWorkspace', () => {
     fixture.detectChanges();
 
     expect(toolBar('diarize').querySelector('.badge--failed')?.getAttribute('title')).toBe('Diarization unavailable');
+  });
+
+  describe('LLM picker (M16)', () => {
+    const settings = (own_available: boolean, def: LlmChoice = 'qwen'): LlmSettingsOut => ({
+      default: def,
+      own_available,
+      own_label: own_available ? 'yts-110m-a3' : null,
+      qwen_label: 'Qwen3.5-9B-Q4_K_M',
+    });
+    const picker = (tool: ToolType) => toolBar(tool).querySelector<HTMLSelectElement>('.tool-bar__llm');
+
+    beforeEach(() => {
+      fixture.componentRef.setInput('jobs', [makeJob({ status: 'succeeded' })]);
+    });
+
+    it('is hidden, and runs send no params, while our model is not installed', () => {
+      TestBed.inject(LlmSettings).current.set(settings(false));
+      jobsStub.createJob.mockReturnValue(of(makeJob({ id: 2, tool_type: 'chapters' })));
+      fixture.detectChanges();
+
+      expect(el().querySelectorAll('.tool-bar__llm').length).toBe(0);
+      fixture.componentInstance['runTool']('chapters');
+      expect(jobsStub.createJob).toHaveBeenCalledWith(5, 'chapters');
+    });
+
+    it('appears only on the three LLM tools, preset to the Settings default', () => {
+      TestBed.inject(LlmSettings).current.set(settings(true, 'own'));
+      fixture.detectChanges();
+
+      for (const tool of ['chapters', 'shownotes', 'relevance'] as const) {
+        expect(picker(tool)?.value).toBe('own');
+      }
+      for (const tool of ['transcribe', 'diarize', 'shorts', 'hook', 'ctr'] as const) {
+        expect(picker(tool)).toBeNull();
+      }
+    });
+
+    it('sends the default, or the per-run override, as params.llm', () => {
+      TestBed.inject(LlmSettings).current.set(settings(true, 'qwen'));
+      jobsStub.createJob.mockReturnValue(of(makeJob({ id: 2, tool_type: 'relevance' })));
+      fixture.detectChanges();
+
+      const select = picker('relevance')!;
+      select.value = 'own';
+      select.dispatchEvent(new Event('change'));
+      fixture.componentInstance['runTool']('relevance');
+      expect(jobsStub.createJob).toHaveBeenLastCalledWith(5, 'relevance', { llm: 'own' });
+
+      // The override is per tool: chapters still follows the default.
+      jobsStub.createJob.mockReturnValue(of(makeJob({ id: 3, tool_type: 'chapters' })));
+      fixture.componentInstance['runTool']('chapters');
+      expect(jobsStub.createJob).toHaveBeenLastCalledWith(5, 'chapters', { llm: 'qwen' });
+    });
+
+    it('shows which model a run used', () => {
+      TestBed.inject(LlmSettings).current.set(settings(true));
+      fixture.componentRef.setInput('jobs', [
+        makeJob({ status: 'succeeded' }),
+        makeJob({ id: 4, tool_type: 'chapters', status: 'succeeded', params: { llm: 'own' } }),
+      ]);
+      fixture.detectChanges();
+
+      expect(toolBar('chapters').querySelector('.tool-bar__llm-used')?.textContent).toContain('Our model (yts-110m-a3)');
+      expect(toolBar('shownotes').querySelector('.tool-bar__llm-used')).toBeNull();
+    });
+
+    it('explains our model next to the picker, with its per-task gate verdict when it is chosen', () => {
+      TestBed.inject(LlmSettings).current.set(settings(true, 'own'));
+      fixture.detectChanges();
+
+      for (const tool of ['chapters', 'shownotes', 'relevance'] as const) {
+        const info = toolBar(tool).querySelector<HTMLButtonElement>('.tool-bar__actions .info-btn');
+        expect(info?.getAttribute('aria-label')).toBe('How Our own language model works');
+      }
+      expect(toolBar('chapters').querySelector('.tool-bar__llm-hint')?.textContent).toContain('passes');
+      expect(toolBar('shownotes').querySelector('.tool-bar__llm-hint')?.textContent).toContain('Qwen recommended');
+      expect(toolBar('relevance').querySelector('.tool-bar__llm-hint')?.textContent).toContain('Qwen recommended');
+
+      toolBar('chapters').querySelector<HTMLButtonElement>('.tool-bar__actions .info-btn')!.click();
+      expect(TestBed.inject(Explain).openKey()).toBe('ownllm');
+    });
+
+    it('shows no verdict while Qwen is chosen', () => {
+      TestBed.inject(LlmSettings).current.set(settings(true, 'qwen'));
+      fixture.detectChanges();
+      expect(el().querySelectorAll('.tool-bar__llm-hint').length).toBe(0);
+    });
   });
 });

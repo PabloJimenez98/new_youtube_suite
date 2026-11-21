@@ -45,6 +45,7 @@ EXPECTED_TABLES = {
     "ctr_predictions",
     "hook_scores",
     "relevance_pseudo_labels",
+    "app_settings",
 }
 ANALYTICS_TABLES = {"oauth_credentials", "analytics_videos", "analytics_snapshots", "analytics_retention_curve"}
 MARKET_TABLES = {"market_channels", "market_videos", "market_video_snapshots"}
@@ -324,4 +325,24 @@ async def test_0017_creates_relevance_pseudo_labels_backfilled_from_teacher_rows
 
     _run_alembic("downgrade", "0016")
     assert "relevance_pseudo_labels" not in await _table_names()
+    _run_alembic("downgrade", "base")
+
+
+async def test_0018_creates_app_settings_and_reverts() -> None:
+    """M16 (docs/decisions/0025 §11): one row per platform setting; no row means the default."""
+    _run_alembic("downgrade", "base")
+    _run_alembic("upgrade", "0018")
+    engine = create_async_engine(get_settings().test_database_url)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("INSERT INTO app_settings (key, value) VALUES ('llm_default', '\"own\"')"))
+            row = (await conn.execute(text("SELECT value FROM app_settings WHERE key = 'llm_default'"))).one()
+        assert row[0] == "own"
+        with pytest.raises(IntegrityError):
+            async with engine.begin() as conn:
+                await conn.execute(text("INSERT INTO app_settings (key, value) VALUES ('llm_default', '\"qwen\"')"))
+    finally:
+        await engine.dispose()
+    _run_alembic("downgrade", "0017")
+    assert "app_settings" not in await _table_names()
     _run_alembic("downgrade", "base")

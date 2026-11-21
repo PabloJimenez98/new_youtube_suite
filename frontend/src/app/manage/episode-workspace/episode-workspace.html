@@ -39,6 +39,9 @@
         <span class="model-chip" [attr.title]="docOf(tool).model.name">{{ docOf(tool).model.kind }}</span>
         @if (s.job; as job) {
           <app-job-status-badge [status]="job.status" [error]="job.error_message" />
+          @if (jobLlm(job); as used) {
+            <span class="model-chip tool-bar__llm-used" title="Language model of this run">{{ used }}</span>
+          }
         }
       </div>
 
@@ -66,6 +69,25 @@
             <input type="checkbox" [checked]="shortsCaptions()" (change)="shortsCaptions.set($any($event.target).checked)" />
             Captions
           </label>
+        }
+        @if (llmChoiceFor(tool); as llm) {
+          @if (s.status !== 'running' && s.status !== 'queued') {
+            <select
+              class="tool-bar__select tool-bar__llm"
+              [attr.aria-label]="labelOf(tool) + ' language model'"
+              title="Language model for the next run (the default is set in Settings)"
+              (change)="setLlmChoice(tool, $any($event.target).value)"
+            >
+              <!-- [selected] per option: a [value] on the select is applied before @for renders them. -->
+              @for (choice of llmChoices; track choice) {
+                <option [value]="choice" [selected]="choice === llm">{{ llmLabel(choice, llmSettings()) }}</option>
+              }
+            </select>
+            <app-info key="ownllm" />
+            @if (llm === 'own') {
+              <span class="tool-bar__llm-hint" [class.is-ok]="tool === 'chapters'">{{ ownLlmHint(tool) }}</span>
+            }
+          }
         }
         @if (s.status !== 'running' && s.status !== 'queued') {
           <button

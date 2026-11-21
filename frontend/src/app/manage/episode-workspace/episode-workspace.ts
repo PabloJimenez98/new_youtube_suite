@@ -5,9 +5,10 @@ import { Auth } from '../../auth/auth';
 import { ChapterOut, Chapters, formatTimestamp, toYouTubeText } from '../../chapters/chapters';
 import { ToolState, canRun, newestSucceededJobId, nextSuggested, toolStates } from '../../explain/pipeline';
 import { TOOL_DOCS, ToolDoc } from '../../explain/tool-docs';
-import { ASPECT_RATIOS, AspectRatio, JobOut, TOOL_LABELS, ToolType } from '../../jobs/job.model';
+import { ASPECT_RATIOS, AspectRatio, JobOut, LlmParams, TOOL_LABELS, ToolType } from '../../jobs/job.model';
 import { Jobs } from '../../jobs/jobs';
 import { Relevance, RelevanceOut } from '../../relevance/relevance';
+import { LLM_TOOLS, LlmChoice, LlmSettings, llmLabel } from '../../settings/llm-settings';
 import { InfoButton } from '../../shared/info-button/info-button';
 import { JobStatusBadge } from '../../shared/job-status-badge/job-status-badge';
 import { ClipOut, Shorts } from '../../shorts/shorts';
@@ -75,6 +76,7 @@ export class EpisodeWorkspace {
   private readonly showNotesService = inject(ShowNotes);
   private readonly relevanceService = inject(Relevance);
   private readonly shortsService = inject(Shorts);
+  private readonly llmSettingsService = inject(LlmSettings);
   private readonly player = viewChild<ElementRef<HTMLVideoElement>>('player');
 
   readonly upload = input.required<UploadOut>();
@@ -100,6 +102,15 @@ export class EpisodeWorkspace {
   protected readonly aspectRatios = ASPECT_RATIOS;
   protected readonly shortsAspect = signal<AspectRatio>('9:16');
   protected readonly shortsCaptions = signal(true);
+  /**
+   * The LLM for the next chapters / show-notes / relevance run (M16, docs/decisions/0025 §11):
+   * the Settings default unless this tool bar picked another one. The picker only appears when
+   * our own model is installed; otherwise every run uses the default (Qwen).
+   */
+  protected readonly llmSettings = this.llmSettingsService.current;
+  private readonly llmOverride = signal<Partial<Record<ToolType, LlmChoice>>>({});
+  protected readonly llmChoices: readonly LlmChoice[] = ['qwen', 'own'];
+  protected readonly llmLabel = llmLabel;
   protected readonly token = computed(() => this.auth.token() ?? '');
   protected readonly chaptersWithHours = computed(() => (this.chapters() ?? []).some((c) => c.start_seconds >= 3600));
   protected readonly formatTimestamp = formatTimestamp;
@@ -140,6 +151,8 @@ export class EpisodeWorkspace {
   );
 
   constructor() {
+    // Errors leave the picker hidden and runs on the backend's default.
+    this.llmSettingsService.load().subscribe({ error: () => undefined });
     // The parent re-polls jobs every 3 s; only fetch results when the
     // succeeded job actually changes, not on every poll.
     effect(() => {
@@ -233,13 +246,16 @@ export class EpisodeWorkspace {
       return;
     }
     this.runningToolType.set(tool);
+    const llm = this.llmChoiceFor(tool);
     const request =
       tool === 'shorts'
         ? this.jobsService.createJob(this.upload().id, tool, {
             aspect_ratio: this.shortsAspect(),
             captions: this.shortsCaptions(),
           })
-        : this.jobsService.createJob(this.upload().id, tool);
+        : llm
+          ? this.jobsService.createJob(this.upload().id, tool, { llm })
+          : this.jobsService.createJob(this.upload().id, tool);
     request.subscribe({
       next: (job) => {
         this.optimisticJobs.update((jobs) => [job, ...jobs]);
@@ -261,6 +277,46 @@ export class EpisodeWorkspace {
   /** Subtitles stay downloadable during a re-run (docs/decisions/0007 §5). */
   protected hasTranscript(): boolean {
     return this.states().transcribe.hasResult;
+  }
+
+  protected isLlmTool(tool: ToolType): boolean {
+    return (LLM_TOOLS as readonly string[]).includes(tool);
+  }
+
+  /**
+   * The LLM a run of `tool` sends, or null to send none (the backend then uses its default):
+   * null for non-LLM tools, and while the settings are unknown or our model isn't installed.
+   */
+  protected llmChoiceFor(tool: ToolType): LlmChoice | null {
+    const s = this.llmSettings();
+    if (!this.isLlmTool(tool) || !s?.own_available) return null;
+    return this.llmOverride()[tool] ?? s.default;
+  }
+
+  /** One line on how our own LLM did on this tool's gates (M16, decision 0025), shown when it is chosen. */
+  protected ownLlmHint(tool: ToolType): string {
+    switch (tool) {
+      case 'chapters':
+        return '✓ passes the title gates';
+      case 'shownotes':
+        return '⚠ 86 % valid drafts (gate 95 %): Qwen recommended';
+      case 'relevance':
+        return '⚠ scores ignore the content: Qwen recommended';
+      default:
+        return '';
+    }
+  }
+
+  protected setLlmChoice(tool: ToolType, value: string): void {
+    if ((this.llmChoices as readonly string[]).includes(value)) {
+      this.llmOverride.update((o) => ({ ...o, [tool]: value as LlmChoice }));
+    }
+  }
+
+  /** Which LLM a finished or running job used, for the chip next to its status. */
+  protected jobLlm(job: JobOut | null | undefined): string | null {
+    const llm = (job?.params as LlmParams | null | undefined)?.llm;
+    return llm ? llmLabel(llm, this.llmSettings()) : null;
   }
 
   protected setShortsAspect(value: string): void {

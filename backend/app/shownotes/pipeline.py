@@ -26,7 +26,7 @@ from pathlib import Path
 from app.chapters.llm_titles import sample_text, wrong_language
 from app.chapters.text import LanguageId
 from app.config import get_settings
-from app.llm import runtime
+from app.llm import registry, runtime
 from app.llm.chat import ChatLLM, LlamaChat
 from app.shownotes.chunking import ChapterMark, Seg, make_chunks
 from app.shownotes.prompts import DRAFT_JSON_SCHEMA, PROMPT_VERSION, map_messages, reduce_messages
@@ -133,18 +133,36 @@ _lock = threading.Lock()
 
 
 def _drop() -> None:
-    """Forget the cached object: its `Llama` was released (runtime.release_all)."""
+    """Forget the cached objects: their `Llama` was released (runtime.release_all)."""
     global _generator
     with _lock:
         _generator = None
+        _own.clear()
 
 
 runtime.on_release(_drop)
 
+# M16: generators over our own LLM, by choice (0025 §11). Qwen keeps `_generator`.
+_own: dict[str, ShowNotesGenerator] = {}
 
-def get_generator() -> ShowNotesGenerator:
-    """Build the generator once per process from the chapters bundle's LLM and LID."""
+
+def get_generator(llm: str = registry.QWEN) -> ShowNotesGenerator:
+    """Build the generator once per process from the chosen LLM and the chapters bundle's LID."""
     global _generator
+    if llm != registry.QWEN:
+        with _lock:
+            if llm not in _own:
+                settings = get_settings()
+                bundle = settings.chapters_model_dir
+                manifest = Path(bundle) / "manifest.json" if bundle else None
+                titles = json.loads(manifest.read_text()).get("titles", {}) if manifest and manifest.is_file() else {}
+                if "lid" not in titles:
+                    raise ShowNotesUnavailableError("Show notes need a chapter bundle with a language-ID model")
+                spec = registry.resolve(llm)
+                chat = LlamaChat(runtime.get_llama(spec.path, spec.n_ctx, settings.chapters_llm_threads), spec.n_ctx)
+                _own[llm] = ShowNotesGenerator(chat, LanguageId(Path(bundle) / titles["lid"]["file"]),
+                                               f"{spec.label}+{PROMPT_VERSION}")
+            return _own[llm]
     with _lock:
         if _generator is None:
             settings = get_settings()
@@ -164,7 +182,8 @@ def get_generator() -> ShowNotesGenerator:
         return _generator
 
 
-def generate_show_notes(segs: list[Seg], chapters: list[ChapterMark]) -> tuple[str, ShowNotes]:
+def generate_show_notes(segs: list[Seg], chapters: list[ChapterMark],
+                        llm: str = registry.QWEN) -> tuple[str, ShowNotes]:
     """(llm_model_used, show notes). Synchronous -- run in a thread."""
-    g = get_generator()
+    g = get_generator(llm)
     return g.model_name, g.run(segs, chapters)

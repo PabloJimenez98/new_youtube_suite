@@ -1,0 +1,6 @@
+{
+ "file": "yts-own-tiny.gguf",
+ "n_ctx": 512,
+ "label": "yts-own-tiny",
+ "note": "test fixture: random weights, written by experiments/m16-own-llm/tools/make_backend_fixture.py"
+}

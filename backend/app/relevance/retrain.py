@@ -52,8 +52,11 @@ def split_path() -> Path:
 
 
 async def pseudo_label(session_factory: async_sessionmaker[AsyncSession], upload_ids: list[int] | None = None,
-                       force: bool = False) -> dict:
-    """Run the configured teacher on transcribed uploads it hasn't labelled yet; write only the store."""
+                       force: bool = False, llm: str = "qwen") -> dict:
+    """Run the configured teacher on transcribed uploads it hasn't labelled yet; write only the store.
+
+    `llm` picks the teacher's LLM (M16, 0025 §11): "qwen" (default, as before) or "own". Each
+    teacher's labels live under its own version, so own-model labels never mix with Qwen's."""
     from app.relevance import pipeline
     from app.worker.handlers.relevance import (
         get_or_create_version,
@@ -62,7 +65,7 @@ async def pseudo_label(session_factory: async_sessionmaker[AsyncSession], upload
         write_pseudo_labels,
     )
 
-    label = pipeline.get_scorer().version_label  # fails fast without an LLM bundle
+    label = pipeline.get_scorer(llm).version_label  # fails fast without an LLM bundle
     done = skipped = 0
     async with session_factory() as db:
         transcribed = select(Job.upload_id).where(Job.tool_type == "transcribe", Job.status == "succeeded")
@@ -100,8 +103,10 @@ async def pseudo_label(session_factory: async_sessionmaker[AsyncSession], upload
                 await db.execute(select(Chapter).where(Chapter.upload_id == upload_id).order_by(Chapter.order_index))
             ).scalars()]
             duration = upload.duration_seconds or max(s.end_seconds for s in segments)
-            got_label, description, result = await score_with_teacher(words_from_segments(segments), duration, chapters)
-            version = await get_or_create_version(db, got_label, description)
+            extra = () if llm == "qwen" else (llm,)  # Qwen keeps the exact pre-M16 call
+            got_label, description, result = await score_with_teacher(words_from_segments(segments), duration,
+                                                                       chapters, *extra)
+            version = await get_or_create_version(db, got_label, description, can_go_live=llm == "qwen")
             await write_pseudo_labels(db, upload_id, version, result.scores)
             await db.commit()
             done += 1

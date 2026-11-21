@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { JobOut, ShortsParams, ToolType } from './job.model';
+import { JobOut, LlmParams, ShortsParams, ToolType } from './job.model';
 
 @Service()
 export class Jobs {
@@ -10,9 +10,10 @@ export class Jobs {
 
   /**
    * POST /uploads/{id}/jobs -- creates a `queued` job row for the worker.
-   * `params` carries per-run options; only `shorts` takes any (M8).
+   * `params` carries per-run options: `shorts` (M8) and the LLM choice of chapters, show notes
+   * and relevance (M16).
    */
-  createJob(uploadId: number, toolType: ToolType, params?: ShortsParams): Observable<JobOut> {
+  createJob(uploadId: number, toolType: ToolType, params?: ShortsParams | LlmParams): Observable<JobOut> {
     return this.http.post<JobOut>(`/uploads/${uploadId}/jobs`, {
       tool_type: toolType,
       ...(params ? { params } : {}),

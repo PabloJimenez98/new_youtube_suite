@@ -23,6 +23,7 @@ export const routes: Routes = [
         loadComponent: () => import('./manage/episode-detail/episode-detail').then((m) => m.EpisodeDetail),
       },
       { path: 'how-it-works', loadComponent: () => import('./how-it-works/how-it-works').then((m) => m.HowItWorks) },
+      { path: 'settings', loadComponent: () => import('./settings/settings').then((m) => m.Settings) },
       { path: '', pathMatch: 'full', redirectTo: 'library' },
     ],
   },

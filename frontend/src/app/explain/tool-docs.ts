@@ -9,7 +9,7 @@ import { ToolType } from '../jobs/job.model';
 import { Flow } from './flow';
 import { GlossaryKey } from './glossary';
 
-export type PlatformNodeKey = 'upload' | 'market' | 'analytics' | 'reporting' | 'm15';
+export type PlatformNodeKey = 'upload' | 'market' | 'analytics' | 'reporting' | 'm15' | 'ownllm';
 export type DocKey = ToolType | PlatformNodeKey;
 
 export type ModelKind = 'pretrained' | 'trained' | 'heuristic v0' | 'LLM zero-shot' | 'hybrid' | 'data pipeline' | 'planned';
@@ -263,6 +263,7 @@ const chapters: ToolDoc = {
   limitations: [
     'Spanish training data is scarce, so Spanish boundaries are less precise than English ones.',
     'LLM titles can be generic or, rarely, invent a detail.',
+    'Titles can also come from our own LLM (M16), chosen per run: it passes the title gates, but Qwen stays the default.',
   ],
   dependsOn: ['transcribe'],
   source: 'Decisions 0009, 0010, 0016 · experiments/m5-chapters',
@@ -351,7 +352,11 @@ const relevance: ToolDoc = {
       ],
     },
   },
-  model: { name: 'Heuristic v0 + Qwen3.5-9B zero-shot (relevance-p3), live until a trained BiLSTM wins', kind: 'hybrid', runtime: 'CPU (features) + GPU (LLM)' },
+  model: {
+    name: 'Live: heuristic v0 + BiLSTM (bilstm-e5s-20261114-i2, M15) distilled from Qwen3.5-9B. With our own LLM chosen: heuristic v0 + own LLM zero-shot',
+    kind: 'hybrid',
+    runtime: 'CPU (features) + GPU (encoder or LLM)',
+  },
   metric: {
     name: 'Relevance score (0–1 per window)',
     means: 'How well a moment would stand alone as a short, by v0’s rules, compared with the rest of this episode.',
@@ -362,6 +367,7 @@ const relevance: ToolDoc = {
     'A trained BiLSTM learns to imitate v0, so it cannot be judged on v0’s labels alone: going live needs the owner’s blind comparison.',
     'The LLM scores are somewhat noisy; the two averaged passes reduce, not remove, that noise.',
     'Without diarization the speaker-change feature is dropped and the other weights are rescaled.',
+    'Our own LLM (M16) can replace the LLM part, but its scores do not follow the content yet: keep Qwen for relevance.',
   ],
   dependsOn: ['transcribe'],
   source: 'Decisions 0012, 0014, 0024',
@@ -592,6 +598,7 @@ const shownotes: ToolDoc = {
   limitations: [
     'An LLM can state something that was not said: review the draft before publishing.',
     'Running it again replaces the draft, including your edits.',
+    'Our own LLM (M16) can write the draft instead, chosen per run, but only 86 % of its drafts are valid (gate 95 %): keep Qwen for show notes.',
   ],
   dependsOn: ['transcribe'],
   source: 'Decisions 0011, 0016',
@@ -899,6 +906,109 @@ const m15: ToolDoc = {
   source: 'docs/development-plan.md (M15), decision 0024',
 };
 
+const ownllm: ToolDoc = {
+  key: 'ownllm',
+  title: 'Our own language model',
+  oneLiner:
+    'yts-own-110m-dpo: a ~100M-parameter LLM trained from scratch for this platform (M16), with no pretrained weights anywhere. An alternative to Qwen3.5-9B for chapter titles, show notes and relevance. Good at titles, not yet at the other two.',
+  inputs: ['The same prompts the app sends to Qwen (transcript, chapters, instructions)'],
+  outputs: ['Chapter titles', 'Show-notes drafts (JSON)', 'Relevance scores (20 per call)'],
+  steps: [
+    {
+      title: 'Our own tokenizer',
+      detail:
+        'A 32,768-token BPE vocabulary trained on our 70 % Spanish / 30 % English mix. On Spanish it needs 7 % fewer tokens than Qwen’s 248k vocabulary.',
+      terms: ['bpe'],
+    },
+    {
+      title: 'Pretraining from random weights',
+      detail:
+        '5 billion tokens of web text (FineWeb2-HQ Spanish, FineWeb-Edu English) on the RTX 5070, about 68k tokens/s. The recipe was chosen first by small ablation runs: a baseline and 7 single changes, 1B tokens each. Held-out bits per byte: 0.963.',
+      terms: ['pretraining', 'ablation', 'bpb'],
+    },
+    {
+      title: 'Learn to answer (general SFT)',
+      detail: '244M tokens of open instruction data (Spanish and English conversations), at the app’s 4,096-token context.',
+      terms: ['sft'],
+    },
+    {
+      title: 'Learn our three tasks (task SFT)',
+      detail:
+        'Qwen3.5-9B ran the app’s real pipelines on 259 podcast episodes; its answers are the targets (Qwen is the teacher). One epoch: a second one overfitted.',
+      terms: ['sft'],
+    },
+    {
+      title: 'Prefer good answers (DPO)',
+      detail:
+        '1,509 pairs: Qwen’s answer preferred over a sample of our model that failed a check (bad JSON, too long, wrong ranking). Show notes went from 57 % to 86 % valid.',
+      terms: ['dpo'],
+    },
+    {
+      title: 'Export and serve',
+      detail:
+        'Exported to a 203 MB GGUF file (f16) and run by the same llama.cpp engine as Qwen. PyTorch and llama.cpp agree to within 0.015 in the logits.',
+      terms: ['gguf', 'json-grammar'],
+    },
+  ],
+  flow: {
+    nodes: [
+      { id: 'prompt', label: 'Tool prompt', detail: 'same as for Qwen', kind: 'data' },
+      { id: 'tok', label: 'BPE tokenizer', detail: '32,768 tokens', kind: 'process' },
+      { id: 'net', label: '12 transformer blocks', detail: 'd 768 · GQA 12/4 · SwiGLU', kind: 'model' },
+      { id: 'grammar', label: 'Constrained decoding', detail: 'JSON schema / 20 integers', kind: 'decision' },
+      { id: 'out', label: 'Titles · notes · scores', detail: 'labelled with the model', kind: 'output' },
+    ],
+    edges: [
+      { from: 'prompt', to: 'tok' },
+      { from: 'tok', to: 'net', label: 'token ids' },
+      { from: 'net', to: 'grammar', label: 'next-token probabilities' },
+      { from: 'grammar', to: 'out' },
+    ],
+  },
+  training: {
+    summary:
+      'Four stages, each starting from the previous one’s weights: pretraining teaches the language, general SFT how to answer, task SFT our three tasks (copying Qwen), and DPO to avoid answers that fail the app’s checks.',
+    planned: false,
+    flow: {
+      nodes: [
+        { id: 'web', label: 'Web text', detail: '70 % es · 30 % en', kind: 'data' },
+        { id: 'pre', label: 'Pretraining', detail: '5B tokens · from scratch', kind: 'model' },
+        { id: 'sftg', label: 'General SFT', detail: '244M tokens', kind: 'process' },
+        { id: 'teacher', label: 'Qwen teacher outputs', detail: '259 episodes', kind: 'data' },
+        { id: 'sftt', label: 'Task SFT', detail: '1 epoch', kind: 'process' },
+        { id: 'dpo', label: 'DPO', detail: '1,509 pairs', kind: 'process' },
+        { id: 'gates', label: 'Gates', detail: '49 test episodes', kind: 'decision' },
+        { id: 'gguf', label: 'GGUF in the app', detail: '203 MB · selectable', kind: 'output' },
+      ],
+      edges: [
+        { from: 'web', to: 'pre' },
+        { from: 'pre', to: 'sftg' },
+        { from: 'sftg', to: 'sftt' },
+        { from: 'teacher', to: 'sftt' },
+        { from: 'sftt', to: 'dpo' },
+        { from: 'dpo', to: 'gates' },
+        { from: 'gates', to: 'gguf', label: 'titles pass' },
+      ],
+    },
+  },
+  model: { name: 'yts-own-110m-dpo (100.7M parameters, f16 GGUF)', kind: 'trained', runtime: 'GPU, llama.cpp (same engine as Qwen)' },
+  metric: {
+    name: 'the quality gates',
+    means:
+      'On 49 test episodes it had never seen, titles pass (no fallbacks, 98 % in the right language); show notes are valid 86 % of the time (gate 95 %); relevance batches always parse but their ranking does not follow Qwen’s (Spearman −0.07).',
+    doesNotMean:
+      'It is not a replacement for Qwen: it is ~90× smaller and saw ~5B tokens of text, against Qwen’s trillions. Its relevance scores look plausible but ignore the content.',
+  },
+  limitations: [
+    'Use it for chapter titles; keep Qwen for show notes and relevance.',
+    'Relevance scores are smooth shapes (ramps, arches) unrelated to what is said.',
+    'Some show notes repeat tags or come out truncated, and are retried or rejected.',
+    'Qwen stays the global default; the choice is per run or in Settings.',
+  ],
+  dependsOn: [],
+  source: 'Decision 0025 (M16, stage A)',
+};
+
 export const TOOL_DOCS: Record<DocKey, ToolDoc> = {
   transcribe,
   diarize,
@@ -913,6 +1023,7 @@ export const TOOL_DOCS: Record<DocKey, ToolDoc> = {
   analytics,
   reporting,
   m15,
+  ownllm,
 };
 
 /** The whole platform, for the How it works page. Every node links to its doc. */
@@ -922,7 +1033,7 @@ export const SYSTEM_FLOW: Flow = {
     { id: 'transcribe', label: 'Transcript', detail: 'Whisper', kind: 'model', link: 'transcribe' },
     { id: 'diarize', label: 'Speakers', detail: 'pyannote', kind: 'model', link: 'diarize' },
     { id: 'chapters', label: 'Chapters', detail: 'trained BiLSTM + LLM', kind: 'model', link: 'chapters' },
-    { id: 'relevance', label: 'Relevance', detail: 'heuristic v0 + LLM', kind: 'model', link: 'relevance' },
+    { id: 'relevance', label: 'Relevance', detail: 'heuristic + BiLSTM', kind: 'model', link: 'relevance' },
     { id: 'shownotes', label: 'Show notes', detail: 'LLM', kind: 'model', link: 'shownotes' },
     { id: 'shorts', label: 'Shorts', detail: 'peaks + face framing', kind: 'process', link: 'shorts' },
     { id: 'ctr', label: 'CTR score', detail: 'heuristic v0', kind: 'decision', link: 'ctr' },
@@ -931,6 +1042,7 @@ export const SYSTEM_FLOW: Flow = {
     { id: 'analytics', label: 'Channel analytics', detail: 'retention', kind: 'data', link: 'analytics', minLayer: 5 },
     { id: 'reporting', label: 'Real CTR', detail: 'Reporting API', kind: 'data', link: 'reporting', minLayer: 5 },
     { id: 'm15', label: 'Trained models', detail: 'M15 · relevance BiLSTM', kind: 'model', link: 'm15' },
+    { id: 'ownllm', label: 'Own LLM (optional)', detail: 'M16 · ~100M from scratch', kind: 'model', link: 'ownllm', minLayer: 1 },
   ],
   edges: [
     { from: 'upload', to: 'transcribe' },
@@ -947,5 +1059,8 @@ export const SYSTEM_FLOW: Flow = {
     { from: 'market', to: 'm15' },
     { from: 'analytics', to: 'm15', label: 'retention' },
     { from: 'reporting', to: 'm15', label: 'real CTR' },
+    { from: 'ownllm', to: 'chapters', label: 'instead of Qwen' },
+    { from: 'ownllm', to: 'relevance' },
+    { from: 'ownllm', to: 'shownotes' },
   ],
 };

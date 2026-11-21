@@ -1,0 +1,195 @@
+<section class="own glass-panel" id="own-llm" aria-labelledby="hiw-own-llm">
+  <div class="own__head">
+    <h2 id="hiw-own-llm">Our own language model (M16)</h2>
+    <app-info key="ownllm" />
+    <span class="model-chip">trained from scratch</span>
+    <span class="model-chip">selectable · Qwen stays the default</span>
+  </div>
+  <p class="own__lead">
+    <strong>yts-own-110m-dpo</strong> is a small language model we trained ourselves, from random weights, on the RTX
+    5070. It can replace Qwen3.5-9B in Chapters, Show notes and Relevance (Settings, or the dropdown on each tool). It
+    is about 90 times smaller than Qwen and saw far less text, so it is an experiment: good at chapter titles, not yet at
+    the other two. Every number below is measured.
+  </p>
+
+  <div class="own__tiles">
+    @for (t of tiles; track t.label) {
+      <app-stat-tile [label]="t.label" [value]="t.value" [hint]="t.hint" />
+    }
+  </div>
+
+  <h3 class="own__h3">At a glance: which model for which task</h3>
+  <div class="own__verdicts">
+    @for (v of verdicts; track v.task) {
+      <div class="own__verdict" [class.is-ok]="v.ok" [class.is-no]="!v.ok">
+        <span class="own__verdict-icon" aria-hidden="true">{{ v.ok ? '✓' : '✕' }}</span>
+        <div>
+          <strong>{{ v.task }} · {{ v.headline }}</strong>
+          <p>{{ v.detail }}</p>
+        </div>
+      </div>
+    }
+  </div>
+
+  <h3 class="own__h3">1 · Architecture</h3>
+  <div class="own__arch">
+    <app-own-llm-arch />
+    <div class="own__arch-side">
+      <dl class="own__facts">
+        @for (f of facts; track f[0]) {
+          <div>
+            <dt>{{ f[0] }}</dt>
+            <dd>{{ f[1] }}</dd>
+          </div>
+        }
+      </dl>
+      <app-chart-card title="Where the parameters are" [help]="help['params']" [table]="charts.params.table">
+        <app-chart [option]="charts.params.option" [height]="76" label="Parameter breakdown" />
+      </app-chart-card>
+      <p class="muted own__note">
+        The working name says 110M: that was the size class of the first GPU benchmark. With grouped-query attention the
+        final model has 100.7M.
+      </p>
+    </div>
+  </div>
+
+  <h3 class="own__h3">2 · How it was trained</h3>
+  <p class="muted">Four stages, each starting from the previous one’s weights. Qwen is only used as a teacher: its answers on our podcasts are the examples for task SFT.</p>
+  <div class="own__grid">
+    <div class="own__flow glass-panel">
+      <app-flow-diagram [flow]="trainingFlow" label="Own LLM training stages" />
+    </div>
+    <div class="own__side">
+      <app-chart-card title="Text processed per stage" subtitle="log scale" [help]="help['stages']" [table]="charts.stages.table">
+        <app-chart [option]="charts.stages.option" [height]="200" label="Tokens per training stage" />
+      </app-chart-card>
+      <ol class="own__stages" aria-label="Training stages in order">
+        @for (s of stages; track s.name; let i = $index) {
+          <li>
+            <span class="own__stage-num" aria-hidden="true">{{ i + 1 }}</span>
+            <div>
+              <strong>{{ s.name }}</strong>
+              <p>{{ s.what }}</p>
+              <dl>
+                <div><dt>Data</dt><dd>{{ s.data }}</dd></div>
+                <div><dt>Learning rate</dt><dd>{{ s.lr }}</dd></div>
+                <div><dt>Result</dt><dd>{{ s.result }}</dd></div>
+              </dl>
+            </div>
+          </li>
+        }
+      </ol>
+    </div>
+  </div>
+
+  <h3 class="own__h3">3 · Pretraining: learning the language</h3>
+  <div class="own__grid own__grid--3">
+    <app-chart-card title="Training loss" subtitle="nats / token" [help]="help['loss']" [table]="charts.loss.table">
+      <app-chart [option]="charts.loss.option" [height]="220" label="Pretraining loss over 5B tokens" />
+    </app-chart-card>
+    <app-chart-card title="Held-out bits per byte" [help]="help['bpb']" [table]="charts.bpb.table">
+      <app-chart [option]="charts.bpb.option" [height]="220" label="Validation bits per byte by language" />
+    </app-chart-card>
+    <app-chart-card title="Learning-rate schedule" [help]="help['lr']" [table]="charts.lr.table">
+      <app-chart [option]="charts.lr.option" [height]="220" label="Learning rate over pretraining" />
+    </app-chart-card>
+  </div>
+
+  <h3 class="own__h3">4 · Choosing the recipe</h3>
+  <div class="own__grid">
+    <app-chart-card title="Ablations at 1B tokens" subtitle="Δ bits per byte vs baseline" [help]="help['ablations']" [table]="charts.ablations.table">
+      <app-chart [option]="charts.ablations.option" [height]="240" label="Ablation results" />
+    </app-chart-card>
+    <app-chart-card title="More text, better model" subtitle="0.5B → 5B tokens" [help]="help['scaling']" [table]="charts.scaling.table">
+      <app-chart [option]="charts.scaling.option" [height]="240" label="Held-out bpb against tokens trained" />
+    </app-chart-card>
+  </div>
+
+  <h3 class="own__h3">5 · Post-training: learning to answer our tasks</h3>
+  <div class="own__grid own__grid--4">
+    <app-chart-card title="General SFT loss" [help]="help['sftGeneral']" [table]="charts.sftGeneral.table">
+      <app-chart [option]="charts.sftGeneral.option" [height]="180" label="General SFT validation loss" />
+    </app-chart-card>
+    <app-chart-card title="Task SFT loss" [help]="help['sftTasks']" [table]="charts.sftTasks.table">
+      <app-chart [option]="charts.sftTasks.option" [height]="180" label="Task SFT validation loss" />
+    </app-chart-card>
+    <app-chart-card title="DPO loss" [help]="help['dpoLoss']" [table]="charts.dpoLoss.table">
+      <app-chart [option]="charts.dpoLoss.option" [height]="180" label="DPO validation loss" />
+    </app-chart-card>
+    <app-chart-card title="DPO accuracy" [help]="help['dpoAcc']" [table]="charts.dpoAcc.table">
+      <app-chart [option]="charts.dpoAcc.option" [height]="180" label="DPO preference accuracy" />
+    </app-chart-card>
+  </div>
+
+  <h3 class="own__h3">6 · Results on 49 unseen episodes</h3>
+  <div class="own__grid">
+    <app-chart-card title="Validity gates" subtitle="% of outputs · tick = gate" [help]="help['gateRates']" [table]="charts.gateRates.table">
+      <app-chart [option]="charts.gateRates.option" [height]="220" label="Validity gates before and after DPO" />
+    </app-chart-card>
+    <app-chart-card title="Relevance ranking vs Qwen" [subtitle]="spearmanSubtitle" [help]="help['gateSpearman']" [table]="charts.gateSpearman.table">
+      <app-chart [option]="charts.gateSpearman.option" [height]="220" label="Spearman correlation of relevance scores against Qwen" />
+    </app-chart-card>
+  </div>
+  <div class="own__table-wrap">
+    <table class="own__table own__gates">
+      <caption class="sr-only">All quality gates of the installed model</caption>
+      <thead>
+        <tr>
+          <th scope="col">Gate</th>
+          <th scope="col">Threshold</th>
+          <th scope="col">After task SFT</th>
+          <th scope="col">After DPO (installed)</th>
+          <th scope="col">Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (g of gates; track g.gate) {
+          <tr>
+            <th scope="row">{{ g.gate }}</th>
+            <td>{{ g.dir === 'min' ? '≥' : '≤' }} {{ g.format(g.threshold) }}</td>
+            <td>{{ g.format(g.sft) }}</td>
+            <td>{{ g.format(g.dpo) }}</td>
+            <td>
+              <span class="badge" [class.badge--succeeded]="passes(g, g.dpo)" [class.badge--failed]="!passes(g, g.dpo)">
+                {{ passes(g, g.dpo) ? '✓ pass' : '✕ fail' }}
+              </span>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="own__h3">Our model next to Qwen</h3>
+  <div class="own__table-wrap">
+    <table class="own__table">
+      <thead>
+        <tr>
+          <th scope="col"></th>
+          <th scope="col">yts-own-110m-dpo</th>
+          <th scope="col">Qwen3.5-9B</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of comparison; track row[0]) {
+          <tr>
+            <th scope="row">{{ row[0] }}</th>
+            <td>{{ row[1] }}</td>
+            <td class="muted">{{ row[2] }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="own__terms">
+    <span class="muted">Terms used here:</span>
+    @for (t of terms; track t) {
+      <app-term [key]="t" />
+    }
+  </div>
+  <p class="muted own__note">
+    Not done (out of scope): a larger ~330M model on 25B tokens (stage B). Its configuration is written but it was never
+    trained. Source: decision 0025 and the notebooks in <code>experiments/m16-own-llm/</code>.
+  </p>
+</section>

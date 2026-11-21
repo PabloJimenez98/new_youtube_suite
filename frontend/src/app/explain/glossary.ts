@@ -36,7 +36,16 @@ export type GlossaryKey =
   | 'snapshot'
   | 'ctr'
   | 'retention'
-  | 'model-version';
+  | 'model-version'
+  | 'bpe'
+  | 'pretraining'
+  | 'bpb'
+  | 'transformer'
+  | 'gqa'
+  | 'ablation'
+  | 'sft'
+  | 'dpo'
+  | 'spearman';
 
 export interface GlossaryEntry {
   term: string;
@@ -112,7 +121,7 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   llm: {
     term: 'LLM (large language model)',
     definition:
-      'A pretrained generative text model. The platform runs one locally (Qwen3.5-9B) for chapter titles, show notes and relevance scoring.',
+      'A generative text model. The platform runs one locally for chapter titles, show notes and relevance scoring: Qwen3.5-9B by default, or our own ~100M model trained from scratch (selectable in Settings).',
   },
   'zero-shot': {
     term: 'Zero-shot',
@@ -208,5 +217,50 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
     term: 'Model version',
     definition:
       'Every stored result records which model or formula produced it (e.g. relevance-p2, heuristic-v0), so a score can always be traced and compared after a retrain.',
+  },
+  bpe: {
+    term: 'BPE tokenizer',
+    definition:
+      'Byte-pair encoding: text is cut into sub-word pieces (tokens) learnt from data. Our own LLM has its own 32,768-token BPE vocabulary, trained mostly on Spanish.',
+  },
+  pretraining: {
+    term: 'Pretraining',
+    definition:
+      'Training a language model from random weights to predict the next token of ordinary text. It is where the model learns the language; for our own LLM it took 5 billion tokens of web text.',
+  },
+  bpb: {
+    term: 'Bits per byte (bpb)',
+    definition:
+      'How surprised a language model is by held-out text, per byte of that text. Lower is better. Unlike loss per token it does not depend on the tokenizer, so different vocabularies can be compared.',
+  },
+  transformer: {
+    term: 'Decoder-only transformer',
+    definition:
+      'The architecture of modern LLMs (GPT, Llama, Qwen): a stack of identical blocks, each mixing information across the text (attention) and then within each token (a feed-forward MLP).',
+  },
+  gqa: {
+    term: 'Grouped-query attention',
+    definition:
+      'Several attention heads share one key/value head (here 12 query heads share 4). It shrinks the memory the model needs per token of context, with little loss of quality.',
+  },
+  ablation: {
+    term: 'Ablation',
+    definition:
+      'A small experiment that changes one thing of a recipe (the optimizer, the depth, the schedule…) and keeps everything else equal, to measure that one change.',
+  },
+  sft: {
+    term: 'SFT (supervised fine-tuning)',
+    definition:
+      'Continued training on example conversations (a prompt and the answer we want). The loss is only computed on the answer, so the model learns to respond rather than to continue text.',
+  },
+  dpo: {
+    term: 'DPO (preference optimisation)',
+    definition:
+      'Training on pairs of answers to the same prompt, one preferred and one rejected, so the model makes the preferred kind more likely. Here the preferred one is Qwen’s answer and the rejected one a faulty answer of our model.',
+  },
+  spearman: {
+    term: 'Spearman correlation',
+    definition:
+      'Whether two lists of scores rank things in the same order: 1 is the same order, 0 unrelated, −1 reversed. Used to compare our model’s relevance scores with Qwen’s.',
   },
 };

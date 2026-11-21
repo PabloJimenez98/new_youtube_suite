@@ -19,8 +19,22 @@ class ShortsParams(BaseModel):
     captions: bool = True
 
 
+class LlmParams(BaseModel):
+    """Which LLM an LLM-backed run uses (M16, docs/decisions/0025 §11). None at request time
+    means the global default; the router stores the resolved value, so the job records it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    llm: Literal["qwen", "own"] | None = None
+
+
 # Tools that take per-run params, and their schema. Every other tool takes none.
-PARAMS_BY_TOOL: dict[str, type[BaseModel]] = {"shorts": ShortsParams}
+PARAMS_BY_TOOL: dict[str, type[BaseModel]] = {
+    "shorts": ShortsParams,
+    "chapters": LlmParams,
+    "shownotes": LlmParams,
+    "relevance": LlmParams,
+}
 
 
 class JobCreate(BaseModel):

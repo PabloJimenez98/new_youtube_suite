@@ -76,6 +76,11 @@ class Settings(BaseSettings):
     # the GPU: -1 = all (RTX 5070, 0016: Qwen3.5-9B Q4_K_M ~5.5 GB, ~93 tok/s);
     # 0 = weights in RAM with the prefill on the GPU (M9, 0014 §2).
     llm_n_gpu_layers: int = -1
+    # Our own LLM (M16) -- see docs/decisions/0025-own-llm-m16.md §11. A directory with
+    # `manifest.json` ({"file", "n_ctx", "label"}) and the GGUF it names, normally
+    # models/llm/current -> models/llm/<version> (gitignored). Missing -> the "own" choice
+    # is reported unavailable and rejected; Qwen (the chapter bundle's GGUF) is unaffected.
+    llm_own_dir: Path | None = Path("models/llm/current")
 
     # Relevance BiLSTM (M15) -- see docs/decisions/0024-relevance-bilstm-m15.md.
     # Trained bundles live under this root (gitignored), with the frozen

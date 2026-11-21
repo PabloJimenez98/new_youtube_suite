@@ -166,4 +166,14 @@
     gap: var(--space-1);
     font-size: 0.85rem;
   }
+
+  // Own LLM chosen (M16): one line on how it did on this task, so the trade-off is visible before Run.
+  &__llm-hint {
+    font-size: 0.78rem;
+    color: var(--color-warning);
+
+    &.is-ok {
+      color: var(--color-success);
+    }
+  }
 }

@@ -1,0 +1,46 @@
+# Stage A pilot (0025 §1, A2): ~110M, 5B tokens, 70/30 es/en.
+# The baseline recipe of 0025 §2. A1's ablations (notebook 02) may change it
+# before A2 is launched: record any change here and in the notebook.
+# A1 result (2026-11-17, notebook 02): lr 1e-3 -> 2e-3, the only change that passed
+# the §3 rule (-0.0164 bpb at no throughput cost). Muon beat it by only 0.0076.
+name: stage-a-110m
+model:
+  vocab_size: 32768
+  d_model: 768
+  n_layers: 12
+  n_heads: 12
+  n_kv_heads: 4
+  rope_theta: 100000.0
+  qk_norm: false
+  max_seq_len: 4096
+data:
+  root: ~/yts-experiments/m16-llm/data/shards
+  sources: {es: 0.7, en: 0.3}
+tokenizer: ~/yts-experiments/m16-llm/tokenizer/tokenizer.json
+total_tokens: 5000000000
+seq_len: 2048
+micro_batch: 8
+batch_tokens: 524288        # 32 micro-batches of 8 x 2048 per optimizer step
+optimizer: adamw
+lr: 0.002                    # A1: was 1e-3 (see header)
+warmup_tokens: 100000000
+decay_fraction: 0.2          # WSD: the last 20 % decays linearly to 0
+weight_decay: 0.1
+grad_clip: 1.0
+seed: 1337
+device: cuda
+compile: true
+mem_fraction: 0.92
+min_free_vram_gib: 9.5
+autosave_minutes: 15
+keep_last: 2
+permanent_every_fraction: 0.1
+eval_every_tokens: 250000000
+eval_batches: 20
+log_every_steps: 10
+sample_prompts:
+  - "El podcast de esta semana habla de"
+  - "La capital de Francia es"
+  - "In this episode, we talk about"
+  - "Receta: para hacer una tortilla de patatas necesitas"
+sample_tokens: 48

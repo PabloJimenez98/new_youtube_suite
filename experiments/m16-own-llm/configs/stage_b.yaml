@@ -1,0 +1,56 @@
+# ============================================================================================
+#  STAGE B — WRITTEN, NOT EXECUTED. Out of M16's scope (0025 amendment, owner 2026-11-15).
+#  Nothing was trained with this file and no result exists for it.
+# ============================================================================================
+# Stage B main model (0025 §1, §2, §8): ~330M nominal (294.7M by llm.model with tied embeddings),
+# d1024 / L24 / 16 heads (4 KV), 25B tokens (B0
+# would fix it within 20-30B from the A1 scaling curve, notebook 09), then a 4k context
+# extension for the last 5 % of tokens (the app's n_ctx).
+# Recipe: the stage A one (A1, notebook 02). lr is the one setting not carried over as-is: A1
+# found 2e-3 at 110M; larger models usually want a lower peak, so 1.5e-3 is a starting guess that
+# B0 would have to confirm with a short sweep. At 18.6k tok/s (notebook 00) this is ~15.6 days.
+# Spanish volume: the extra FineWeb2-HQ es text was deleted (0025 amendment); `prepare_data fetch`
+# and `tokenize --source es` would be needed first (~17.5B es tokens for 25B at 70/30).
+name: stage-b-330m
+model:
+  vocab_size: 32768
+  d_model: 1024
+  n_layers: 24
+  n_heads: 16
+  n_kv_heads: 4
+  rope_theta: 100000.0
+  qk_norm: false
+  max_seq_len: 4096
+data:
+  root: ~/yts-experiments/m16-llm/data/shards
+  sources: {es: 0.7, en: 0.3}
+tokenizer: ~/yts-experiments/m16-llm/tokenizer/tokenizer.json
+total_tokens: 25000000000
+seq_len: 2048
+micro_batch: 2              # notebook 00: B=2 at T=2048 fits in 8.7 GiB for ~330M
+batch_tokens: 524288        # 128 micro-batches per optimizer step
+long_from_fraction: 0.95    # context extension (0025 §8)
+long_seq_len: 4096
+long_micro_batch: 1
+optimizer: adamw
+lr: 0.0015
+warmup_tokens: 500000000
+decay_fraction: 0.2         # WSD: decay only once the owner confirms the budget is final (§8)
+weight_decay: 0.1
+grad_clip: 1.0
+seed: 1337
+device: cuda
+compile: true
+mem_fraction: 0.92
+min_free_vram_gib: 9.5
+autosave_minutes: 15
+keep_last: 2
+permanent_every_fraction: 0.1
+eval_every_tokens: 500000000
+eval_batches: 20
+log_every_steps: 10
+sample_prompts:
+  - "El podcast de esta semana habla de"
+  - "La capital de Francia es"
+  - "In this episode, we talk about"
+sample_tokens: 48

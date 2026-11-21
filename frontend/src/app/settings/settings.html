@@ -1,0 +1,58 @@
+<h1 class="page-heading">Settings</h1>
+
+<section class="settings__section glass-panel" aria-labelledby="settings-llm">
+  <h2 id="settings-llm">Language model</h2>
+  <p class="muted">
+    The model that writes chapter titles and show notes, and scores relevance. This is the default; each run can pick
+    another one from its tool bar. Every result records the model that produced it.
+  </p>
+
+  @if (settings(); as s) {
+    <div class="settings__choices" role="radiogroup" aria-label="Default language model">
+      @for (choice of choices; track choice) {
+        <label class="settings__choice" [class.is-disabled]="choice === 'own' && !s.own_available">
+          <input
+            type="radio"
+            name="llm-default"
+            [value]="choice"
+            [checked]="s.default === choice"
+            [disabled]="saving() || (choice === 'own' && !s.own_available)"
+            (change)="choose(choice)"
+          />
+          <span class="settings__choice-text">
+            <span class="settings__choice-name">{{ label(choice, s) }}</span>
+            <span class="muted">
+              @if (choice === 'qwen') {
+                Qwen3.5-9B, a pretrained open model. The most capable option and the recommended default.
+              } @else if (s.own_available) {
+                Our own model (100.7M parameters), trained from scratch in M16 (pilot scale). About 90× smaller than
+                Qwen and clearly less capable: it passes the chapter-title gates, not the show-notes or relevance ones.
+                An experiment, not a replacement.
+              } @else {
+                Not installed on this machine yet (it is exported at the end of M16 step A3).
+              }
+            </span>
+          </span>
+        </label>
+      }
+    </div>
+    @if (s.own_available) {
+      <p class="settings__more">
+        <app-info key="ownllm" />
+        <a routerLink="/how-it-works" fragment="own-llm">How our model was built and how it did on each task</a>
+      </p>
+    }
+    <p class="settings__status" aria-live="polite">
+      @if (saving()) {
+        Saving…
+      } @else if (saved()) {
+        Saved. New runs use {{ label(s.default, s) }} unless their tool bar says otherwise.
+      }
+    </p>
+  } @else if (!error()) {
+    <p class="muted">Loading…</p>
+  }
+  @if (error(); as e) {
+    <p class="settings__error" role="alert">{{ e }}</p>
+  }
+</section>

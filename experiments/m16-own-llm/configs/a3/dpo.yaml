@@ -1,0 +1,51 @@
+# A3 step 3 (0025 §9.3): DPO on task pairs, from a3-sft-tasks-e1 (also the frozen reference
+# whose log-probs `python -m llm.dpo ref` precomputes). Pairs: llm.dpo_pairs -- the Qwen
+# teacher's answer (chosen) vs. a temperature-0.7 sample of our SFT model that failed a §9.4
+# verifier (rejected), on train/val task prompts only. English general preference data
+# (ultrafeedback) was not mixed in: the app's prompts are 70 % Spanish and task-shaped.
+# Pairs: 1,175 from one sample per prompt + 334 from 3 more samples of the show-notes reduce
+# prompts (the weakest gate). total_tokens = 2 epochs x pairs x 4096 (one pair = one row).
+# lr/beta: conventional DPO values for a small model.
+name: a3-dpo
+model:
+  vocab_size: 32768
+  d_model: 768
+  n_layers: 12
+  n_heads: 12
+  n_kv_heads: 4
+  rope_theta: 100000.0
+  qk_norm: false
+  max_seq_len: 4096
+data:
+  kind: dpo
+  sft_dir: ~/yts-experiments/m16-llm/data/sft/dpo
+tokenizer: ~/yts-experiments/m16-llm/tokenizer/tokenizer.json
+init_from: ~/yts-experiments/m16-llm/runs/a3-sft-tasks-e1/final_model.pt
+objective: dpo
+dpo_beta: 0.1
+total_tokens: 12400000         # 2 epochs x 1,509 pairs x 4096
+seq_len: 4096
+micro_batch: 1                 # 2 pairs (4 x 4096 rows, fp32 log-softmax over 32k vocab) ran out of VRAM
+batch_tokens: 131072          # 32 pairs per optimizer step (32 micro-batches)
+optimizer: adamw
+lr: 0.000002
+warmup_tokens: 1000000
+schedule: wsd
+decay_fraction: 0.2
+weight_decay: 0.0
+grad_clip: 1.0
+seed: 1337
+device: cuda
+compile: true
+mem_fraction: 0.92
+min_free_vram_gib: 9.5
+autosave_minutes: 15
+keep_last: 2
+permanent_every_fraction: 0.5
+eval_every_tokens: 2000000
+eval_batches: 20
+log_every_steps: 5
+sample_prompts:
+  - "<|im_start|>user\n¿Cuál es la capital de Francia?<|im_end|>\n<|im_start|>assistant\n"
+  - "<|im_start|>user\nExplain in one sentence what a podcast is.<|im_end|>\n<|im_start|>assistant\n"
+sample_tokens: 96

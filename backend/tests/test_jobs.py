@@ -144,5 +144,9 @@ async def test_other_tools_have_null_params(
 ) -> None:
     upload_id = await _create_upload(client, auth_headers)
     r = await client.post(f"/uploads/{upload_id}/jobs", headers=auth_headers,
-                          json={"tool_type": "chapters", "params": {}})
+                          json={"tool_type": "diarize", "params": {}})
     assert r.status_code == 201 and r.json()["params"] is None
+    # Since M16 the LLM tools record the LLM they run with (0025 §11; tests/test_llm_choice.py).
+    r = await client.post(f"/uploads/{upload_id}/jobs", headers=auth_headers,
+                          json={"tool_type": "chapters", "params": {}})
+    assert r.status_code == 201 and r.json()["params"] == {"llm": "qwen"}

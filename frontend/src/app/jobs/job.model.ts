@@ -8,8 +8,8 @@ export interface JobOut {
   started_at: string | null;
   completed_at: string | null;
   error_message: string | null;
-  /** Per-run tool options (M8: shorts only); null for other tools. */
-  params?: ShortsParams | null;
+  /** Per-run tool options: shorts (M8) and the LLM tools (M16); null for the others. */
+  params?: ShortsParams | LlmParams | null;
   created_at: string;
 }
 
@@ -21,6 +21,15 @@ export const ASPECT_RATIOS: readonly AspectRatio[] = ['9:16', '1:1', '4:5', '16:
 export interface ShortsParams {
   aspect_ratio: AspectRatio;
   captions: boolean;
+}
+
+/**
+ * Mirrors backend/app/schemas/job.py's `LlmParams` (M16, docs/decisions/0025 §11): chapters,
+ * show notes and relevance. Omitted or null means the global default; the job stores the
+ * resolved choice, so `JobOut.params.llm` says which model ran.
+ */
+export interface LlmParams {
+  llm?: 'qwen' | 'own' | null;
 }
 
 export type ToolType =

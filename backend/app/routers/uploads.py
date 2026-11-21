@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.security import get_current_user, get_current_user_for_media
 from app.config import get_settings
 from app.database import get_db
+from app.llm import registry
 from app.models.clip import Clip
 from app.models.ctr import CtrPrediction
 from app.models.job import Job
@@ -18,6 +19,7 @@ from app.models.user import User
 from app.schemas.job import JobCreate, JobOut
 from app.routers.media import stream_file
 from app.schemas.upload import UploadOut, UploadUpdate, YoutubeStatsOut
+from app.settings_store import LLM_TOOLS, get_llm_default
 from app.storage import LocalStorageBackend, StorageKeyNotFoundError
 from app.worker.pool import get_arq_pool
 from app.youtube_link import youtube_id_from_filename
@@ -160,7 +162,15 @@ async def create_job(
 ) -> Job:
     await _get_upload_or_404(upload_id, db)
 
-    job = Job(upload_id=upload_id, tool_type=job_in.tool_type, params=job_in.params)
+    params = job_in.params
+    if job_in.tool_type in LLM_TOOLS:
+        # Record the LLM the run will use (M16, 0025 §11): the request's choice, else the global default.
+        choice = (params or {}).get("llm") or await get_llm_default(db)
+        if choice == registry.OWN and not registry.own_available():
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                detail="Our own LLM isn't installed on this machine; run it with Qwen")
+        params = {**(params or {}), "llm": choice}
+    job = Job(upload_id=upload_id, tool_type=job_in.tool_type, params=params)
     db.add(job)
     await db.commit()
     await db.refresh(job)

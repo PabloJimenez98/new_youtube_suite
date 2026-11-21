@@ -5,7 +5,7 @@
 
 ## How to read this plan
 
-16 milestones (M0–M15), ordered so the **simplest possible end-to-end
+17 milestones (M0–M16; M16 added 2026-11-14), ordered so the **simplest possible end-to-end
 path ships first** (upload → one working tool → see a result), before
 the full tool suite, then the market-analysis pipeline, then the
 custom-model training loop that depends on data the earlier milestones
@@ -41,6 +41,7 @@ Updated as milestones complete — this table is the source of truth for
 | M13 — Title/thumbnail CTR predictor v0 | Done |
 | M14 — Hook-strength scorer v0 | Done |
 | M15 — Model retraining pipeline | Done |
+| M16 — Own LLM (from-scratch pretraining + post-training) | Done (stage A, 2026-11-21) |
 
 **Hardware pass (pre-M11, outside the milestone plan): In progress.** Moves the
 stack and local models from the GTX 1060 3 GB to the RTX 5070 12 GB; see
@@ -240,6 +241,76 @@ stack and local models from the GTX 1060 3 GB to the RTX 5070 12 GB; see
 - **3. Testing:** offline evaluation against the held-out pseudo-labeled set; manual A/B-style comparison of BiLSTM-v1 scores vs. the M7 heuristic on several real episodes before flipping `is_live`; regression check that M8 (shorts generator) still produces sane output when fed the new model's scores.
 - **Risk note:** explicitly the **highest-uncertainty milestone in the entire plan** — there's no guarantee the trained model beats the heuristic baseline on the first attempt. This is expected and acceptable *because* M7's heuristic keeps the product fully functional regardless of this milestone's outcome — nothing else in the plan is blocked on M15 succeeding. Budget for at least one full iteration cycle (train → evaluate → fail to beat baseline → adjust → retrain), not a single pass.
 
+### M16 — Own LLM: from-scratch pretraining, post-training and a Qwen / own-model switch
+- **Added:** 2026-11-14, at the owner's request, after M0–M15 were done. It is outside the original v1 scope. Idea-stage notes are in `docs/brainstorm.md` (2026-11-14, "M16 idea stage"); the first measurements are in `experiments/m16-own-llm/00_system_and_gpu_benchmark.ipynb`.
+- **Status: done (2026-11-21).** Stage A delivered: `yts-own-110m-dpo` (100.7M parameters) is selectable in the app, and Qwen stays the default. Gates: titles pass; show notes (86 % valid) and relevance fail. C1 passed on 2026-11-21. Regression: backend 770, frontend 343, experiments 48 passed, `ng build` OK. Results and the C1 notes are in 0025 ("A2 and A3 results", "C1 and the explainability pass").
+- **Depends on:**
+  - M5, M6 and M7/M15: they define the three LLM tasks this model must cover and their evaluation data.
+  - The RTX 5070 pass (0016): the stack and the GPU budget.
+- **Estimate:** 6–10 weeks of calendar time. About 3–5 weeks of that is unattended GPU time (ablations ~1 week, main pretraining ~2–3 weeks, post-training ~1 week). Every pause for the app worker or for the owner's own use of the PC adds to it.
+- **Scope amendment (owner, 2026-11-15):** the owner may not be able to keep the PC training for weeks, so **M16 ends after stage A** (0025 amendment).
+  - **In scope:** A1 (ablations), A2 (~110M pretraining, 5B tokens), A3 (post-training, GGUF, eval), the app selector (a minimal Settings screen for the global default, plus a Qwen/own choice when a tool is run), and checkpoint C1.
+  - **Out of scope:** stage B (B0 sizing, B1 ~330M pretraining, B2 post-training and eval, checkpoints C2 and C3). Running it is left as future work. Its notebooks and config are still **written but not executed**, and each one says so at the top. They contain no results.
+  - **What M16 claims:** the full chain from scratch (own tokenizer, own pretraining, post-training, export, selectable in the app), at pilot scale. The 110M model is expected to be clearly weaker than Qwen3.5-9B. That is reported as measured, and Qwen stays the default.
+  - **Estimate after the amendment:** about 3–4 more days of GPU time from 2026-11-15, plus the owner's review of the ablations and C1.
+- **Owner constraints (2026-11-14):**
+  - **Weights:** our own architecture (a transformer) trained from random initialisation. No pretrained weights anywhere in the model, and the tokenizer is ours too.
+  - **Data:** post-training may use any data it needs. That includes Qwen3.5-9B outputs on our transcripts (distilling outputs, never weights) and open instruction/preference datasets.
+  - **Coverage:** the model covers **all three** current LLM tasks: chapter titles (0010), show notes (0011) and the LLM part of the relevance labels (0012/0024).
+  - **App switch:** the app lets the user choose Qwen or our model.
+  - **Notebooks:** every experiment, including failed runs, is recorded in notebooks under `experiments/m16-own-llm/`.
+- **1. Planning:** Record the choices in a decision record (`0025`). Lock the following.
+  - **Architecture baseline:** a dense decoder-only transformer.
+    - Its graph matches an architecture llama.cpp already supports (Llama or Qwen3-style: RoPE, RMSNorm, SwiGLU, GQA, optional QK-norm, tied embeddings), so it exports to GGUF and reuses the existing runtime (`app/llm/runtime.py`, `gpu_lock`, `release_all()`).
+    - Plan the hybrid with linear attention (Gated DeltaNet 3:1) as an **ablation only**. It is adopted only if it clearly beats dense at equal compute *and* the owner accepts a separate PyTorch serving path.
+  - **Ablation protocol at ~110M:**
+    - A fixed token budget per run and a fixed validation set (held-out Spanish and English web text plus our transcripts), measured in bits per byte.
+    - What is compared: the optimizer (AdamW vs Muon+AdamW), the MLP activation (SwiGLU vs ReLU²), QK-norm, depth vs width, and the hybrid.
+  - **Tokenizer:** our own byte-level BPE, about 32k vocab, trained on the Spanish/English data mix. It needs the special tokens the chat template uses.
+  - **Pretraining data:**
+    - Sources: FineWeb-2 `spa_Latn` and FineWeb-Edu (en), with the Spanish/English ratio fixed here.
+    - Tokenisation into shards on WSL ext4.
+    - A decontamination check against every evaluation set. Our transcripts stay out of pretraining or are held out explicitly.
+  - **Size and token budget:** about 330M parameters on 15–30B tokens is the starting proposal. The final number comes from the ablation scaling runs and a wall-clock budget the owner agrees to.
+  - **Context length:** pretrain at 2,048 tokens, then extend to the length the show-notes map-reduce needs (`n_ctx` today: 4,096). An extension to 8k is decided here.
+  - **Training infrastructure:**
+    - Allocator capped at the real VRAM. Without the cap, the Windows driver silently spills into system RAM (notebook 00, run 1).
+    - A checkpoint every 15–30 min and an exact resume (data position, optimizer, RNG).
+    - A **pause/resume** control that frees all VRAM within seconds, so the owner can use the PC (games, video) and the worker can run jobs. Training and app jobs never share the GPU.
+  - **Post-training pipeline:**
+    1. General SFT (chat/instructions, Spanish and English).
+    2. Task SFT (Qwen3.5-9B outputs on our episodes and VidChapters for titles; the show-notes JSON schema; relevance window scores).
+    3. DPO.
+    4. Optionally GRPO with verifiable rewards (valid JSON against the schema, correct language, title length).
+  - **Evaluation and gates per task, against Qwen3.5-9B:**
+    - Titles: CIDEr on the M5 val/test split plus a blind review.
+    - Show notes: schema-validity rate before and after repair, plus a blind side-by-side.
+    - Relevance: Spearman against the `relevance-p3` labels, plus the 0024 offline gate when the BiLSTM is trained on the own model's labels.
+  - **App integration:**
+    - A backend setting that chooses the LLM per tool or globally (`LLM_BACKEND=qwen|own`, exact shape decided here).
+    - A selector in the frontend.
+    - Own-model versions registered the way bundles and relevance versions are today.
+    - **Qwen stays the default.** The own model becomes the default for a tool only after it passes that tool's gate and the owner's blind review.
+- **2. Development:**
+  - Tokenizer training.
+  - Data download, tokenisation and sharding.
+  - The model and trainer (VRAM cap, checkpoints, pause/resume, logging).
+  - The ablation runs.
+  - Main pretraining, then the long-context extension.
+  - The SFT/DPO(/GRPO) pipelines and their dataset generation (the Qwen teacher runs only while training is paused).
+  - GGUF export, or the PyTorch serving path if the hybrid wins.
+  - The backend switch and the frontend selector.
+- **3. Testing:**
+  - **Unit tests:** tokenizer round-trip and special tokens; deterministic data loading and exact checkpoint resume (the loss curve continues across a pause); logits parity between the PyTorch model and its GGUF export, within a tolerance; switch routing (each tool reaches the backend that was chosen).
+  - **Offline evaluation:** each task against Qwen3.5-9B on the gates above.
+  - **Owner's blind review:** per task.
+  - **Regression pass:** the fast CPU suite, the `-m gpu` suite and `ng test`, with the Qwen path unchanged when the switch is set to `qwen`.
+- **Risk note:** the **highest-cost milestone in the plan**, in both GPU time and iteration.
+  - A ~330M model trained on a few tens of billions of tokens will be well below Qwen3.5-9B (trained on trillions) in general ability. It can only close the gap on our three narrow tasks, through post-training.
+  - Show notes (long input, structured JSON output) is the hardest of the three. A first pass where the own model wins titles and loses show notes is a realistic and acceptable outcome.
+  - Nothing is blocked on M16 succeeding, because Qwen stays the default.
+  - Budget for at least one retry of pretraining or post-training.
+
 ## Highest-risk milestones (called out together)
 
 | Milestone | Risk | Why it's flagged |
@@ -247,6 +318,7 @@ stack and local models from the GTX 1060 3 GB to the RTX 5070 12 GB; see
 | M8 — Shorts generator | Subject-detection crop quality may look worse than expected | Most moving parts of any mechanical milestone; visual quality is subjective and hard to unit-test |
 | M12 — Reporting API integration | Newest, least-documented API surface (added Jan 2026) | Confirmed by Phase 3 research as a genuine surprise vs. the original assumption |
 | M15 — Relevance model training | No guarantee the trained model beats the M7 heuristic baseline on the first attempt | The core differentiator's actual ML risk — but non-blocking, since M7 keeps the product working either way |
+| M16 — Own LLM | A from-scratch model may not reach Qwen3.5-9B on the three tasks, especially show notes. Since 2026-11-15 only the ~110M pilot (stage A) is in scope, so a large gap to Qwen is expected | Largest compute and iteration cost in the plan — non-blocking, since Qwen stays the default |
 
 ## v1 Definition of Done
 

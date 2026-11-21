@@ -15,7 +15,7 @@ from pathlib import Path
 
 from app.chapters.text import LanguageId
 from app.config import get_settings
-from app.llm import runtime
+from app.llm import registry, runtime
 from app.llm.chat import ChatLLM, LlamaChat
 from app.relevance import heuristics
 from app.relevance.llm_scoring import PASS_OFFSETS, PROMPT_VERSION, block_scores, mean_of_passes, window_llm_scores
@@ -103,18 +103,36 @@ _lock = threading.Lock()
 
 
 def _drop() -> None:
-    """Forget the cached object: its `Llama` was released (runtime.release_all)."""
+    """Forget the cached objects: their `Llama` was released (runtime.release_all)."""
     global _scorer
     with _lock:
         _scorer = None
+        _own.clear()
 
 
 runtime.on_release(_drop)
 
+# M16: zero-shot scorers over our own LLM, by choice (0025 §11). Qwen keeps `_scorer`.
+_own: dict[str, RelevanceScorer] = {}
 
-def get_scorer() -> RelevanceScorer:
-    """Build the scorer once per process from the chapters bundle's LLM and LID."""
+
+def get_scorer(llm: str = registry.QWEN) -> RelevanceScorer:
+    """Build the scorer once per process from the chosen LLM and the chapters bundle's LID."""
     global _scorer
+    if llm != registry.QWEN:
+        with _lock:
+            if llm not in _own:
+                settings = get_settings()
+                bundle = settings.chapters_model_dir
+                manifest = Path(bundle) / "manifest.json" if bundle else None
+                titles = json.loads(manifest.read_text()).get("titles", {}) if manifest and manifest.is_file() else {}
+                if "lid" not in titles:
+                    raise RelevanceUnavailableError("Relevance needs a chapter bundle with a language-ID model")
+                spec = registry.resolve(llm)
+                chat = LlamaChat(runtime.get_llama(spec.path, spec.n_ctx, settings.chapters_llm_threads), spec.n_ctx)
+                _own[llm] = RelevanceScorer(chat, LanguageId(Path(bundle) / titles["lid"]["file"]),
+                                            f"heuristic-v0+{spec.label}+{PROMPT_VERSION}")
+            return _own[llm]
     with _lock:
         if _scorer is None:
             settings = get_settings()
@@ -134,8 +152,8 @@ def get_scorer() -> RelevanceScorer:
         return _scorer
 
 
-def score_relevance(words: list[Word], duration: float,
-                    chapters: list[tuple[float, str]]) -> tuple[str, dict, RelevanceResult]:
+def score_relevance(words: list[Word], duration: float, chapters: list[tuple[float, str]],
+                    llm: str = registry.QWEN) -> tuple[str, dict, RelevanceResult]:
     """(version label, version description, result). Synchronous -- run in a thread."""
-    s = get_scorer()
+    s = get_scorer(llm)
     return s.version_label, s.description(), s.run(words, duration, chapters)

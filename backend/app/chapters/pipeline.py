@@ -35,7 +35,7 @@ from app.chapters.model import BoundaryTagger
 from app.chapters.text import LanguageId
 from app.chapters.units import Atom, Unit, UnitConfig, build_units
 from app.config import get_settings
-from app.llm import runtime
+from app.llm import registry, runtime
 
 
 class ChaptersUnavailableError(Exception):
@@ -84,6 +84,8 @@ class Chapterer:
 
         # Bundle v2: LLM titles, mT5 as the fallback (0010 §1).
         self.llm = self.lid = None
+        self.llm_threads = llm_threads
+        self._own_titler = None  # M16: our own LLM, built on first use (0025 §11)
         if llm := t.get("llm"):
             from app.chapters.llm_titles import LlamaTitler
 
@@ -128,15 +130,34 @@ class Chapterer:
                                         suppress_tokens=self.sentinels)
         return [t.strip() for t in self.title_tok.batch_decode(ids, skip_special_tokens=True)]
 
+    def titler(self, choice: str):
+        """The LLM titler for this choice (0025 §11): the bundle's Qwen titler, or one over our own
+        GGUF with the same prompts and limits. None = no LLM (mT5 titles only)."""
+        if choice == registry.QWEN:
+            return self.llm
+        if self.lid is None:
+            raise ChaptersUnavailableError("Our own LLM needs a chapter bundle with a language-ID model (v2)")
+        if self._own_titler is None:
+            from app.chapters.llm_titles import LlamaTitler
+
+            spec = registry.resolve(choice)
+            cfg = self.title_cfg.get("llm", {})
+            shared = runtime.get_llama(spec.path, spec.n_ctx, self.llm_threads)
+            self._own_titler = LlamaTitler(spec.path, n_ctx=spec.n_ctx, n_threads=self.llm_threads,
+                                           max_tokens=cfg.get("max_tokens", 32), max_words=cfg.get("max_words", 900),
+                                           llm=shared)
+        return self._own_titler
+
     def llm_titles(self, units: list[Unit], starts: list[float], ends: list[float],
-                   fallback_texts: list[str]) -> list[str]:
+                   fallback_texts: list[str], titler=None) -> list[str]:
         """One LLM call per chapter, in order, with the titles given so far; mT5 where it gives none."""
+        titler = titler or self.llm
         lang, _ = self.lid(" ".join(u.text for u in units)[:5000])
         out: list[str | None] = []
         for s, e in zip(starts, ends, strict=True):
             with runtime.llm_lock:
-                r = self.llm.title(chapter_text(units, s, e, max_chars=None) or units[0].text, lang,
-                                   [t for t in out if t], lid=self.lid)
+                r = titler.title(chapter_text(units, s, e, max_chars=None) or units[0].text, lang,
+                                 [t for t in out if t], lid=self.lid)
             out.append(r.title)
         missing = [i for i, t in enumerate(out) if not t]
         if missing:
@@ -144,7 +165,8 @@ class Chapterer:
                 out[i] = t
         return out
 
-    def run(self, atoms: list[Atom], duration: float) -> list[ChapterResult]:
+    def run(self, atoms: list[Atom], duration: float, llm: str = registry.QWEN) -> list[ChapterResult]:
+        titler = self.titler(llm)
         units = build_units(atoms, self.unit_cfg)
         if not units:
             return []
@@ -156,7 +178,7 @@ class Chapterer:
             chapter_starts = decode(scores, starts, duration, self.decode_cfg)
         ends = [*chapter_starts[1:], duration]
         texts = [chapter_text(units, s, e) or units[0].text for s, e in zip(chapter_starts, ends, strict=True)]
-        titles = self.titles(texts) if self.llm is None else self.llm_titles(units, chapter_starts, ends, texts)
+        titles = self.titles(texts) if titler is None else self.llm_titles(units, chapter_starts, ends, texts, titler)
         return [ChapterResult(s, t or f"Chapter {i + 1}") for i, (s, t) in enumerate(zip(chapter_starts, titles, strict=True))]
 
 
@@ -190,7 +212,13 @@ def get_chapterer() -> Chapterer:
         return _chapterer
 
 
-def generate_chapters(atoms: list[Atom], duration: float) -> tuple[str, list[ChapterResult]]:
-    """(bundle version, chapters). Synchronous -- run in a thread."""
+def generate_chapters(atoms: list[Atom], duration: float, llm: str = registry.QWEN) -> tuple[str, list[ChapterResult]]:
+    """(version, chapters). Synchronous -- run in a thread.
+
+    The version is the bundle's; with our own LLM it also names it (`<bundle>+titles:<label>`), so
+    `chapters.model_version` records which model wrote the titles (M16, 0025 §11)."""
     c = get_chapterer()
-    return c.version, c.run(atoms, duration)
+    results = c.run(atoms, duration, llm)
+    if llm == registry.QWEN:
+        return c.version, results
+    return f"{c.version}+titles:{registry.resolve(llm).label}", results

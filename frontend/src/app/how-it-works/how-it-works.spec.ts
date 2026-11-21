@@ -25,7 +25,7 @@ describe('HowItWorks', () => {
   });
 
   it('lists the model status and the full glossary', () => {
-    expect(el().querySelectorAll('.hiw__table tbody tr').length).toBe(7);
+    expect(el().querySelectorAll('.hiw__table tbody tr').length).toBe(8);
     expect(el().querySelectorAll('.hiw__glossary dt').length).toBe(Object.keys(GLOSSARY).length);
   });
 });

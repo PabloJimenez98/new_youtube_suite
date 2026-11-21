@@ -1,0 +1,78 @@
+:host {
+  display: block;
+}
+
+.arch {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__node {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    border-left-width: 4px;
+    font-size: 0.85rem;
+
+    span {
+      font-size: 0.76rem;
+      color: var(--color-text-secondary);
+    }
+
+    // Kind colours = the chart palette slots of the parameter bar (viz.ts SERIES).
+    &--param {
+      border-left-color: #3987e5;
+    }
+
+    &--attn {
+      border-left-color: #d95926;
+    }
+
+    &--ffn {
+      border-left-color: #199e70;
+    }
+
+    &--norm,
+    &--add {
+      border-left-color: var(--color-text-muted);
+      padding-block: 3px;
+    }
+
+    &--data {
+      border-style: dashed;
+      border-left-style: solid;
+      border-left-color: var(--color-text-secondary);
+    }
+  }
+
+  &__block {
+    position: relative;
+    padding: 28px 10px 10px;
+    border: 1px dashed var(--color-text-muted);
+    border-radius: 12px;
+  }
+
+  &__repeat {
+    position: absolute;
+    top: 6px;
+    left: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+  }
+}

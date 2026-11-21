@@ -507,6 +507,56 @@ Plan in `docs/decisions/0024-relevance-bilstm-m15.md`. Left out of M15 on purpos
   - A live BiLSTM writes no pseudo-labels. New episodes get labels only through
     `relevance pseudo-label`, which runs the LLM teacher.
 - **M15 closed (2026-11-14):** `bilstm-e5s-20261114-i2` is live (0024 "Promotion").
-  - **Open (the owner):** review the rendered clips of uploads 5, 35 and 43.
+  - **Closed (2026-11-14):** the owner reviewed and approved the rendered clips of uploads 5, 35 and 43.
   - **Not built:** rescoring the other 60 episodes with i2. Their p3 scores and clips stay valid
     until re-run (the M9 season runner can do it in seconds per episode now).
+
+## 2026-11-14 — M16 idea stage (our own LLM, outside the current plan)
+Owner's request: design our own LLM architecture (transformer), pretrain it **from scratch** (no
+pretrained weights) on this machine, post-train it, and let the app choose between Qwen and our model.
+Every experiment goes into notebooks under `experiments/m16-own-llm/`. Added to
+`docs/development-plan.md` as M16 on 2026-11-14 (planning next, decision 0025).
+- **Measured (notebook 00, 2026-11-14):** RTX 5070 GEMM peak ~62 TFLOPS bf16, ~123 fp8. A Llama-style
+  decoder (RoPE, SwiGLU, SDPA, tied emb, V=32k, T=2048, fused AdamW fp32 states) trains at
+  60.6k tok/s for ~110M (B=8, 8.5 GiB) and 18.6k tok/s for ~330M (B=2, 8.7 GiB). ~730M doesn't fit
+  with fp32 AdamW. Run 1 was invalid: the Windows driver spilled VRAM into system RAM silently
+  (MFU 3–5 %). Any training run must cap the allocator (`set_per_process_memory_fraction`).
+- **Decided by the owner (2026-11-14):**
+  - Post-training may use any data needed: Qwen3.5-9B outputs on our transcripts (output
+    distillation, not weights) and open instruction/preference datasets.
+  - The own model must cover all three LLM tasks: chapter titles, show notes and relevance labels.
+- **Open:**
+  - Dense transformer vs a hybrid with linear attention (Gated DeltaNet 3:1). Recommendation given:
+    dense as the main line, hybrid only as a ~110M ablation.
+  - GPU sharing during a 2–3 week run (owner wants to keep using the PC, including games). Needs
+    pause/resume via frequent checkpoints.
+  - Target size and token budget (~330M × 15–30B tokens proposed), tokenizer, data mix (FineWeb-2
+    spa + FineWeb-Edu en proposed), context length for show notes (pretrain 2k, extend to 4–8k?).
+  - Serving: llama.cpp/GGUF (requires a Llama-compatible graph) vs PyTorch in the worker.
+- **M16 planning closed (2026-11-14, `docs/decisions/0025-own-llm-m16.md`).** Owner answers:
+  staged (110M pilot, then ~330M), selector global + per run, a task corpus of ~300–500 h from
+  the 22 M10 channels with Qwen as teacher, a 70/30 es/en pretraining mix, and pause/resume as one
+  simple command. Dense is the main line; the hybrid is ablation 7 only.
+  - **Left out of M16 on purpose:** retraining the relevance BiLSTM on own-model pseudo-labels
+    (the `--llm own` flag makes it possible later), and the PyTorch serving path (only if an
+    ablation that llama.cpp can't run wins).
+- **M16 open questions (2026-11-14 evening):**
+  - **Frontend:** where does the global "Qwen / own" default live? There is no Settings screen.
+    Options: a new minimal `/settings` route, or a control in the episode workspace next to the
+    per-run selector. Ask the owner. The backend API (`/settings/llm`) is done.
+  - **Relevance teacher position bias** (notebook 03): drop batches with position Spearman > 0.8
+    (about 9 %) from task SFT? Decide at A3 from the relevance gate.
+  - **Network:** the ISP CGNAT can't take many parallel IPv4 connections, and WSL's mirrored IPv6 is
+    flaky. The rest of the Spanish text for stage B (about 57 GB) needs a gentle single-connection
+    window, ideally at night.
+  - **Hybrid ablation (a7):** `flash-linear-attention` on sm_120 is untested. Try it when the GPU is
+    free; if its kernels fail, record that in notebook 02.
+
+## M16 follow-up idea: own-model relevance (2026-11-19, open, not scheduled)
+
+At 110M, SFT and DPO on Qwen's relevance outputs gave content-independent score shapes (Spearman
+vs Qwen 0.21 SFT, −0.07 DPO; gate ≥ 0.39; notebook 07). Options for later, outside M16:
+- a per-block prompt (one score per call) instead of 20 blocks per call;
+- a small scoring head on the own model's hidden states, trained on Qwen's scores;
+- or keep relevance on Qwen / the M15 BiLSTM and use the own model for titles only.
+Undecided; needs the owner.

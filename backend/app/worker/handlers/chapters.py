@@ -19,7 +19,8 @@ from app.models.chapter import Chapter
 from app.models.job import Job
 from app.models.transcript import TranscriptSegment
 from app.models.upload import Upload
-from app.llm import runtime
+from app.llm import registry, runtime
+from app.settings_store import job_llm
 from app.worker.gpu import gpu_lock
 
 
@@ -67,8 +68,11 @@ async def run(job: Job, db: AsyncSession) -> None:
     # The LLM's prompt prefill runs on the GPU with the CUDA build (0014 §2).
     async with gpu_lock:
         try:
+            # The run's LLM (M16, 0025 §11). Qwen keeps the exact pre-M16 call.
+            choice = job_llm(job.params)
+            extra = () if choice == registry.QWEN else (choice,)
             version, results = await asyncio.to_thread(
-                pipeline.generate_chapters, atoms_from_segments(segments), duration
+                pipeline.generate_chapters, atoms_from_segments(segments), duration, *extra
             )
         finally:
             # Free the LLM's ~1 GB of VRAM for Whisper/pyannote (0014 §2).
