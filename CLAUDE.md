@@ -4,6 +4,12 @@
 **Project finished (2026-11-22).** All milestones M0–M16 are done and the
 thesis report (`mem/`) is written. No milestone is in progress; any further
 work (e.g. the open follow-ups below) needs the owner to open it first.
+**Delivery package (decision 0026, opened by the owner on 2026-11-22):**
+- `DELIVERY.md` is the examiner guide.
+- `notebooks/01–08` recompute the reported numbers from the dev database and the saved models.
+  They show aggregates only and never retrain.
+- `docker/` is the examiner stack, in CPU and GPU modes.
+- The models are distributed as a GitHub Release `v1.0`.
 
 Planning is complete. All four brainstorm phases are done: scope
 (`docs/decisions/v1-scope.md`), research (`docs/research/bibliography.md`),

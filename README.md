@@ -11,38 +11,26 @@ time.
 
 ## Status
 
-**Milestones M0–M2 are done.** Planning was completed across four
-brainstorm phases (scope → research → specification → development
-plan) — see [Documentation](#documentation) below. Implementation
-proceeds milestone-by-milestone from `docs/development-plan.md`:
-- **M0** shipped a FastAPI backend, Postgres schema
-  (`users`/`uploads`/`jobs`), single-user JWT auth, and a
-  local-filesystem storage abstraction (decision record:
-  [`docs/decisions/0002-backend-skeleton.md`](docs/decisions/0002-backend-skeleton.md)).
-- **M1** shipped an Angular frontend skeleton — login screen, an
-  upload form with progress reporting, and a bare uploads list — that
-  calls M0's endpoints through the Angular dev-server's proxy
-  (decision record:
-  [`docs/decisions/0003-frontend-skeleton.md`](docs/decisions/0003-frontend-skeleton.md)).
-- **M2** shipped the async job pipeline: an `arq` worker over Redis
-  drives jobs through `queued → running → succeeded/failed` (every
-  tool runs a dummy handler until its own milestone), and the Manage
-  page polls job status every 3s (decision record:
-  [`docs/decisions/0006-async-job-pipeline.md`](docs/decisions/0006-async-job-pipeline.md)).
+**Finished (2026-11-22).** All milestones of the plan, M0–M16, are done.
 
-- **M3** shipped the transcript/subtitle generator: ffmpeg audio
-  extraction + faster-whisper `large-v3-turbo` (int8 on the GPU, ~14×
-  real-time) persisting segment/word rows, and `.srt`/`.vtt` downloads
-  from the Manage page (decision record:
-  [`docs/decisions/0007-transcription-pipeline.md`](docs/decisions/0007-transcription-pipeline.md)).
+> **Examiners: start at [`DELIVERY.md`](DELIVERY.md).** It maps every process to its report section,
+> notebook, code and decision record, and explains how to run the application with Docker.
 
-- **M4** shipped speaker diarization: pyannote `community-1` on the
-  GPU alongside Whisper (~19× real-time), word/segment speaker labels,
-  a startup healthcheck that degrades only diarization, and
-  speaker-labelled subtitles split at speaker changes (decision record:
-  [`docs/decisions/0008-speaker-diarization.md`](docs/decisions/0008-speaker-diarization.md)).
+What the application does:
 
-Next up: **M5** (chapter generator).
+- **Speech:** transcription with Whisper `large-v3` and speaker diarization with pyannote.
+- **Chapters:** a trained BiLSTM finds the boundaries; the titles come from a local LLM.
+- **Show notes:** drafted by a local LLM.
+- **Relevance:** a trained BiLSTM, distilled from a heuristic + LLM teacher, scores every
+  15-second window. The Shorts generator turns that curve into vertical clips with face-tracking
+  crops and captions.
+- **Scoring:** heuristic CTR and hook-strength scores for titles, thumbnails and clips.
+- **Market analysis:** public YouTube data plus the owner's own channel through OAuth.
+- **In-house LLM:** a 100.7M-parameter model trained from scratch (M16) that can replace Qwen.
+
+The history of each milestone is in
+[`docs/development-plan.md`](docs/development-plan.md) and the decision records
+[`docs/decisions/`](docs/decisions/) (0002–0026).
 
 ## Tech stack
 
@@ -51,12 +39,14 @@ Next up: **M5** (chapter generator).
 | Frontend | Angular |
 | Backend | FastAPI (Python) |
 | Database | PostgreSQL |
-| Transcription | `faster-whisper` (`large-v3-turbo`) |
-| Diarization | `pyannote.audio` 4.0.7 + WhisperX |
-| Custom models | Relevance-detection, title/thumbnail CTR predictor, hook-strength scorer — see the model strategy in the project description |
-| Blob storage | Local filesystem behind a `StorageBackend` interface (M0) |
-| Job orchestration | `arq` worker over Redis (M2) |
-| ML training stack | Not yet decided — resolved incrementally per milestone in the development plan |
+| Job orchestration | `arq` worker over Redis (0006) |
+| Blob storage | Local filesystem behind a `StorageBackend` interface (0002) |
+| Transcription | `faster-whisper` `large-v3`, int8_float16 (0007, 0016) |
+| Diarization | `pyannote.audio` 4.0.7, `community-1` (0008) |
+| Local LLMs | `llama.cpp` (`llama-cpp-python`), Qwen3.5-9B GGUF or the in-house `yts-own-110m-dpo` (0010, 0025) |
+| Trained models | PyTorch: chapter boundaries BiLSTM, mT5-small titles (0009), relevance BiLSTM (0024), in-house LLM (0025) |
+| Heuristic models | CTR predictor (0019), hook-strength scorer (0020) |
+| Examiner stack | Docker Compose, CPU and GPU modes (`docker/`, 0026) |
 
 ## Documentation
 
@@ -468,7 +458,9 @@ headless — no Chrome/browser install required).
 ## Third-party models
 
 - Transcription: [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
-  running OpenAI Whisper `large-v3-turbo` (MIT).
+  running OpenAI Whisper `large-v3` (default since 0016) or `large-v3-turbo` (MIT).
+- Local LLM: Qwen3.5-9B as a Q4_K_M GGUF, run by `llama.cpp`; licence as stated on its model card.
+  Not redistributed by this project.
 - Speaker diarization: [pyannote.audio](https://github.com/pyannote/pyannote-audio)
   (MIT) with the `pyannote/speaker-diarization-community-1` pipeline,
   whose weights are licensed **CC-BY-4.0**.

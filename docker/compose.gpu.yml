@@ -1,0 +1,45 @@
+# GPU mode: the deployed configuration of the project (RTX 5070 settings, docs/decisions/0016).
+#   docker compose -f docker/compose.yml -f docker/compose.gpu.yml up -d --build
+# Needs an NVIDIA GPU with ~12 GB of VRAM and the NVIDIA Container Toolkit.
+
+x-gpu-env: &gpu-env
+  YTS_MODE: gpu
+  WHISPER_MODEL: large-v3
+  WHISPER_DEVICE: cuda
+  WHISPER_COMPUTE_TYPE: int8_float16
+  WHISPER_BATCH_SIZE: "16"
+  DIARIZATION_DEVICE: cuda
+  DIARIZATION_EMBEDDING_BATCH_SIZE: "32"
+  CHAPTERS_DEVICE: cuda
+  CHAPTERS_MODEL_DIR: models/chapters/bilstm-e5s-sentence-20261107+qwen3.5-9b
+  LLM_N_GPU_LAYERS: "-1"
+  RELEVANCE_DEVICE: cuda
+
+x-gpu: &gpu
+  build:
+    context: ..
+    dockerfile: docker/backend.Dockerfile
+    args:
+      VARIANT: gpu
+  image: yts-backend:gpu
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
+services:
+  fetch:
+    <<: *gpu
+    environment: *gpu-env
+  init:
+    <<: *gpu
+    environment: *gpu-env
+  api:
+    <<: *gpu
+    environment: *gpu-env
+  worker:
+    <<: *gpu
+    environment: *gpu-env

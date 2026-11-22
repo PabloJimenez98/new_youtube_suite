@@ -1,0 +1,17 @@
+# Build context for docker/*.Dockerfile is the repo root: send only the sources.
+**/.git
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+**/node_modules
+backend/.env
+backend/models
+uploads
+frontend/dist
+frontend/.angular
+experiments
+mem
+deliverables
+notebooks
+docker/models

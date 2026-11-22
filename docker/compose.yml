@@ -1,0 +1,131 @@
+# Examiner stack (docs/decisions/0026 §6, DELIVERY.md "Run the application").
+#
+# CPU mode (any machine):
+#   docker compose -f docker/compose.yml build
+#   docker compose -f docker/compose.yml run --rm fetch
+#   docker compose -f docker/compose.yml up -d
+# GPU mode (NVIDIA GPU + NVIDIA Container Toolkit): add `-f docker/compose.gpu.yml` to both commands.
+#
+# Then open http://localhost:4200 and log in with OPERATOR_EMAIL / OPERATOR_PASSWORD (docker/.env).
+# Independent of the dev stack in the repo-root docker-compose.yml: other project name, no host
+# ports for Postgres/Redis, its own volumes.
+
+name: yts-demo
+
+x-backend: &backend
+  build:
+    context: ..
+    dockerfile: docker/backend.Dockerfile
+    args:
+      VARIANT: ${VARIANT:-cpu}
+  image: yts-backend:${VARIANT:-cpu}
+  restart: unless-stopped
+  environment: &backend-env
+    YTS_MODE: cpu
+    DATABASE_URL: postgresql+asyncpg://youtube_suite:youtube_suite@db:5432/youtube_suite
+    REDIS_URL: redis://redis:6379/0
+    STORAGE_BASE_PATH: /data/uploads
+    JWT_SECRET: ${JWT_SECRET:-change-me-examiner}
+    FRONTEND_BASE_URL: http://localhost:${WEB_PORT:-4200}
+    GOOGLE_OAUTH_REDIRECT_URI: http://localhost:${WEB_PORT:-4200}/youtube/oauth/callback
+    HF_TOKEN: ${HF_TOKEN:-}
+    YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+    OPERATOR_EMAIL: ${OPERATOR_EMAIL:-examiner@example.com}
+    OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:-examiner}
+    # CPU mode: small, fast models. The trained models (chapter boundaries, relevance BiLSTM) are
+    # the same as in GPU mode; titles come from the fine-tuned mT5, show notes from our own LLM.
+    WHISPER_MODEL: small
+    WHISPER_DEVICE: cpu
+    WHISPER_COMPUTE_TYPE: int8
+    WHISPER_BATCH_SIZE: "8"
+    DIARIZATION_DEVICE: cpu
+    DIARIZATION_EMBEDDING_BATCH_SIZE: "8"
+    CHAPTERS_DEVICE: cpu
+    CHAPTERS_MODEL_DIR: models/chapters/bilstm-e5s-sentence-20261107+mt5s
+    LLM_N_GPU_LAYERS: "0"
+    LLM_OWN_DIR: models/llm/yts-own-110m-dpo
+    RELEVANCE_DEVICE: cpu
+  volumes:
+    - ./models:/app/backend/models
+    - ./models/assets/diarization_healthcheck.wav:/app/backend/app/assets/diarization_healthcheck.wav:ro
+    - uploads:/data/uploads
+    - hfcache:/cache/huggingface
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: youtube_suite
+      POSTGRES_PASSWORD: youtube_suite
+      POSTGRES_DB: youtube_suite
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U youtube_suite"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-off, before the first `up`: download the models into docker/models (fetch_models.py).
+  fetch:
+    <<: *backend
+    restart: "no"
+    profiles: ["tools"]
+    command: ["python", "/app/docker/fetch_models.py"]
+    environment:
+      <<: *backend-env
+      QWEN_GGUF_URL: ${QWEN_GGUF_URL:-https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf}
+    volumes:
+      - ./models:/app/backend/models
+      - hfcache:/cache/huggingface
+
+  # One-off on every `up`: migrations, the operator account, the live model versions.
+  init:
+    <<: *backend
+    restart: "no"
+    command: ["python", "/app/docker/init_app.py"]
+
+  api:
+    <<: *backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *backend
+    command: ["arq", "app.worker.settings.WorkerSettings"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    image: yts-frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-4200}:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  uploads:
+  hfcache:

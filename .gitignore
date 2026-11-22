@@ -54,3 +54,6 @@ Thumbs.db
 
 # --- Exported chapter model bundles (M5, docs/decisions/0009 §6) ---
 /backend/models/
+
+# --- Examiner Docker stack (docs/decisions/0026) ---
+docker/models/
