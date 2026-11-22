@@ -1,0 +1,23 @@
+% Figure source (bilstm-chapters). Rendered to figures/pdf/bilstm-chapters.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[
+    u/.style={draw, rounded corners=2pt, font=\scriptsize, minimum width=1.25cm, minimum height=0.55cm, align=center},
+    arr/.style={-Stealth, thick}
+]
+\foreach \i/\lab/\out in {0/{unit $1$}/{$p_1$},1/{unit $2$}/{$p_2$},2/{$\cdots$}/{$\cdots$},3/{unit $T$}/{$p_T$}} {
+  \node[u, fill=gray!15] (x\i) at (\i*2.3,0) {\lab};
+  \node[u, fill=purple!12] (e\i) at (\i*2.3,1.1) {e5 (384)};
+  \node[u, fill=blue!10] (p\i) at (\i*2.3,2.2) {proj.\ + pos,\\sim.\ prev.};
+  \node[u, fill=purple!20] (l\i) at (\i*2.3,3.4) {BiLSTM};
+  \node[u, fill=green!15] (o\i) at (\i*2.3,4.6) {\out};
+  \draw[arr] (x\i) -- (e\i);
+  \draw[arr] (e\i) -- (p\i);
+  \draw[arr] (p\i) -- (l\i);
+  \draw[arr] (l\i) -- (o\i);
+}
+\draw[<->, thick] (l0) -- (l1);
+\draw[<->, thick] (l1) -- (l2);
+\draw[<->, thick] (l2) -- (l3);
+\node[draw, fill=orange!20, rounded corners=2pt, font=\scriptsize, align=center, minimum width=2.6cm, minimum height=1.0cm] (dec) at (9.6,4.6) {Peak decoding\\$\geq$60\,s, $\approx$6/hour};
+\draw[arr] (o3) -- (dec);
+\end{tikzpicture}

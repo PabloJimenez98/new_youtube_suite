@@ -1,0 +1,35 @@
+% Figure source (toolgraph). Rendered to figures/pdf/toolgraph.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[
+    b/.style={draw, rounded corners=3pt, align=center, font=\footnotesize,
+              minimum height=0.95cm, minimum width=2.6cm, fill=#1},
+    arr/.style={-Stealth, thick},
+    opt/.style={-Stealth, thick, dashed},
+    lab/.style={font=\scriptsize, fill=white, inner sep=1pt}
+]
+\node[b=orange!20] (up) at (0,0.75) {\textbf{Upload}\\video file};
+\node[b=blue!15] (tr) at (3.3,0.75) {\textbf{Transcription}\\segments, words};
+\node[b=purple!12] (di) at (7.2,3.0) {\textbf{Diarization}\\speaker labels};
+\node[b=yellow!25] (re) at (7.2,1.5) {\textbf{Relevance}\\score per window};
+\node[b=green!15] (ch) at (7.2,0) {\textbf{Chapters}\\start, title};
+\node[b=green!15] (sn) at (7.2,-1.5) {\textbf{Show notes}\\titles, description};
+\node[b=yellow!25] (sh) at (11.6,1.5) {\textbf{Shorts}\\vertical clips};
+\node[b=red!12] (ho) at (15.6,1.5) {\textbf{Hook scorer}\\score per clip};
+\node[b=red!12] (ct) at (11.6,-1.5) {\textbf{CTR predictor}\\score per candidate};
+\node[b=white] (th) at (15.6,-1.5) {\textbf{Thumbnails}\\uploaded by operator};
+
+\draw[arr] (up) -- (tr);
+\draw[arr] (tr.east) -- ++(0.6,0) |- (di.west);
+\draw[arr] (tr.east) -- ++(0.6,0) |- (re.west);
+\draw[arr] (tr.east) -- ++(0.6,0) |- (ch.west);
+\draw[arr] (tr.east) -- ++(0.6,0) |- (sn.west);
+\draw[opt] (di) -- node[lab, right=2pt] {speakers} (re);
+\draw[opt] (ch) -- node[lab, right=2pt] {titles} (re);
+\draw[opt] (ch) -- node[lab, right=2pt] {chapters} (sn);
+\draw[arr] (re) -- node[lab, above] {curve} (sh);
+\draw[arr] (sh) -- node[lab, above] {clips} (ho);
+\draw[opt] (sn) -- node[lab, above] {title ideas} (ct);
+\draw[arr] (th) -- (ct);
+\draw[opt] (sn.south) -- ++(0,-0.8) -| node[lab, pos=0.25, below] {episode title} (17.6,1.5) -- (ho.east);
+\draw[arr] (up.north) -- (0,4.2) -| node[lab, pos=0.25, above] {video for cutting and framing} (sh.north);
+\end{tikzpicture}

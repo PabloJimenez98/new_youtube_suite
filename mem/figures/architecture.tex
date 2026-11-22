@@ -1,0 +1,42 @@
+% Figure source (architecture). Rendered to figures/pdf/architecture.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[
+    box/.style={draw, rounded corners=3pt, align=center, font=\footnotesize,
+                minimum height=0.9cm, inner sep=3pt},
+    arr/.style={-Stealth, thick},
+    darr/.style={-Stealth, thick, dashed},
+    lab/.style={font=\scriptsize, fill=white, inner sep=1pt}
+]
+\node[box, fill=orange!20, minimum width=5.4cm] (fe) at (0,5.6)
+  {\textbf{Angular SPA}\\Library $\cdot$ Dashboard $\cdot$ Analytics $\cdot$ Manage $\cdot$ How it works};
+\node[box, fill=green!15, minimum width=5.4cm] (api) at (0,3.8)
+  {\textbf{FastAPI REST API}\\JWT auth $\cdot$ uploads $\cdot$ jobs $\cdot$ results $\cdot$ insights};
+\node[box, fill=red!12, minimum width=2.2cm, minimum height=0.6cm] (redis) at (0,2.45)
+  {\textbf{Redis} (arq)};
+\node[box, fill=blue!12, minimum width=5.4cm] (worker) at (0,1.1)
+  {\textbf{arq worker}\\\texttt{process\_job} $\rightarrow$ handler per tool\\scheduled market tasks};
+\node[box, fill=gray!15, minimum width=2.8cm] (pg) at (6.0,2.45)
+  {\textbf{PostgreSQL}\\platform + market};
+\node[box, fill=yellow!20, minimum width=2.8cm] (store) at (-6.0,2.45)
+  {\textbf{File storage}\\videos, audio, clips};
+\node[box, fill=white, minimum width=2.8cm] (train) at (-6.6,-1.4)
+  {\textbf{Offline training}\\experiments,\\model bundles};
+\node[box, fill=purple!12, minimum width=3.6cm] (gpu) at (-2.2,-1.4)
+  {\textbf{GPU} (shared lock)\\Whisper, pyannote,\\encoders, BiLSTMs, LLM};
+\node[box, fill=purple!6, minimum width=3.2cm] (cpu) at (2.2,-1.4)
+  {\textbf{CPU}\\face and text detectors,\\spaCy, statistics};
+\node[box, fill=white, minimum width=2.8cm] (yt) at (6.6,-1.4)
+  {\textbf{YouTube APIs}\\Data, Analytics,\\Reporting, RSS};
+
+\draw[arr] (fe) -- node[lab, right=2pt] {REST, polling} (api);
+\draw[arr] (api) -- node[lab, right=2pt] {enqueue} (redis);
+\draw[arr] (redis) -- node[lab, right=2pt] {dequeue} (worker);
+\draw[arr] (api.east) -| (pg.north);
+\draw[arr] (worker.east) -| node[lab, pos=0.3, above] {state, results} (pg.south);
+\draw[arr] (api.west) -| (store.north);
+\draw[arr] (worker.west) -| (store.south);
+\draw[arr] (worker.south) ++(-1.2,0) -- (gpu.north);
+\draw[arr] (worker.south) ++(1.2,0) -- (cpu.north);
+\draw[darr] (worker.south east) -- node[lab, sloped, above] {scheduled} (yt.north west);
+\draw[darr] (train) -- node[lab, above] {bundles} (gpu);
+\end{tikzpicture}

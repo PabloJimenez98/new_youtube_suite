@@ -1,0 +1,29 @@
+% Figure source (shorts). Rendered to figures/pdf/shorts.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[node distance=0.4cm]
+\node[fdata] (r) {Relevance\\curve};
+\node[fproc, right=of r] (sm) {Moving\\average\\(3 windows)};
+\node[fproc, right=of sm] (p) {Peak finding\\prominence,\\$\geq$60\,s apart};
+\node[fproc, right=of p] (x) {Expansion\\(median-relative\\floor)};
+\node[fproc, right=of x] (s) {Sentence snap\\20--60\,s};
+\node[fdec, right=of s] (d) {Dedup\\(overlap),\\best 5};
+\node[fdata, below=1.0cm of r] (v) {Source\\video};
+\node[fproc, right=of v] (dec) {Decode span\\(320\,px)};
+\node[fmodel, right=of dec] (det) {Shot cuts\\(histograms) +\\YuNet faces};
+\node[fdec, right=of det] (mode) {Per shot:\\\textit{crop} on face\\or \textit{fit}};
+\node[fproc, right=of mode] (ema) {EMA crop track\\reset at cuts};
+\node[fproc, right=of ema] (ren) {FFmpeg render\\9:16 + karaoke\\captions};
+\node[fout, below=1.0cm of ren] (o) {Clip file\\+ \texttt{clips} row};
+\draw[farr] (r) -- (sm);
+\draw[farr] (sm) -- (p);
+\draw[farr] (p) -- (x);
+\draw[farr] (x) -- (s);
+\draw[farr] (s) -- (d);
+\draw[farr] (d.south) -- ++(0,-0.35) -| (dec.north);
+\draw[farr] (v) -- (dec);
+\draw[farr] (dec) -- (det);
+\draw[farr] (det) -- (mode);
+\draw[farr] (mode) -- (ema);
+\draw[farr] (ema) -- (ren);
+\draw[farr] (ren) -- (o);
+\end{tikzpicture}

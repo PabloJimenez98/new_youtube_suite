@@ -1,0 +1,123 @@
+%==========================================================
+\chapter{Conclusions and Future Work}
+\label{ch:conclusions}
+%==========================================================
+
+\section{Conclusions}
+
+The project shows that the post-production of a video podcast can be automated end to end on a single consumer computer, without paid services, and that some of the editorial decisions around it can be supported by models trained on the project's own data. Five conclusions stand out from the results.
+
+\textbf{Measurement before choice pays off.} Most of the important decisions were taken with a small measured experiment rather than from published benchmarks: the Whisper configuration, the text unit of the chapter model, the GPU memory budget, the language model for titles and the training recipe of the in-house language model. Several of these measurements contradicted the initial expectation. On the old GPU, the faster Whisper decoding was also slightly more accurate, and on the new GPU an 8-bit variant was more accurate than its 16-bit counterpart; the chapter model was trained on a different unit from the one the platform's transcripts first produced; and the English title metric (CIDEr) disagreed with the blind review of Spanish titles, while the Spanish CIDEr agreed with it.
+
+\textbf{A trained model is only worth deploying against a baseline.} Every learnt model was compared with a simple alternative on data it had not seen: the chapter BiLSTM against TextTiling, the relevance BiLSTM against its own heuristic, the in-house language model against Qwen. The comparison mattered in practice. The first relevance model looked reasonable in its training curves but was worse than the heuristic alone; only the comparison revealed that its curve had collapsed, and its error analysis led to a better design. The same discipline also exposed one rule that did not hold up: the CIDEr gate for chapter titles was dropped once the evidence showed that the metric penalised the outputs that human review preferred, and the report records this as a deviation.
+
+\textbf{When labels are missing, the teacher and its noise set the ceiling.} The relevance model learnt from pseudo-labels, and the most useful finding was about the labels rather than the model: the two teacher signals were uncorrelated, and the 9B model's judgement agreed with itself at a Spearman correlation of only 0.49 across two passes. From the transcript text alone, the student's LLM head reached a Spearman correlation of about 0.4 with that judgement. The final design, an exact cheap heuristic plus a learnt approximation of the expensive part, reflects what the data can support. It correlates better with the teacher than the heuristic alone, met the pre-set blind-test threshold with the minimum margin (3 of 5 episodes), and is two orders of magnitude faster.
+
+\textbf{A small model trained from scratch can pass a narrow task, but not every narrow task.} The in-house language model, 90 times smaller than Qwen3.5-9B and trained on 5 billion tokens, produces chapter titles that pass the automatic gates (no fallbacks and 98\% in the right language), although they are often repetitive and less specific than Qwen's. It fails on show notes, which need long inputs and structured output with several distinct items, and it fails on relevance, where it learnt the form of the teacher's answers but not the judgement behind them; preference optimisation improved show notes but removed what little relevance signal there was. Titles are short, local and close to the language-modelling objective. A plausible explanation for the relevance failure, not tested here, is that judging what makes a good clip needs more world knowledge than a 100M model trained on 5 billion tokens can hold. This was the most surprising result: the plan expected grammar-constrained relevance to be the small model's best chance.
+
+\textbf{Transparency is a design choice for scarce labels.} Where no reliable evidence existed (CTR and hook strength), the models deliberately give weight only to features with a reason behind them, store every other feature, and present their scores as relative rankings with an explanation. This avoids encoding unproven beliefs as if they were learnt, and turns every scored candidate into a future training example.
+
+\section{Achievement of the Objectives}
+
+Table~\ref{tab:objectives} reviews the specific objectives of Section~\ref{s:objectives}.
+
+\begin{table}[H]
+\centering
+\caption{Achievement of the specific objectives.}
+\label{tab:objectives}
+\small
+\begin{tabular}{@{}p{0.5cm}p{6.2cm}p{1.8cm}p{5.6cm}@{}}
+\toprule
+& \textbf{Objective} & \textbf{Status} & \textbf{Comment} \\
+\midrule
+1 & Modular back end with traceable jobs & Achieved & One job path for all tools; idempotent re-runs. \\
+2 & Transcription, subtitles and diarization & Achieved & WER 10.8\% vs.\ a model reference; speaker-aware subtitles. \\
+3 & Bilingual chapter generator vs.\ baseline & Achieved & Doubles F1 at 3--5\,s in English; Spanish better than the baseline but weak in absolute terms. \\
+4 & Show notes with validated structured output & Achieved & Approved drafts; grammar-constrained JSON. \\
+5 & Relevance model and automatic Shorts & Achieved & Trained model live; clips approved. \\
+6 & Market-analysis pipeline & Partially & Public data at 2\% of the quota; private flows validated on a test channel, but no real CTR rows yet. \\
+7 & CTR predictor and hook scorer & Partially & Transparent heuristic versions; the learnt versions wait for labels. \\
+8 & Versioning and retraining with safe promotion & Achieved & Exercised with the relevance model (one failed and one promoted iteration). \\
+9 & Web interface and automated tests & Achieved & 1{,}161 automated tests; explainability layer. \\
+10 & Economic evaluation & Achieved & Section~\ref{s:economic}. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Objectives 6 and 7 are only partially achieved, and not for technical reasons: the private data flows work, but the trained CTR and hook models need impressions and Shorts retention from the operator's channel, which a test channel without an audience cannot provide during the project. For the same reason, the general objective is achieved in its first part (a self-hosted platform that automates post-production on consumer hardware) and only prepared in its second: the custom models trained during the project learnt from public data and pseudo-labels, and training on real performance data is left as future work, with the data pipeline and feature storage already in place. The additional milestone M16, which was not among the initial objectives, was completed in a reduced scope (stage~A only), as explained below.
+
+\section{Planning and Methodology}
+
+\subsection*{Schedule}
+
+The plan (Section~\ref{s:planning}) scheduled the development from 1~September to 31~December 2026. Table~\ref{tab:plan-actual} compares it with the actual completion dates, taken from the version history, and Figure~\ref{fig:gantt} shows both. Milestones M0 to M15 were completed by 14~November, about five weeks ahead of the plan; M0 and M1 were already completed in August, during the design stage. The main reasons were that several milestones took less time than estimated once the job pipeline and the data model were in place, and that the custom-model milestones (M13 and M14) were brought forward while M12 waited for the Reporting API's first reports, which take days to appear. The only milestone that finished after its planned date was M10 (five days late), which was developed after the tool suite rather than in parallel with it. The time gained was used for work outside the original plan: a hardware upgrade pass, an explainability and data-visualisation pass of the interface, and a seventeenth milestone (M16, the in-house language model), added on 14~November and closed on 21~November.
+
+\begin{table}[H]
+\centering
+\caption{Planned and actual completion of the milestones (2026).}
+\label{tab:plan-actual}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Milestone} & \textbf{Planned end} & \textbf{Actual end} \\
+\midrule
+M0--M1 skeletons & Sep 14 & Aug 14 \\
+M2--M4 job pipeline, transcription, diarization & Sep 28 & Sep 26 \\
+M5 chapter generator & Oct 19 & Oct 13 \\
+M6--M8 show notes, relevance v0, Shorts & Nov 16 & Oct 16 \\
+M9 hardening & Nov 23 & Oct 17 \\
+M10 market pipeline & Nov 2 & Nov 7 \\
+M11 Analytics API & Nov 16 & Nov 8 \\
+M12 Reporting API & Nov 30 & Nov 14 \\
+M13--M14 CTR and hook scorers & Dec 7 & Nov 8 \\
+M15 trained relevance model & Dec 21 & Nov 14 \\
+M16 in-house language model (added) & --- & Nov 21 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Methodology}
+
+The plan-driven methodology, with a planning, development and testing sub-phase per milestone, worked well for a project in which later components depend on the data of earlier ones. Writing a design note and a test plan before each milestone made the scope explicit and avoided building ahead of the plan. Three practices proved especially valuable: decision records, which kept every architectural choice and its rejected alternatives traceable; measured spikes, which replaced assumptions about hardware with numbers; and treating model development as documented experiments with notebooks, tested libraries and dated logs. Blind reviews were the right tool for subjective outputs, where automatic metrics were shown to disagree with human judgement, although their small size limits what they can show (Section~\ref{s:limitations}).
+
+\subsection*{Changes during the project}
+
+Several changes were introduced, each recorded in a decision record:
+\begin{itemize}
+\item \textbf{Local chapter models instead of a cloud API} (M5), to keep the platform private and to predict boundaries directly on transcript units.
+\item \textbf{A local LLM for titles} instead of the trained mT5, after mT5's Spanish titles proved unusable on a real episode; later, the CIDEr gate of the title model was dropped in favour of the blind review.
+\item \textbf{The hardware upgrade} (GTX~1060 to RTX~5070), which required re-measuring about thirty settings and retraining the chapter model; the larger models it allowed (\texttt{large-v3}, Qwen3.5-9B) improved quality while keeping the whole pipeline faster than before.
+\item \textbf{A multilingual encoder for relevance}, instead of the English-only encoder of the specification, because the operator's episodes are in Spanish.
+\item \textbf{The scope of M16 was reduced} to stage~A, because the computer could not be kept training for the roughly 16 days of stage~B. Filling the stage~B notebooks with invented results or presenting a downloaded model as an in-house model were considered and rejected; stage~B is written but marked as not executed.
+\end{itemize}
+
+\section{Evaluation of the Impacts}
+
+\subsection*{Sustainability}
+
+The measures foreseen in Section~\ref{s:etic} were applied: artefacts are computed once and reused (the transcript feeds every tool, and the relevance embeddings are cached), models are small or frozen, and data collection uses batched calls and free RSS feeds at 2\% of the daily quota. The energy use was measured indirectly through the processing times: an episode needs a few minutes of GPU, and the largest training effort of the project, the in-house language model, used about 100 GPU hours (about 35\,kWh). The trained relevance model replaced several minutes of LLM inference per episode with about one second, which is also an energy saving. The hardware upgrade was the opposite of the planned reuse of existing hardware; it was decided for reasons outside the project, and the project measured and used its benefits.
+
+\subsection*{Ethics and social responsibility}
+
+No artefact is published automatically: every subtitle, chapter list, draft and clip is reviewed by the operator, and the scoring models explain their scores instead of producing opaque rankings. Channel statistics and analytics are collected through the official YouTube APIs, with the operator's own analytics under OAuth consent; the YouTube API key is sent in a header so that it never appears in logs, and OAuth tokens are encrypted at rest. The training data of the in-house language model uses openly licensed text and the outputs of an open-weight model; no weights of another model were used. The podcast corpus used for distillation is used only for internal training and is not redistributed.
+
+\subsection*{Diversity}
+
+The project paid explicit attention to Spanish, which is under-represented in the public data: the chapter model was evaluated on a Spanish test set, the relevance model uses a multilingual encoder, and the in-house language model was trained on 70\% Spanish text with a tokeniser that is more efficient in Spanish than Qwen's. The results also show the remaining gap: Spanish chapter boundaries are much weaker than English ones, mainly for lack of training data. Speaker labels remain anonymous.
+
+\subsection*{Unforeseen impacts}
+
+Three events were not foreseen. The hardware change invalidated many measured settings, and was managed as a separate pass with the same measurement protocol. The private data needed for the CTR and hook models turned out to take much longer to accumulate than the project, which was managed by keeping those models transparent and by storing every feature for later training. And the OAuth application had to stay in Google's \textit{Testing} mode, which expires the connection every seven days; the pipeline was designed to report this loudly and to recover missed days when the operator reconnects.
+
+\section{Future Work}
+
+The following lines remain open, in approximate order of expected value:
+\begin{itemize}
+\item \textbf{Learnt CTR and hook models.} Once the operator's channel accumulates impressions and Shorts retention, train the ranking models of Section~\ref{s:ctrhook} on the stored feature vectors and evaluate them against the heuristics with the same promotion rule.
+\item \textbf{Stronger evaluation.} Hand-correct a short Spanish transcript and annotate a few minutes of speaker turns, to measure true WER and DER; add a second reviewer and more items to the blind reviews; report bootstrap confidence intervals for the chapter and relevance metrics; and keep a fresh set of episodes for the next relevance iteration.
+\item \textbf{Retention-based relevance labels.} Replace or complement the LLM pseudo-labels with labels derived from audience retention, following Mr.~HiSum \cite{sul2023mrhisum}, and use the expected value over the LLM's digit probabilities as a more stable teacher signal.
+\item \textbf{Spanish chapter data.} Collect creator chapters from Spanish podcasts to train the boundary model on Spanish directly, where the current model is weakest.
+\item \textbf{Stage~B of the in-house language model.} Train the 330M-parameter model on 20--30 billion tokens (about 16 days of GPU), with the configuration already written, and evaluate it with the same gates, a reference run of Qwen on the same test set and a blind review. For relevance, a prompt that scores one span per call instead of twenty may suit a small model better.
+\item \textbf{Multimodal relevance and hooks.} Add audio features (laughter, energy, pace) and visual features to the text-only models.
+\item \textbf{Publishing the OAuth application} so that the private data flows run without weekly reconnection.
+\end{itemize}

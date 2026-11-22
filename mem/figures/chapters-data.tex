@@ -1,0 +1,15 @@
+% Figure source (chapters-data). Rendered to figures/pdf/chapters-data.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[node distance=0.45cm]
+\node[fdata] (raw) {VidChapters-7M\\chapters 2\,GB\\transcripts 22\,GB};
+\node[fproc, right=of raw] (str) {Stream and\\select: 15--120\,min,\\$\geq$3 chapters};
+\node[fproc, right=of str] (lid) {Language ID\\on the transcript};
+\node[fproc, right=of lid] (unit) {Rebuild\\sentence units};
+\node[fproc, right=of unit] (lab) {Label: unit $t$\\starts a chapter?};
+\node[fout, right=of lab] (sp) {Splits\\en: 9.1k / 900 / 1.5k\\es: by channel};
+\draw[farr] (raw) -- (str);
+\draw[farr] (str) -- (lid);
+\draw[farr] (lid) -- (unit);
+\draw[farr] (unit) -- (lab);
+\draw[farr] (lab) -- (sp);
+\end{tikzpicture}

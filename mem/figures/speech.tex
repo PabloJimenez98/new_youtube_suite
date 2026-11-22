@@ -1,0 +1,20 @@
+% Figure source (speech). Rendered to figures/pdf/speech.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[node distance=0.45cm]
+\node[fdata] (v) {Video\\upload};
+\node[fproc, right=of v] (a) {FFmpeg\\16\,kHz WAV};
+\node[fproc, right=of a] (vad) {VAD\\speech chunks};
+\node[fmodel, right=of vad] (w) {Whisper large-v3\\int8, batch 16};
+\node[fout, right=of w] (t) {Segments\\+ words};
+\node[fout, right=of t] (s) {SRT / VTT\\(on demand)};
+\node[fmodel, below=0.7cm of w] (p) {pyannote\\community-1};
+\node[fproc, right=of p] (as) {Word--speaker\\assignment};
+\draw[farr] (v) -- (a);
+\draw[farr] (a) -- (vad);
+\draw[farr] (vad) -- (w);
+\draw[farr] (w) -- (t);
+\draw[farr] (t) -- (s);
+\draw[farr] (a) |- (p);
+\draw[farr] (p) -- (as);
+\draw[farr] (as.east) -| node[flab, pos=0.75, right] {labels} (t.south);
+\end{tikzpicture}

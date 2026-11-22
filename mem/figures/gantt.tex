@@ -1,0 +1,36 @@
+% Figure source (gantt). Rendered to figures/pdf/gantt.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+% Bars: plan. Diamonds: actual completion, x = (date - 1 Sep) / 7 days (git history).
+\begin{tikzpicture}[x=0.7cm, y=0.5cm]
+  % week grid
+  \foreach \w in {0,...,18} { \draw[gray!30] (\w,0.5) -- (\w,-13.5); }
+  \foreach \w in {1,...,18} { \node[font=\scriptsize] at (\w-0.5,1) {\w}; }
+  \node[font=\scriptsize, anchor=east] at (-0.2,1) {Week};
+  \node[font=\scriptsize] at (2,2) {Sep};
+  \node[font=\scriptsize] at (6.5,2) {Oct};
+  \node[font=\scriptsize] at (11,2) {Nov};
+  \node[font=\scriptsize] at (15.5,2) {Dec};
+  % rows: y / label / start week / end week / colour
+  \foreach \y/\lab/\s/\e/\c in {
+      0/M0--M2 skeleton/1/2/blue,
+      1/M3--M4 speech/3/4/blue,
+      2/M5 chapters/5/7/blue,
+      3/{M6--M7 notes, relevance}/8/9/blue,
+      4/M8 shorts/10/11/blue,
+      5/M9 hardening/12/12/blue,
+      6/M10 market data/8/9/green,
+      7/M11 analytics/10/11/green,
+      8/M12 reporting/12/13/green,
+      9/M13--M14 scorers/13/14/orange,
+      10/M15 retraining/15/16/orange,
+      11/{Evaluation, report}/17/18/gray,
+      12/{M16 in-house LLM (added)}/11.57/11.57/purple} {
+    \node[font=\scriptsize, anchor=east] at (-0.2,-\y) {\lab};
+    \fill[\c!45, draw=\c!70!black] (\s-1,-\y-0.35) rectangle (\e,-\y+0.35);
+  }
+  % actual completion dates
+  \foreach \y/\x in {0/3.57, 1/3.57, 2/6.00, 3/6.43, 4/6.43, 5/6.57, 6/9.57,
+                     7/9.71, 8/10.57, 9/9.71, 10/10.57, 12/11.57} {
+    \node[draw=black, fill=black, diamond, inner sep=1.6pt] at (\x,-\y) {};
+  }
+\end{tikzpicture}

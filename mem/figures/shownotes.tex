@@ -1,0 +1,19 @@
+% Figure source (shownotes). Rendered to figures/pdf/shownotes.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[node distance=0.45cm]
+\node[fdata] (t) {Transcript\\+ chapters};
+\node[fproc, right=of t] (c) {Chunking\\per chapter or\\1{,}600 words};
+\node[fmodel, right=of c] (m) {Map: 3--5\\bullet summary\\per chunk};
+\node[fmodel, right=of m] (r) {Reduce: one\\call with a\\JSON grammar};
+\node[fdec, right=of r] (v) {Validate and\\normalise\\(YouTube limits)};
+\node[fproc, right=of v] (d) {Description\\+ \texttt{00:00} chapter\\block};
+\node[fout, right=of d] (o) {Editable\\draft};
+\draw[farr] (t) -- (c);
+\draw[farr] (c) -- (m);
+\draw[farr] (m) -- (r);
+\draw[farr] (r) -- (v);
+\draw[farr] (v) -- (d);
+\draw[farr] (d) -- (o);
+\draw[farr] (c.north) -- ++(0,0.5) -| node[flab, pos=0.25, above] {short transcript: map step skipped} (r.north);
+\draw[farr] (v.south) -- ++(0,-0.5) -| node[flab, pos=0.25, below] {hard failure: retry, at most 3 attempts} (r.south);
+\end{tikzpicture}

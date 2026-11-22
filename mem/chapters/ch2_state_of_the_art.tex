@@ -1,0 +1,110 @@
+%==========================================================
+\chapter{State of the Art}
+\label{ch:soa}
+%==========================================================
+
+Large VOD platforms are driven by recommendation systems trained on massive interaction data. Covington et al.\ \cite{recommender_systems_streaming} describe YouTube's two-stage deep neural recommender (candidate generation and ranking), trained to predict expected watch time rather than clicks alone, and Gomez-Uribe and Hunt \cite{vod_bigdata} report that about 80\% of the hours streamed on Netflix come from recommendations. For creators, this means that watch time, retention and click-through rate are the signals that decide distribution. This chapter reviews the data sources and the data-science techniques behind each part of the proposed platform, and closes with the gaps that motivate the design.
+
+\section{YouTube Data Sources}
+
+YouTube exposes three official APIs with different scopes \cite{yt_data_api}, summarised in Table~\ref{tab:apis}. The \textit{Data API~v3} provides public metadata and statistics (views, likes, comments) under a default quota of 10{,}000 units per day. A \texttt{videos.list} call costs one unit and accepts up to 50 video identifiers, whereas a search costs 100 units, so the cheapest way to follow a channel is to read its uploads playlist once and then refresh its videos in batches. Per-channel RSS feeds offer a free list of the latest uploads. The \textit{Analytics API~v2} provides private engagement and audience-retention metrics of a channel authorised through OAuth, but it does not return impressions or CTR. Real thumbnail impressions and CTR are only available through the \textit{Reporting API~v1}, an asynchronous bulk system in which a reporting job produces one CSV file per day with a delay of up to two days.
+
+\begin{table}[H]
+\centering
+\caption{Official YouTube data sources and what each one can measure.}
+\label{tab:apis}
+\small
+\begin{tabular}{@{}p{3.0cm}p{3.6cm}p{4.2cm}p{3.6cm}@{}}
+\toprule
+\textbf{Source} & \textbf{Access} & \textbf{Main measures} & \textbf{Limits} \\
+\midrule
+Data API v3 & API key, public data & Views, likes, comments, duration, title, tags & 10{,}000 units/day \\
+RSS feeds & None & Latest 15 uploads of a channel & No statistics \\
+Analytics API v2 & OAuth, own channel & Daily engagement, retention curves (100 points) & 48--72\,h delay; one video per retention query \\
+Reporting API v1 & OAuth, own channel & Thumbnail impressions and CTR per video and day & Daily CSV, first file within 48\,h \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Systematic API-based collection supports large research datasets. YouNiverse \cite{ribeiro2021youniverse} gathers metadata from 136k English-speaking channels and 72.9M videos with time series of views and subscribers, and Goncalves and Ng \cite{goncalves2026trending} collected three years of trending snapshots across 104 countries. These works show two recurrent analytical problems. First, raw view counts mostly measure channel size and video age, so comparisons between videos need a normalisation for both. Second, popularity grows as a heavy-tailed process in which a few videos collect most views, which favours logarithmic scales and rank-based statistics. None of these datasets contains impression-level CTR, which YouTube never publishes; the only source of real CTR ground truth for this project is therefore the operator's own channel.
+
+\section{Speech Recognition and Subtitling}
+
+Whisper \cite{radford2023whisper} is an encoder--decoder Transformer trained with weak supervision on 680{,}000 hours of multilingual audio. It approaches human robustness across accents and noise conditions and also identifies the language. Its \texttt{large-v3-turbo} variant reduces the decoder from 32 to 4 layers, trading some accuracy for a large speed-up. faster-whisper \cite{fasterwhisper} re-implements Whisper inference on the CTranslate2 engine with 8-bit quantisation, which reduces memory, adds batched decoding and provides word-level timestamps. WhisperX \cite{bain2023whisperx} improves word timestamps through forced phoneme alignment and couples ASR with diarization.
+
+Transcription quality is measured with the word error rate (WER), the number of word substitutions $S$, deletions $D$ and insertions $I$ divided by the number of reference words $N$:
+\begin{equation}
+\mathrm{WER} = \frac{S + D + I}{N}.
+\label{eq:wer}
+\end{equation}
+Research on subtitling also explores direct speech translation that produces timed subtitles in one model \cite{papi2023subtitling}; this project focuses on same-language subtitles.
+
+\section{Speaker Diarization}
+
+Speaker diarization answers ``who spoke when''. pyannote.audio \cite{bredin2020pyannote} provides trainable neural building blocks (voice activity detection, speaker change detection, overlapped speech detection and speaker embeddings) combined into end-to-end pipelines. Its recent pipelines use a powerset formulation of segmentation that models overlapping speakers as a multi-class problem \cite{plaquet2023powerset}, followed by the clustering of speaker embeddings, so that turns with similar voices receive the same label. Diarization is evaluated with the diarization error rate (DER), the fraction of time that is missed, falsely detected or assigned to the wrong speaker. Since diarization produces time turns and ASR produces timed words, a final step assigns each word to a speaker turn, typically by maximum temporal overlap \cite{bain2023whisperx}.
+
+\section{Topic Segmentation and Video Chaptering}
+
+\subsection*{Text segmentation}
+
+Topic segmentation divides a text into coherent segments. TextTiling \cite{hearst1997texttiling} compares the lexical similarity of adjacent blocks and places boundaries at the deepest similarity valleys; the same idea applies to dense sentence embeddings such as Sentence-BERT \cite{reimers2019sbert} or multilingual E5 \cite{wang2024me5}. Koshorek et al.\ \cite{koshorek2018textseg} reformulated segmentation as supervised sequence labelling with a bidirectional LSTM \cite{hochreiter1997lstm} over sentence representations, and showed that supervised models outperform unsupervised ones when large labelled corpora are available. Segmentation quality is traditionally measured with $P_k$ \cite{beeferman1999pk} and WindowDiff \cite{pevzner2002windowdiff}, which slide a window over the text and count how often the prediction and the reference disagree on whether two positions belong to the same segment.
+
+\subsection*{Video chaptering}
+
+Video chaptering adds a title to each segment. VidChapters-7M \cite{yang2023vidchapters} contains 817k user-chaptered YouTube videos with 7M chapters and Whisper transcripts. It defines the task of chapter generation, with boundary metrics based on temporal overlap and title metrics such as BLEU \cite{papineni2002bleu} and CIDEr \cite{vedantam2015cider}. Chapter-Llama \cite{ventura2025chapterllama} fine-tunes an 8-billion-parameter LLM on transcripts and frame captions and is the state of the art on hour-long videos; it reports boundary F1 at distance tolerances of 3 and 5 seconds and averaged over temporal-overlap thresholds (tIoU). These results are an upper bound rather than a direct comparison, because they use visual input, a different evaluation subset and a model that does not fit the hardware of this project. The question addressed here is how much a much smaller, text-only model can improve over an unsupervised baseline on consumer hardware. Titles can be produced with multilingual sequence-to-sequence models such as mT5 \cite{xue2021mt5} or with instruction-tuned LLMs.
+
+\section{Highlight Detection and Short-Form Clip Generation}
+
+Video summarisation selects the most important parts of a video, either as keyframes or as short excerpts \cite{apostolidis2021survey}; highlight detection scores segments by their interest. Most methods are visual: for example, SPOT \cite{kwak2025spot} integrates a CNN encoder into a TimeSformer to combine local and global spatio-temporal features. Labels are the main bottleneck. The classic summarisation benchmarks, SumMe \cite{gygli2014summe} and TVSum \cite{song2015tvsum}, contain only 25 and 50 short videos with human importance scores. QVHighlights \cite{lei2021qvhighlights} annotates saliency scores for clips of about 10{,}000 videos, but relative to a natural-language query rather than as general interest. Xiong et al.\ \cite{xiong2019lessismore} learnt highlights from video duration as weak supervision, and Mr.~HiSum \cite{sul2023mrhisum} uses YouTube's ``Most replayed'' statistics, available for videos with at least 50{,}000 views, as highlight labels for 31{,}892 videos.
+
+When labels are missing, a common strategy is to let a cheaper or larger \textit{teacher} label the data and to train a \textit{student} on those labels. Pseudo-labelling \cite{lee2013pseudolabel} uses a model's own confident predictions as targets, and knowledge distillation \cite{hinton2015distilling} trains a small model to reproduce the outputs of a larger one. Because pseudo-labels are noisy, robust losses such as the Huber loss \cite{huber1964robust}, which is quadratic for small errors and linear for large ones, limit the influence of wrong labels.
+
+For podcasts, the content lies mainly in the speech, which motivates text-based approaches. The Spotify Podcast Dataset \cite{clifton2020spotify}, about 100{,}000 English episodes with transcripts, was used by the TREC Podcasts Track for segment retrieval and summarisation, with relevance judged per two-minute segment for a given query; it is English-only and, again, query-dependent. The open-source tools reviewed during this project segment transcripts with TextTiling-like methods or ask an LLM to pick moments, and handle the mechanical steps (cutting, vertical reframing with face detection, caption burn-in) with FFmpeg. Lightweight face detectors such as YuNet \cite{wu2023yunet} run in real time on a CPU, and shot changes can be detected by comparing the colour histograms of consecutive frames, for instance with the Bhattacharyya distance \cite{bhattacharyya1943}. Commercial services (e.g.\ OpusClip, Klap, Vizard) offer the whole pipeline as a paid cloud product. No reviewed tool trains a dedicated model to score transcript segments, and no reviewed public dataset combines long-form Spanish talk content, transcripts and query-independent relevance labels at scale.
+
+\section{Engagement and CTR Prediction}
+
+Engagement prediction has been approached with multimodal models that combine visual, textual and, more recently, audio features; for instance, large multimodal models have been applied to predict the engagement of short videos \cite{sun2025engagement}. Image--text encoders such as SigLIP~2 \cite{tschannen2025siglip2} and text encoders such as BGE \cite{xiao2023bge} provide strong frozen representations of thumbnails and titles, and scene-text detectors such as DB \cite{liao2020db} measure how much of a thumbnail is covered by text. Because real CTR is not public and the confounders of absolute popularity (channel size, topic, promotion) are strong, pairwise learning-to-rank objectives \cite{burges2005ranknet} are well suited to comparing candidates for the same video. For small tabular datasets, gradient-boosted trees such as LightGBM \cite{ke2017lightgbm} remain the strongest choice, and SHAP values \cite{lundberg2017shap} explain each prediction in terms of its features.
+
+Scoring the opening seconds (the ``hook'') of a clip is sparsely covered in the literature, because retention data is proprietary. The features used in practice come from text analysis: readability indices (Flesch \cite{flesch1948} for English and its Fernández-Huerta adaptation for Spanish \cite{fernandezhuerta1959}), linguistic annotations from NLP libraries such as spaCy \cite{spacy2020}, and emotion classifiers such as XLM-EMO \cite{bianchi2022xlmemo}. The public evidence that links these features to retention consists of creator and vendor reports rather than measured studies, which is an important constraint for the design of a first model.
+
+\section{Generative Language Models and Local Inference}
+
+\subsection*{Language models and their use}
+
+Large language models (LLMs) have become the standard tool for generating text such as summaries, descriptions and titles \cite{cao2023aigc}. Most applications rely on cloud APIs, but open-weight instruction-tuned models of 2 to 9 billion parameters, such as the Qwen3 family \cite{qwen3report} and its Qwen3.5 successors used in this project, quantised to 4 bits and executed with engines such as llama.cpp \cite{llamacpp}, now run on commodity hardware with acceptable latency for offline tasks. This makes fully local pipelines possible, at the cost of lower quality than the largest models and the need to validate outputs. Two techniques make small local models usable in a product: \textit{grammar-constrained decoding}, which only allows tokens that keep the output valid against a schema (e.g.\ JSON), and the validation and retry of outputs against task rules (language, length, format).
+
+\subsection*{How a language model is built}
+
+Modern LLMs are decoder-only Transformers \cite{vaswani2017attention}: a stack of identical blocks, each mixing information across positions (self-attention) and then transforming each position independently (a feed-forward network). Recent open models such as LLaMA \cite{touvron2023llama} share a set of refinements: RMSNorm normalisation \cite{zhang2019rmsnorm}, rotary position embeddings (RoPE) \cite{su2024roformer}, the SwiGLU feed-forward layer \cite{shazeer2020glu} and grouped-query attention (GQA) \cite{ainslie2023gqa}, in which several query heads share one key/value head to reduce memory. Text is split into sub-word tokens with byte-pair encoding (BPE) \cite{sennrich2016bpe}, learnt from the training corpus.
+
+Training has two phases. In \textit{pretraining} the model learns to predict the next token of large amounts of text, typically filtered web data such as FineWeb and its educational subset FineWeb-Edu \cite{penedo2024fineweb}, or its multilingual extension FineWeb-2 \cite{penedo2025fineweb2} and the quality-filtered FineWeb2-HQ \cite{messmer2025fineweb2hq}. Model quality on held-out text is often reported in bits per byte (bpb) \cite{gao2020pile}, which, unlike loss per token, does not depend on the tokeniser. Scaling laws \cite{kaplan2020scaling, hoffmann2022chinchilla} relate the loss to the number of parameters and training tokens; Hoffmann et al.\ estimate that compute-optimal training uses about 20 tokens per parameter. Common optimisation choices are AdamW \cite{loshchilov2019adamw} and learning-rate schedules such as cosine decay or warmup--stable--decay (WSD) \cite{hu2024minicpm}; newer optimisers such as Muon \cite{jordan2024muon} have shown gains in small-scale benchmarks.
+
+In \textit{post-training} the model learns to follow instructions. Supervised fine-tuning (SFT) trains on example conversations, with the loss computed only on the answer, using open instruction data such as SmolTalk \cite{allal2025smollm2} or the multilingual Aya dataset \cite{singh2024aya}. Preference optimisation then makes preferred answers more likely than rejected ones: reinforcement learning from human feedback \cite{ouyang2022instructgpt} uses a learnt reward model, whereas Direct Preference Optimisation (DPO) \cite{rafailov2023dpo} optimises the preference pairs directly with a classification-like loss. When the answers of a larger model are used as SFT targets, post-training becomes a form of sequence-level knowledge distillation \cite{kim2016seqkd}.
+
+Small language models of about 100M parameters, trained on a few billion tokens, are far below billion-parameter models in general ability, but they are cheap to train on a single GPU and can be specialised on narrow tasks. Whether such a model can serve the narrow tasks of this platform is an open question that this project measures.
+
+\section{Conclusions}
+
+Table~\ref{tab:soa-summary} summarises, for each task, the state of the art reviewed in this chapter and the approach that this project takes on consumer hardware.
+
+\begin{table}[H]
+\centering
+\caption{State of the art and the approach of this project, per task.}
+\label{tab:soa-summary}
+\small
+\begin{tabular}{@{}p{2.6cm}p{5.6cm}p{6.0cm}@{}}
+\toprule
+\textbf{Task} & \textbf{State of the art} & \textbf{Approach in this project} \\
+\midrule
+Transcription & Whisper large-v3, faster-whisper, WhisperX alignment & faster-whisper, settings chosen by WER against a reference \\
+Diarization & pyannote powerset segmentation + embedding clustering & pyannote community-1 \cite{pyannote_community1} + custom word assignment rules \\
+Chaptering & Chapter-Llama (8B LLM, text and frames) & BiLSTM over frozen sentence embeddings vs.\ TextTiling; local LLM titles \\
+Highlights & Visual models; replay statistics as labels & Text-only heuristic + LLM teacher, distilled into a BiLSTM \\
+CTR and hook & Multimodal models; ranking losses; LightGBM & Transparent evidence-weighted heuristics, designed for ranking later \\
+Market data & Large public datasets; heavy-tailed popularity & Snapshot time series; age- and channel-adjusted residuals \\
+Language models & Open-weight LLMs, local quantised inference & Qwen3.5-9B locally; an in-house 100M model trained from scratch \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Four conclusions guide the design. First, mature open models exist for the perceptual tasks (ASR and diarization), so the effort should go into integrating them efficiently and choosing their settings with measurements. Second, for chaptering and relevance scoring, state-of-the-art results rely on large models or visual features; a lightweight text-based approach, trained on public data or on pseudo-labels and always compared against an unsupervised or heuristic baseline, is a realistic goal for consumer hardware. Third, real CTR and retention labels are scarce and private, which favours transparent heuristics at the start, ranking objectives, and a feedback loop that accumulates the operator's own data over time. Fourth, local LLMs make a private pipeline possible, and the tools to build a small language model from scratch are now accessible, which allows the project to test how far an in-house model can go on its narrow tasks.

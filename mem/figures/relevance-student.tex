@@ -1,0 +1,20 @@
+% Figure source (relevance-student). Rendered to figures/pdf/relevance-student.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[node distance=0.5cm]
+\node[fdata] (w) {15\,s window\\text};
+\node[fmodel, right=of w] (e) {e5-small\\(frozen)\\384};
+\node[fproc, right=of e] (p) {Linear\\384$\to$128\\dropout 0.3};
+\node[fmodel, right=of p] (l) {BiLSTM\\128 per\\direction};
+\node[fmodel, right=1.0cm of l, yshift=0.9cm] (hh) {Head $\hat h_t$\\(heuristic)};
+\node[fmodel, right=1.0cm of l, yshift=-0.9cm] (hl) {Head $\hat \ell_t$\\(LLM)};
+\node[fdec, right=1.0cm of hh, yshift=-0.9cm] (c) {$0.4\,\hat h_t$\\$+\,0.6\,\hat\ell_t$};
+\node[fout, right=of c] (s) {$\hat s_t$};
+\draw[farr] (w) -- (e);
+\draw[farr] (e) -- (p);
+\draw[farr] (p) -- (l);
+\draw[farr] (l) -- (hh);
+\draw[farr] (l) -- (hl);
+\draw[farr] (hh) -- (c);
+\draw[farr] (hl) -- (c);
+\draw[farr] (c) -- (s);
+\end{tikzpicture}

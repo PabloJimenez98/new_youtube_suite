@@ -1,0 +1,221 @@
+\section{CTR Predictor and Hook-Strength Scorer}
+\label{s:ctrhook}
+
+Both models face the same data problem: their real labels (the CTR of a thumbnail and the retention of a short's opening) belong to the operator's channel and accumulate slowly, and the public evidence about which features matter is weak. A literature and practitioner review found no measured study linking any title or thumbnail feature to CTR, and no study linking any feature of a clip's opening to retention. Both models were therefore built with the same rule:
+\begin{itemize}
+\item a feature receives a non-zero weight only if there is a platform reason or a consistent weak signal for it;
+\item every other plausible feature is still computed, stored with each score and shown in the interface, with weight zero, so that a trained version can learn its weight from the channel's own data instead of guessing its direction now;
+\item scores are \textit{relative} within one episode (between the candidates of the same video, or the clips of the same episode), which removes video-level confounders such as topic or channel size. They are not calibrated CTR or retention percentages.
+\end{itemize}
+Each weighted feature is mapped to a sub-score in $[0,1]$ with a piecewise-linear shape, and the score is the weighted sum of the sub-scores multiplied by 100.
+
+\subsection*{CTR predictor}
+
+The operator enters candidate titles (pre-filled from the show-notes suggestions) and uploads candidate thumbnails. Figure~\ref{fig:ctr} shows the flow. Title features are counted from the text. Thumbnail features come from two small detectors that run on the CPU: YuNet \cite{wu2023yunet} for faces and the DB scene-text detector \cite{liao2020db} for the area covered by text. Four features are weighted: title length (0.35, best between 40 and 60 characters, the length that is not truncated), the number of faces (0.30, with two faces as the prior for a two-host podcast), the size of the largest face (0.20) and the text area (0.15, best between 2\% and 20\% of the image). Digits, question marks, capitals, second-person words, brightness, contrast and saturation have weight zero. A candidate without a thumbnail is scored on its title alone and ranked in a separate group.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{ctr}}
+\caption{CTR predictor v0. Every feature and sub-score is stored with the prediction for explainability and as training data. Zero-weight features (the title's digits, question marks and capitals, and the colour statistics, dashed) are computed and shown but do not affect the score.}
+\label{fig:ctr}
+\end{figure}
+
+\subsection*{Hook-strength scorer}
+
+The hook scorer looks at the words that start in the first 15 seconds of each clip (Figure~\ref{fig:hook}). It analyses them with spaCy \cite{spacy2020} (sentences, morphology and named entities) and with the multilingual emotion classifier XLM-EMO \cite{bianchi2022xlmemo}, and computes about fifteen features. Four dimensions are weighted: dead air at the start (0.30), because a viewer swipes away in the first seconds; speaking pace in words per second (0.25, best between 2.3 and 3.8); the framing of the first sentence (0.25: a question, a curiosity connective such as \textit{pero} or \textit{resulta que}, or an unresolved demonstrative such as \textit{esto}); and direct address to the viewer (0.20: second-person forms and imperatives). Readability (Flesch \cite{flesch1948} or Fernández-Huerta \cite{fernandezhuerta1959}), exclamations, superlatives, numbers, entity density, emotion and overlap with the episode title have weight zero. Emotion has a model-specific reason as well: the classifier has no neutral class, so its highest probability is high even for flat speech.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{hook}}
+\caption{Hook-strength scorer v0. The full feature vector, including the zero-weight features, is stored with each score.}
+\label{fig:hook}
+\end{figure}
+
+\subsection*{Learnt versions}
+
+Both models are designed to be replaced by learnt versions once enough labels exist; this is planned after the first complete version of the platform (v1), because the operator's channel does not have enough impressions and shorts yet. The CTR model will compare pairs $(i,j)$ of candidates of the same video in which $i$ obtained a higher real CTR than $j$, with a pairwise ranking loss \cite{burges2005ranknet}:
+\begin{equation}
+\mathcal{L} = \sum_{(i,j)} \log\!\Big(1 + e^{-\left(f(x_i) - f(x_j)\right)}\Big),
+\label{eq:ranknet}
+\end{equation}
+where $f$ is a scoring function of the stored features and, optionally, of frozen image and text embeddings. A ranking objective fits the data better than regression: real CTR is scarce and noisy, comparing candidates of the same video cancels its confounders, $N$ candidates yield up to $N(N-1)/2$ pairs, and ranking is what the product needs. The hook model will use LightGBM \cite{ke2017lightgbm} with a ranking objective on the stored feature vectors, labelled with the share of viewers who did not swipe away, and SHAP values \cite{lundberg2017shap} will explain each score.
+
+\section{In-House Language Model}
+\label{s:ownllm}
+
+The chapter titles, the show notes and the LLM part of the relevance teacher depend on a pretrained model (Qwen3.5-9B). The seventeenth milestone (M16), added during the project, tested whether a language model built entirely in the project, here called the \textit{in-house} model, could take its place. The constraint was strict: \textit{no pretrained weights anywhere}, including the tokeniser. Qwen could be used only as a teacher, through its outputs.
+
+The plan had two stages: a pilot of about 100M parameters trained on 5 billion tokens (stage~A), to validate the whole chain cheaply, and a main model of about 330M parameters on 20 to 30 billion tokens (stage~B). Stage~B would need about 16 days (15.6) of continuous GPU time at the measured throughput of 18.6k tokens per second, and the computer could not be kept training for that long, so the scope was cut to stage~A. Stage~B's configuration and notebooks are written but were not executed, and they contain no results. Figure~\ref{fig:ownllm-flow} shows the complete process of stage~A.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{ownllm-flow}}
+\caption{Building the in-house language model (stage A): data and tokeniser, recipe selection, pretraining, the three post-training stages, evaluation and export.}
+\label{fig:ownllm-flow}
+\end{figure}
+
+\subsection*{Tokeniser and pretraining data}
+
+The tokeniser is a byte-level BPE \cite{sennrich2016bpe} with 32{,}768 tokens, trained on a 1.7\,GB sample of the training mix. It uses the same pre-tokenisation rule as Llama~3, so that llama.cpp can reproduce it exactly. It was accepted with three checks on held-out text: a lossless round trip on 4{,}000 documents, common Spanish words with accents or \textit{ñ} kept as single tokens, and the \textit{fertility} (tokens per word). Because 70\% of its training text is Spanish, it needs 1.347 tokens per Spanish word against 1.449 for Qwen's 248k-token vocabulary, 7\% fewer, at the cost of 5\% more tokens in English.
+
+The pretraining text is 70\% Spanish from FineWeb2-HQ \cite{messmer2025fineweb2hq}, the top 10\% by quality of FineWeb-2 \cite{penedo2025fineweb2}, and 30\% English from FineWeb-Edu \cite{penedo2024fineweb}, both with open licences. Documents are tokenised into binary shards and packed into rows of 2{,}048 tokens separated by an end-of-text token. The app uses a context of 4{,}096 tokens; the model first trains at that length in the general SFT stage below, which therefore also acts as a short context extension. Held-out documents of each source are kept apart for validation.
+
+\subsection*{Architecture}
+
+The model is a decoder-only Transformer \cite{vaswani2017attention} written from scratch in PyTorch, in the style of LLaMA \cite{touvron2023llama} (Figure~\ref{fig:ownllm-arch}): RMSNorm before each sub-layer \cite{zhang2019rmsnorm}, rotary position embeddings \cite{su2024roformer}, a SwiGLU feed-forward layer \cite{shazeer2020glu}, grouped-query attention \cite{ainslie2023gqa} with 12 query heads sharing 4 key/value heads, no biases, and an output layer that reuses the embedding matrix (tied weights). With a width of 768 and 12 blocks it has 100{,}682{,}496 parameters: 25.2M in the embedding, 18.9M in attention and 56.6M in the feed-forward layers. The architecture was chosen to map one-to-one onto a model type that llama.cpp already runs, so the trained model can be served by the same engine as Qwen.
+
+\begin{figure}[H]
+\centering
+\fig{ownllm-arch}
+\caption{Architecture of the in-house language model (100.7M parameters).}
+\label{fig:ownllm-arch}
+\end{figure}
+
+\subsection*{Choosing the training recipe}
+
+Instead of copying a recipe, the main training choices were tested with \textit{ablations}: small runs that change one thing and keep everything else equal. Each of eight runs trained the model on the same first billion tokens with the same seed, and was compared on held-out bits per byte \cite{gao2020pile},
+\begin{equation}
+\mathrm{bpb} = \frac{\sum_{i} -\log_2 p(x_i \mid x_{<i})}{\text{number of UTF-8 bytes of the text}},
+\label{eq:bpb}
+\end{equation}
+which measures how well the model predicts unseen text independently of the tokeniser. The candidates were the baseline with AdamW \cite{loshchilov2019adamw}, a higher learning rate, the Muon optimiser \cite{jordan2024muon}, normalisation of queries and keys, a ReLU$^2$ feed-forward layer, a deeper and thinner model, a wider and shallower one, and a cosine learning-rate schedule instead of warmup--stable--decay \cite{hu2024minicpm}. The rule was fixed in advance: a change is adopted if it improves bpb by at least 0.01 at no more than 10\% throughput cost. All candidates ran with the baseline's learning rate, so a change that passed was also compared with the best other change, to avoid adopting two improvements that might not add up. Each run used a single seed; differences of a few thousandths of a bpb are therefore within the expected run-to-run noise. Two more runs at 0.5 and 2 billion tokens with the winning recipe give a scaling curve \cite{kaplan2020scaling}, which is the evidence a larger stage would be sized on.
+
+\subsection*{Pretraining}
+
+The selected recipe trained the model on 5 billion tokens, about 50 tokens per parameter, above the compute-optimal ratio of about 20 \cite{hoffmann2022chinchilla}, as is usual for small models meant for inference. Training used AdamW with a peak learning rate of $2\times10^{-3}$, batches of 524{,}288 tokens, bf16 mixed precision, a warm-up over the first 100M tokens, a constant phase, and a linear decay to zero over the last 20\%. The trainer was built for a home computer: a single command pauses training after the current step and saves a checkpoint, another resumes it with bit-identical state (model, optimiser, data position and random generators), and an automatic save every 15 minutes bounds the loss after a crash or a power cut. Every 250M tokens it logs the held-out bpb of each language and a few sample generations.
+
+\subsection*{Post-training}
+
+Post-training turns the text predictor into a model that answers the app's prompts, in three stages, each starting from the weights of the previous one. All stages format the data with the chat template that the app uses, and compute the loss only on the answer tokens.
+\begin{enumerate}
+\item \textbf{General SFT.} One epoch over 244M tokens of open instruction data, 70\% Spanish, from SmolTalk \cite{allal2025smollm2}, Aya \cite{singh2024aya} and a Spanish translation \cite{openhermes_es} of OpenHermes~2.5 \cite{openhermes2023}, at the app's context of 4{,}096 tokens.
+\item \textbf{Task SFT (distillation).} Qwen3.5-9B ran the app's real pipelines on a podcast corpus downloaded from 20 of the curated channels (374 hours, 231 in Spanish and 143 in English), and each of its calls was recorded as a training example \cite{kim2016seqkd}. The 323 processed episodes were split by episode into 259 for training, 15 for validation and 49 for test, the test set including two whole channels never seen in training. The 13{,}498 training examples cover relevance batches, show-notes map and reduce calls, and chapter titles. Because the task prompts are long transcripts with short answers, 15\% of the \textit{loss tokens} (not of the examples) come from general data, to limit forgetting. One epoch was used: a three-epoch run over-fitted and was discarded.
+\item \textbf{Direct Preference Optimisation.} DPO \cite{rafailov2023dpo} learns from pairs of answers to the same prompt, one chosen ($y_w$) and one rejected ($y_l$), and makes the chosen one more likely than the rejected one, relative to a frozen copy of the previous model $\pi_{\text{ref}}$:
+\begin{equation}
+\mathcal{L}_{\text{DPO}} = -\log \sigma\!\left(\beta \log\frac{\pi_\theta(y_w\mid x)}{\pi_{\text{ref}}(y_w\mid x)} - \beta \log\frac{\pi_\theta(y_l\mid x)}{\pi_{\text{ref}}(y_l\mid x)}\right),
+\label{eq:dpo}
+\end{equation}
+with $\beta = 0.1$. Here no human labelled the pairs: the chosen answer is the teacher's, and the rejected one is a sample of the in-house model that fails an automatic check (a relevance ranking with a Spearman correlation below 0.3 with the teacher's, a title longer than eight words, or a show-notes draft that the app's parser rejects). This produced 1{,}509 training pairs and 123 held-out pairs.
+\end{enumerate}
+
+\subsection*{Evaluation, export and integration}
+
+The model is exported to the GGUF format with its tokeniser and chat template, and a parity test checks that llama.cpp and PyTorch produce the same tokens and nearly the same next-token scores. It is then evaluated on the 49 test episodes with the app's own pipelines and the gates fixed in the plan: for titles, at most 10\% of chapters falling back to mT5 and at least 95\% in the right language; for show notes, at least 95\% of episodes with a valid draft within three attempts; for relevance, 100\% of valid batches and a Spearman correlation with Qwen of at least 0.8 times Qwen's own agreement between its two shifted passes ($0.8 \times 0.49 = 0.39$). The gates measure validity and agreement with the teacher, not quality: a model that passes them still needs a blind review before it can become a default. In the app the operator chooses Qwen or the in-house model as a global default in a settings page, or per run of each LLM tool (titles, show notes and relevance), and every result records the model that produced it. Qwen remains the default.
+
+\section{Model Versioning and Retraining}
+
+Every model is registered in \texttt{model\_versions} with its architecture, a reference to its training data, its metrics, the location of its artefact and a flag that marks the version used for inference. Scores and chapters keep a reference to the version that produced them, so switching versions never rewrites past results. A single command switches the live version, and rolling back is the same command with the previous label.
+
+Across the project, the trained models followed one rule: a learnt model replaces a simpler one only after it has beaten it on data it was not trained on, by a criterion fixed in advance. The chapter BiLSTM had to beat TextTiling on validation; the relevance BiLSTM had to pass an offline gate and a blind A/B test against its teacher; and the in-house language model can be selected, but does not become a default without passing its gates and a blind review. If a training round fails, the previous version stays live, so the product never depends on a training run succeeding. The pretrained title model is the one exception to a pre-set rule: its CIDEr gate was dropped after the evidence against the metric (Section~\ref{s:chapters}).
+
+\section{User Interface}
+
+The Angular interface has a \textit{Library} of episodes, a \textit{Dashboard} with key indicators, an \textit{Analytics} page with the market and channel analyses, a \textit{Manage} page where every tool can be run and inspected per episode, a \textit{How it works} page and a \textit{Settings} page. Because the users are content producers rather than data scientists, an explainability layer was added: every tool and model has an explanation popup with its data flow, its training flow, a model card and the meaning and limits of its score, every chart has a short ``what it shows, how it was computed, how to read it'' note, and data-science terms link to a glossary. The \textit{How it works} page shows the whole pipeline as an interactive diagram and the in-house language model's training results.
+
+\section{Verification Strategy}
+
+Verification was part of every milestone and combined several levels:
+\begin{itemize}
+\item \textbf{Unit tests} for the data logic: subtitle formatting, speaker assignment, text units, decoding rules, metrics, windows, peak finding, feature extractors, CSV parsing and statistical analyses.
+\item \textbf{Model and experiment tests}, including a check that the chapter metrics match the reference implementation, a tokeniser round trip, bit-identical resumption of a paused training run, and logit parity between PyTorch and the exported GGUF.
+\item \textbf{Integration tests} with real models on small licence-compatible fixtures: the transcript of a LibriSpeech \cite{panayotov2015librispeech} sample must reach a WER below 0.15, and diarization must label at least 90\% of the words correctly on a synthetic two-speaker conversation.
+\item \textbf{Migration, API and front-end tests}, and an opt-in GPU suite that loads the production configuration on the card.
+\item \textbf{Manual end-to-end checks} on real episodes and \textbf{blind reviews} for subjective outputs (titles, relevance moments, show notes, clips). Every defect found manually became a regression test.
+\end{itemize}
+The complete suite is re-run at the end of every milestone. At the end of the project it contained 770 back-end tests, 343 front-end tests and 48 tests of the language-model experiment, all passing.
+
+%--------------------------------------------------
+\section{Economic Evaluation of the Project}
+\label{s:economic}
+
+\subsection*{Development costs}
+
+Table~\ref{tab:dev_costs} estimates the development effort from the milestone estimates of the development plan, at 6 productive hours per day and an hourly rate of \texteuro22, representative of a junior data scientist or developer in Spain. Unattended GPU time is not counted as working time. These figures value the work as a conventional development project; they are not a record of the author's own hours, which were reduced by the AI-assisted implementation declared in Section~\ref{s:genai}.
+
+\begin{table}[H]
+\centering
+\caption{Estimated development cost.}
+\label{tab:dev_costs}
+\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Area} & \textbf{Hours} & \textbf{Cost (\texteuro)} \\
+\midrule
+Design stage (scope, research, specification, planning) & 40 & 880 \\
+Back-end core, job pipeline and hardening (M0, M2, M9) & 84 & 1,848 \\
+Front end, explainability and dashboards (M1 and later passes) & 70 & 1,540 \\
+Speech processing (M3, M4) & 51 & 1,122 \\
+Chapter models and integration (M5) & 75 & 1,650 \\
+Show notes, relevance v0 and Shorts (M6--M8) & 98 & 2,156 \\
+Hardware upgrade pass (re-measurement and retraining) & 24 & 528 \\
+Market-analysis pipeline and analyses (M10--M12) & 115 & 2,530 \\
+CTR, hook and relevance training (M13--M15) & 132 & 2,904 \\
+In-house language model (M16, stage A) & 90 & 1,980 \\
+Documentation and report & 60 & 1,320 \\
+\midrule
+\textbf{Total} & \textbf{839} & \textbf{18,458} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Operating costs}
+
+Because the platform runs on hardware the operator already owns and uses no paid services, operating costs reduce to hardware amortisation and electricity (Table~\ref{tab:op_costs}). The YouTube APIs are free within the default quota, and all models are open-weight or in-house models executed locally.
+
+\begin{table}[H]
+\centering
+\caption{Estimated monthly operating costs of the self-hosted deployment. Assumptions: a desktop computer with an RTX 5070, valued at about \texteuro1,500 and amortised over 48 months; 70\,W when idle, 24 hours a day; about 350\,W under load; electricity at \texteuro0.18/kWh.}
+\label{tab:op_costs}
+\small
+\begin{tabular}{@{}lrl@{}}
+\toprule
+\textbf{Item} & \textbf{\texteuro/month} & \textbf{Notes} \\
+\midrule
+Hardware amortisation & 31.25 & The computer is also used for other purposes \\
+Electricity, always-on server & 9.10 & $\approx$50\,kWh/month \\
+Electricity, processing & $<$0.50 & $\approx$5 min of full load per episode \\
+YouTube APIs & 0.00 & Within the 10{,}000 units/day quota \\
+Language models and APIs & 0.00 & Local inference, no per-use cost \\
+\midrule
+\textbf{Total} & $\approx$\textbf{41} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Model training is also inexpensive. The chapter experiment needed about 3 hours of GPU on the new machine, and the relevance model a few minutes. The in-house language model was the largest effort: about 35 hours of ablations, 11 hours of scaling runs, 21 hours of pretraining, about 22 hours of teacher processing of the podcast corpus and about 13 hours of post-training, roughly 100 GPU hours in total, or about 35\,kWh (\texteuro6) at 350\,W.
+
+\subsection*{Comparison with a cloud approach}
+
+A cloud implementation would replace the fixed cost of owned hardware with per-use costs: GPU instances for transcription, diarization and training, per-token API charges for titles, show notes and relevance scores, and storage and transfer of the video files, plus subscriptions to specialised clipping or captioning services. For a single operator publishing a few episodes a month, the self-hosted approach has a lower and predictable cost, and it keeps unpublished material private. Its disadvantages are the limited capacity of a single GPU, which rules out larger models, concurrent processing and long training runs such as stage~B of the in-house language model, and the maintenance of the local environment (drivers and CUDA versions; the hardware change alone required a dedicated pass). The architecture keeps a migration path open: storage is abstracted, models are behind a common job interface, and a multi-tenant version would mainly need per-user OAuth connections and a GPU pool.
+
+\subsection*{Value for the user}
+
+Table~\ref{tab:creator_value} estimates the production time per episode with and without the platform; these figures are estimates, since the actual time depends on the episode and on the review effort.
+
+\begin{table}[H]
+\centering
+\caption{Estimated production time per episode for the main automated tasks.}
+\label{tab:creator_value}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Task} & \textbf{Manual} & \textbf{With the platform} \\
+\midrule
+Subtitles with speakers & 60--90 min & 5--10 min (review) \\
+Chapters & 15--30 min & 2--5 min (review) \\
+Short-form clips (selection, crop, captions) & 90--150 min & 10--15 min (review) \\
+Show notes and description & 20--30 min & 5 min (review) \\
+\midrule
+\textbf{Total per episode} & $\approx$3--5 h & $\approx$25--35 min \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For a producer publishing four episodes a month, this represents about 10 to 18 hours saved per month, i.e.\ roughly \texteuro220--\texteuro400 at the same hourly rate of \texteuro22, against an operating cost of about \texteuro41 per month.
+
+\subsection*{Viability assessment}
+
+The project is economically viable for its intended use. The development effort (about 840 hours) is within the scope of a small software project, and the operating cost is low and independent of usage. The main economic value lies in the time saved per episode and, in the longer term, in better editorial decisions supported by models trained on the operator's own data. Commercialisation as a service would change the cost structure (cloud GPUs, multi-tenancy and support) and the licensing conditions of the training data, and is left as a possible evolution rather than a goal of this project.

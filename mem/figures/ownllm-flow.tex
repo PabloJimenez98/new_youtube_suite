@@ -1,0 +1,31 @@
+% Figure source (ownllm-flow). Rendered to figures/pdf/ownllm-flow.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}
+\node[fdata] (web) at (0,2.4) {Web text\\FineWeb2-HQ (es)\\FineWeb-Edu (en)};
+\node[fproc] (tok) at (3.6,2.4) {BPE tokeniser\\32{,}768 tokens\\(trained here)};
+\node[fproc] (shard) at (7.2,2.4) {Tokenised\\shards, 70/30\\es/en};
+\node[fdec] (abl) at (10.8,2.4) {8 ablations\\1B tokens each\\+ scaling runs};
+\node[fmodel] (pre) at (14.4,2.4) {Pretraining\\100.7M params\\5B tokens};
+\node[fdata] (pod) at (0,0) {Podcast corpus\\374\,h, 20 channels};
+\node[fmodel] (teach) at (3.6,0) {Qwen3.5-9B\\teacher (app\\pipelines)};
+\node[fdata] (tdata) at (7.2,0) {Task examples\\13.5k (train)};
+\node[fdata] (inst) at (10.8,0) {Open instruction\\data (es/en)};
+\node[fmodel] (sftg) at (14.4,0) {General SFT\\244M tokens};
+\node[fmodel] (sftt) at (14.4,-2.2) {Task SFT\\1 epoch};
+\node[fmodel] (dpo) at (10.8,-2.2) {DPO\\1{,}509 pairs};
+\node[fdec] (gates) at (7.2,-2.2) {Gates on\\49 test episodes};
+\node[fout] (app) at (3.6,-2.2) {GGUF in the app\\selectable};
+\draw[farr] (web) -- (tok);
+\draw[farr] (tok) -- (shard);
+\draw[farr] (shard) -- (abl);
+\draw[farr] (abl) -- node[flab, above] {recipe} (pre);
+\draw[farr] (pre) -- (sftg);
+\draw[farr] (inst) -- (sftg);
+\draw[farr] (pod) -- (teach);
+\draw[farr] (teach) -- (tdata);
+\draw[farr] (tdata.south) -- ++(0,-0.55) -| ($(sftt.north)+(-0.7,0)$);
+\draw[farr] (sftg) -- (sftt);
+\draw[farr] (sftt) -- (dpo);
+\draw[farr] (dpo) -- (gates);
+\draw[farr] (gates) -- (app);
+\end{tikzpicture}

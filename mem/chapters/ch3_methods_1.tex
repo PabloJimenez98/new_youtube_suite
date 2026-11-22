@@ -1,0 +1,261 @@
+%==========================================================
+\chapter{Materials and Methods}
+\label{ch:methods}
+%==========================================================
+
+This chapter describes how each component of \textit{YouTube Suite} turns data into a result. After a short description of the scope, the hardware and the architecture, each section follows the same order: the data that enters the component, how it is processed, the model that is used or trained, and how the result is evaluated and deployed. The measured results are reported in Chapter~\ref{ch:results}.
+
+All flow diagrams in this chapter use the same colour code: grey boxes are data, blue boxes are deterministic processing steps, purple boxes are models, orange boxes are decisions or rules, and green boxes are stored results.
+
+\subsection*{A common workflow for the models}
+
+Every model trained in the project followed the same workflow, shown in Figure~\ref{fig:workflow}. The data is split \textit{before} any modelling, by video, episode or channel rather than by individual sample, so that windows or sentences of one recording never appear on both sides; where the data allowed it, whole channels were held out as well. The test split is then frozen. A simple \textit{baseline} that needs no training (an unsupervised method or a heuristic) is measured first, because a trained model is only useful if it beats it. Model choices (configurations, checkpoints, thresholds) use the validation split only, and the test split is meant to be evaluated once at the end; the one case in which a test result triggered a second iteration is reported as such (Section~\ref{s:limitations}). Where the output is subjective (titles, relevant moments, show notes) the metric is complemented by a \textit{blind review}, in which unlabelled outputs of two or more models are compared in random order. Finally, a model is promoted only if it passes the rule fixed in advance, and the previous version stays available for rollback. Where a rule was changed after seeing the data, the report says so.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{workflow}}
+\caption{Workflow followed by every trained model of the project.}
+\label{fig:workflow}
+\end{figure}
+
+\section{Scope and Requirements}
+
+The platform is designed for a single operator (the podcast producer), not as a multi-tenant service. Table~\ref{tab:components} lists its components and the type of approach behind each one. Three of them use models trained in this project (chapters, relevance and the in-house language model); two are deliberately heuristic until real labels exist (CTR and hook); the rest integrate pretrained models.
+
+\begin{table}[H]
+\centering
+\caption{Components of YouTube Suite and their data-science approach.}
+\label{tab:components}
+\small
+\begin{tabular}{@{}p{3.6cm}p{5.6cm}p{5.0cm}@{}}
+\toprule
+\textbf{Component} & \textbf{Output} & \textbf{Approach} \\
+\midrule
+Transcription & Segments and words with timestamps; SRT/WebVTT & Pretrained ASR (Whisper) \\
+Speaker diarization & Speaker label per word and segment & Pretrained (pyannote) + assignment rules \\
+Chapter generator & Ordered chapters (start, title) & Trained BiLSTM + local LLM titles \\
+Show-notes generator & Titles, description, tags, summary & Local LLM, map--reduce, constrained JSON \\
+Relevance model & Relevance score per 15\,s window & Heuristic + LLM teacher, distilled into a BiLSTM \\
+Shorts generator & Vertical clips with captions & Signal processing + face detection \\
+CTR predictor & Relative score of title/thumbnail candidates & Evidence-weighted heuristic (v0) \\
+Hook-strength scorer & Relative score of a clip's opening & Evidence-weighted heuristic (v0) \\
+Market analysis & Public and private performance data, analyses & API collection + statistics \\
+In-house language model & Alternative to the pretrained LLM & Transformer trained from scratch \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The following were left out of scope: thumbnail candidate extraction, multimodal (audio/visual) input to the relevance and hook models, multi-object tracking for cropping, retention drop-off prediction, translation, multi-tenant channel connection, and automatic publication of metadata to YouTube.
+
+\section{Technology Stack and Hardware}
+
+\subsection*{Software}
+
+The back end is a \textbf{FastAPI} \cite{fastapi_ref} REST API over \textbf{PostgreSQL}, accessed through \textbf{SQLAlchemy~2.0} \cite{sqlalchemy_ref} with \textbf{Alembic} migrations. Long tasks run in an \textbf{arq} \cite{arq_ref} worker over \textbf{Redis}, chosen over Celery because its tasks are native \texttt{asyncio} coroutines that fit the asynchronous database layer. The front end is an \textbf{Angular} \cite{angular_ref} single-page application. The model layer uses \textbf{PyTorch} \cite{paszke2019pytorch}, \textbf{faster-whisper}, \textbf{pyannote.audio}, \textbf{sentence-}\allowbreak\textbf{transformers}, \textbf{Hugging Face Transformers}, \textbf{llama.cpp} \cite{llamacpp}, \textbf{OpenCV}, \textbf{spaCy} \cite{spacy2020}, \textbf{SciPy} and \textbf{FFmpeg}. PostgreSQL and Redis run with \textbf{Docker Compose} \cite{merkel2014docker}; tests use \textbf{pytest} and \textbf{Vitest}. The model experiments are Jupyter notebooks backed by small tested Python libraries.
+
+\subsection*{Hardware}
+
+The platform runs on the operator's own computer. Development started on a GTX~1060 with 3\,GB of memory, and every decision of milestones M3 to M9 was sized to that card: 8-bit models, small batches and a language model running on the CPU. In November 2026 the machine was replaced (Table~\ref{tab:hardware}). The upgrade was handled as a separate, measured pass, with its own decision record: every setting that the old card had constrained was re-measured on the new one, and a default was changed only after its quality was compared with the old setting on the same reference episodes. The old GPU is no longer supported.
+
+\begin{table}[H]
+\centering
+\caption{Hardware used in the project.}
+\label{tab:hardware}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+& \textbf{Until November 2026} & \textbf{Since November 2026} \\
+\midrule
+CPU & AMD Ryzen 5 2600X (6 cores) & AMD Ryzen 7 7800X3D (8 cores) \\
+RAM & 16\,GB & 23\,GB available to WSL \\
+GPU & NVIDIA GTX 1060, 3\,GB (Pascal) & NVIDIA RTX 5070, 12\,GB (Blackwell) \\
+Precision on GPU & int8, fp32 only & int8, fp16, bf16, fp8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{System Architecture}
+
+Figure~\ref{fig:architecture} shows the architecture. The Angular client talks only to the REST API. Every AI tool runs as a \textit{job}: the API creates a row in the \texttt{jobs} table and puts its identifier in a Redis queue, and a separate worker process runs it and writes its state and results to PostgreSQL. Media files are stored behind a storage interface on the local file system. Market data is collected by scheduled tasks of the same worker, and the models trained offline are deployed as versioned \textit{bundles} (model files plus their configuration).
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{architecture}}
+\caption{Architecture of YouTube Suite. Solid arrows: request and job flow; dashed arrows: scheduled market collection and deployment of trained models.}
+\label{fig:architecture}
+\end{figure}
+
+\subsection*{Job pipeline}
+
+All tools share one execution path. A job is created as \textit{queued}; the worker marks it \textit{running}, calls the handler registered for its tool type, and marks it \textit{succeeded}, or \textit{failed} with the error message. Handlers replace their outputs within one database transaction, so re-running a tool is idempotent and readers never see a partial result. A job interrupted by a worker restart, or failed by a transient GPU out-of-memory error, is retried a limited number of times. Each job also stores its parameters, such as the language model chosen for it.
+
+\subsection*{Tool dependencies}
+
+Although every tool runs through the same job path, the tools form a dependency graph (Figure~\ref{fig:toolgraph}). Transcription is the root: every tool except the CTR predictor reads the transcript. Some inputs are optional and only improve the result when they exist: speaker labels and chapter titles enrich the relevance score, chapters structure the show notes, and the show-notes title suggestions pre-fill the CTR candidates and give the hook scorer the episode title. A tool whose mandatory input is missing fails with an explicit message instead of producing a degraded result.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{toolgraph}}
+\caption{Dependency graph of the tools. Solid arrows: mandatory inputs; dashed arrows: optional inputs used when available. All tools except the CTR predictor also read the transcript.}
+\label{fig:toolgraph}
+\end{figure}
+
+\subsection*{GPU resource management}
+
+Several models share one GPU, so its memory is treated as a budget. A single lock ensures that only one GPU inference runs at a time, so that the memory peaks of different models never add up. Whisper and pyannote stay resident between jobs, the language model is released after each job, and PyTorch's cached memory is freed after diarization. With every model resident, the measured worst case on the RTX~5070 is 10{,}637 of 12{,}227\,MiB, desktop included. Model training uses the same GPU, so a training run refuses to start while less than 9.5\,GiB are free, which keeps training and app jobs from sharing the card.
+
+\section{Data Model}
+
+The database is organised into platform data, market data and model data (Table~\ref{tab:datamodel}). Tool outputs are stored as rows linked to the upload; outputs produced by a model reference the model version that produced them, which makes every prediction traceable and allows comparing versions.
+
+\begin{table}[H]
+\centering
+\caption{Main tables of the data model.}
+\label{tab:datamodel}
+\small
+\begin{tabular}{@{}p{6.4cm}p{8.6cm}@{}}
+\toprule
+\textbf{Table} & \textbf{Content} \\
+\midrule
+\multicolumn{2}{@{}l}{\textit{Platform data}} \\
+\texttt{uploads}, \texttt{jobs} & Episodes, and each tool run with its state, parameters and error. \\
+\texttt{transcript\_segments}, \texttt{\_words} & Timed segments and words, with confidence and speaker label. \\
+\texttt{chapters}, \texttt{show\_notes\_drafts} & Chapter starts and titles; editable show-notes drafts. \\
+\texttt{relevance\_scores}, \texttt{clips} & Score per window and its components; rendered clips with crop track. \\
+\texttt{ctr\_predictions}, \texttt{hook\_scores} & Scores with the full feature vector and sub-scores. \\
+\midrule
+\multicolumn{2}{@{}l}{\textit{Market data}} \\
+\texttt{market\_channels}, \texttt{market\_videos} & Curated public channels and their catalogue. \\
+\texttt{market\_video\_snapshots} & Statistics of each video per day (a time series). \\
+\texttt{analytics\_snapshots}, \texttt{\_retention\_curve} & Daily engagement and retention of the operator's videos. \\
+\texttt{analytics\_reach\_snapshots} & Real thumbnail impressions and CTR (Reporting API). \\
+\texttt{insight\_results} & Precomputed market analyses (Section~\ref{s:market}). \\
+\midrule
+\multicolumn{2}{@{}l}{\textit{Model data}} \\
+\texttt{model\_versions} & Name, architecture, training data reference, metrics, artefact, live flag. \\
+\texttt{relevance\_pseudo\_labels} & Teacher labels for the relevance model, never overwritten. \\
+\texttt{app\_settings} & Global choices, such as the default language model. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Market snapshots are stored as time series (one row per video and day) instead of being overwritten, which enables growth analyses. Teacher labels are kept in their own table because the score table of an episode is replaced on every run: if a trained model wrote over its own training labels, later training rounds would silently learn from themselves.
+
+\section{Transcription and Subtitles}
+\label{s:asr}
+
+\subsection*{Processing}
+
+Transcription is the root of the tool graph (Figure~\ref{fig:speech}). FFmpeg extracts the audio track as 16\,kHz mono WAV, the format the speech models expect, and the file is kept because diarization reuses it. faster-whisper first runs voice activity detection (VAD) to skip silence and music, which prevents the model from ``hallucinating'' text over them, and then decodes the speech chunks in batches. Every word is stored with its start and end time and its probability, and every segment with its average log-probability and no-speech probability as quality signals. The episode language is detected automatically. Subtitles (SRT and WebVTT) are built on demand from the stored rows, with cues split on word timestamps so that no cue is longer than 84 characters or 7 seconds.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{speech}}
+\caption{Speech processing: transcription (top) and diarization (bottom) share the extracted audio and the transcript rows.}
+\label{fig:speech}
+\end{figure}
+
+\subsection*{Model selection}
+
+Whisper offers several model sizes, numeric precisions and batch sizes, which trade accuracy for speed and memory. Instead of choosing them from published benchmarks, they were selected twice with the same measured protocol, once for each GPU:
+\begin{enumerate}
+\item \textbf{Reference.} A 20-minute sample of the operator's episodes is transcribed with the most accurate configuration that runs (\texttt{large-v3}, beam search of width 5, in 16-bit floating point). There is no hand-corrected transcript, so this output serves as the reference; its bias in favour of \texttt{large-v3} variants is acknowledged.
+\item \textbf{Candidates.} Each candidate configuration transcribes the same audio.
+\item \textbf{Metrics.} WER against the reference (Equation~\ref{eq:wer}), the 95th percentile of the word-timestamp drift, the speed and the GPU memory peak on a full episode.
+\item \textbf{Rule.} A candidate is acceptable if its WER is not worse than the current setting and its timestamp drift stays under 0.5\,s; among the acceptable ones, the best trade-off between WER and speed is chosen, as long as it fits the memory budget.
+\end{enumerate}
+On the old GPU this protocol selected \texttt{large-v3-turbo} in 8-bit with batched greedy decoding; on the RTX~5070 it selected \texttt{large-v3} with 8-bit weights and 16-bit activations (\texttt{int8\_float16}) and batch size 16 (Section~\ref{s:res-asr}).
+
+\section{Speaker Diarization}
+
+\subsection*{Processing}
+
+Diarization uses the pyannote.audio~4 pipeline \texttt{speaker-diarization-community-1} \cite{bredin2020pyannote}. It cuts the audio into speech turns, represents each turn with a speaker embedding (a vector that describes how the voice sounds), and clusters the embeddings so that turns with similar voices share a label. The \textit{exclusive} output is used, in which at most one speaker is active at any instant.
+
+\subsection*{Assignment of speakers to words}
+
+The transcript and the speaker turns come from two different models, so they must be aligned. Let a word $w$ span $[s_w, e_w]$ and a turn $k$ span $[s_k, e_k]$. The word takes the speaker of the turn with the largest overlap,
+\begin{equation}
+\mathrm{spk}(w) = \operatorname*{arg\,max}_{k}\; \max\big(0,\; \min(e_w, e_k) - \max(s_w, s_k)\big),
+\label{eq:assign}
+\end{equation}
+and a word that overlaps no turn takes the turn closest to its midpoint. Each segment then takes the majority speaker of its words, and labels are renumbered by order of first appearance (\texttt{SPEAKER\_00} is the first voice). These rules are pure, unit-tested functions; turns are searched by bisection, so the cost grows as $\mathcal{O}(n \log m)$ for $n$ words and $m$ turns. Speaker labels are anonymous: no identity or gender is inferred from a voice.
+
+A manual check on a full episode showed that a noticeable share of Whisper segments contain words of more than one speaker (Section~\ref{s:res-asr}), typically short interjections, which a segment-level subtitle would show under the wrong speaker. Subtitle cues are therefore split at every change of speaker, and runs shorter than two words are merged into a neighbour so that a single mislabelled word does not create a cue. At start-up the worker runs a health check on a synthetic two-speaker clip; if it fails (for example because of an invalid model token), only diarization jobs are disabled.
+
+\section{Chapter Generation}
+\label{s:chapters}
+
+Chapters are produced by two models: a \textit{boundary model}, trained in this project, which decides where a chapter starts, and a \textit{title model}, which names each chapter. The work was carried out as a documented experiment (numbered notebooks, a tested library and dated logs), and the trained model was only deployed after it beat an unsupervised baseline. Figure~\ref{fig:chapters} summarises the inference pipeline.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{chapters}}
+\caption{Chapter generation pipeline at inference time.}
+\label{fig:chapters}
+\end{figure}
+
+\subsection*{Training data}
+
+The models are trained on VidChapters-7M \cite{yang2023vidchapters}, read from the JSON mirror published with Chapter-Llama \cite{ventura2025chapterllama}. Figure~\ref{fig:chapters-data} shows how the training set was built. The transcript file (22\,GB) does not fit in memory, so it is streamed and only the selected videos are kept. A video is selected if it lasts between 15 and 120 minutes, has at least three chapters of at least 10 seconds and has a usable transcript, which matches the length of a podcast episode. The language is identified on the transcript rather than on the chapter titles, because titles proved unreliable in both directions (Spanish titles over English speech and vice versa). The result is about 9{,}100 English training videos with the official validation and test splits (900 and 1{,}480 videos), and only 207 videos with Spanish speech, split by channel into training, validation (18 videos) and a Spanish-only test set (77 videos). For Spanish, splitting by channel prevents a test video from sharing a speaker or a format with a training video. The English splits are VidChapters' official splits, which are made by video, so a channel may appear in both training and test; the English results may therefore be slightly optimistic for unseen channels.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{chapters-data}}
+\caption{Construction of the chapter training data.}
+\label{fig:chapters-data}
+\end{figure}
+
+\subsection*{Text units}
+
+VidChapters transcripts are split into sentences of about 5 seconds, whereas the platform's Whisper segments have a median of 0.8 seconds. A model trained on one kind of unit and used on another would see different inputs at inference (a train--inference mismatch). Both sides are therefore normalised to the same unit before encoding: sentences rebuilt from word timestamps and punctuation, with durations between 2 and 15 seconds. To choose the unit, each candidate was measured by its \textit{ceiling}: the best F1 that any model could reach after moving the reference boundaries to the nearest unit start. Sentences had the highest ceiling (83.3 F1 at 5 seconds, against 70.8 for 10-second blocks). The same unit function is used in the experiment and in the back end, and a test fails if the two copies diverge.
+
+\subsection*{Boundary model}
+
+Each unit is encoded with the frozen multilingual encoder \texttt{multilingual-e5-small} \cite{wang2024me5} (118M parameters), which gave the same baseline accuracy as an equivalent MiniLM model and has a permissive licence. A linear projection of the 384-dimensional embedding, concatenated with two side features (the unit's relative position in the episode and its cosine similarity to the previous unit), feeds a bidirectional LSTM \cite{hochreiter1997lstm, koshorek2018textseg}. The BiLSTM reads the whole episode in both directions and outputs, for each unit $t$, the probability $p_t$ that a chapter starts there. Boundaries are rare (about one every 40 units), so training uses a class-weighted binary cross-entropy with softened targets $\tilde y_t$ that also give some credit to the units next to a reference boundary:
+\begin{equation}
+\mathcal{L} = -\frac{1}{T}\sum_{t=1}^{T}\Big[w_{+}\,\tilde y_t\log p_t + (1-\tilde y_t)\log(1-p_t)\Big],
+\label{eq:bce}
+\end{equation}
+where $w_{+}$ is the weight of the positive class. The projection is followed by a GELU activation and a dropout of 0.2. Four configurations (projection size, hidden size and $w_{+}$) were trained for 10 epochs, and the checkpoint was selected by the validation F1 at 5 seconds \textit{after decoding}, that is, on the same output that is deployed. Figure~\ref{fig:bilstm-chapters} shows the model.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.92\textwidth}{!}{%
+\fig{bilstm-chapters}}
+\caption{Boundary model. Each sentence unit is embedded by the frozen encoder, projected and joined with two side features (relative position and similarity to the previous unit); the BiLSTM reads the whole episode in both directions and outputs the probability $p_t$ that a chapter starts at each unit, which the decoding rules turn into chapters.}
+\label{fig:bilstm-chapters}
+\end{figure}
+
+\subsection*{Decoding}
+
+The probabilities are turned into chapters by rules rather than learnt, because they encode YouTube's requirements and the desired granularity (few, broad chapters): peaks of $p_t$ are selected with a minimum chapter length of 60 seconds and a target of about six chapters per hour; the first chapter is forced to 0:00, at least three chapters are produced and every chapter lasts at least 10 seconds. Every boundary lands on a real transcript timestamp.
+
+\subsection*{Baseline and deployment rule}
+
+An unsupervised TextTiling-style baseline \cite{hearst1997texttiling} computes the cosine dissimilarity between adjacent windows of the same unit embeddings and uses the same decoding. It needs no training and serves both as the evaluation reference and as the production fallback. The rule was fixed before training: the trained model is deployed only if it beats the baseline on the validation F1 at 5 seconds.
+
+\subsection*{Title model}
+
+Titles are generated for each chapter from its transcript text. Two approaches were developed. The first fine-tunes \texttt{mt5-small} \cite{xue2021mt5} on 66{,}760 pairs of chapter text and creator title, with the embedding and output layers frozen and the Adafactor optimiser \cite{shazeer2018adafactor}; the 845 Spanish pairs were oversampled eight times so that the model keeps answering in Spanish. It was evaluated with BLEU \cite{papineni2002bleu} and CIDEr \cite{vedantam2015cider} against the creators' titles and against a simple extractive reference (the first eight words of the chapter). Its English titles were good, but its Spanish titles on a real episode were unusable (English titles, repeated phrases and invented names). Since no more Spanish training data exists, the second approach uses a pretrained instruction LLM run locally with llama.cpp \cite{llamacpp} in 4-bit GGUF format.
+
+Seven LLMs of 2 to 9 billion parameters were compared with the same prompt, which asks for one short title in the episode language, without invented names and different from the titles already given. The outputs are cleaned (quotes and prefixes removed, repeated n-grams collapsed, length capped) and checked for language with a fastText classifier \cite{joulin2017fasttext}; a title that fails is retried once and then taken from mT5. Model selection combined automatic gates and human judgement: a candidate had to reach at least 95\% language accuracy in Spanish, a CIDEr in English of at least 0.8 times mT5's, and acceptable speed and memory, and the choice among those that passed was made by a \textit{blind review} of unlabelled titles of a real episode. On the old hardware this selected \texttt{Qwen3.5-4B}, although the blind review preferred the titles of \texttt{Qwen3.5-9B}, which failed the CIDEr gate and did not fit in memory. After the hardware upgrade the memory constraint disappeared, and a second blind review (4B against 9B on two episodes, for titles, show notes and relevance) again preferred the 9B model, which became the default for the three tools. This was a \textit{deviation from the rule fixed in advance}: the 9B model still fails the English CIDEr gate (46.1 against a threshold of 52.7). The gate was dropped at this point because the comparison had shown that CIDEr penalises the longer titles of the LLMs against the creators' short ones, and that in Spanish, the language of the product, the 9B model has the highest CIDEr of all candidates (Section~\ref{s:res-titles}).
+
+\subsection*{Evaluation protocol}
+
+Boundaries are evaluated with the distance-based F1 at 3, 5 and 30 seconds, the temporal-IoU-averaged F1 of Chapter-Llama \cite{ventura2025chapterllama} and $P_k$ \cite{beeferman1999pk}. For F1 at $\tau$ seconds, a predicted boundary counts as correct if it lies within $\tau$ seconds of a reference boundary not yet matched, and
+\begin{equation}
+\mathrm{F1}@\tau = \frac{2\,P_\tau R_\tau}{P_\tau + R_\tau},
+\label{eq:f1}
+\end{equation}
+where $P_\tau$ and $R_\tau$ are the precision and recall of the matched boundaries. The metric code was cross-checked against the Chapter-Llama implementation on synthetic data. Creators annotate many more chapters than the product produces (on the English test set, 10.9 per video against 5.0), which caps the recall by design. Each metric is therefore reported in two settings: the \textit{product} setting, with the deployed granularity, and an \textit{oracle} setting in which the number of chapters is known. Model choices use validation data only, and each test set is evaluated once.
+
+\subsection*{Deployment}
+
+The experiment exports a versioned bundle (encoder, BiLSTM weights, mT5 fallback, title LLM, unit and decoding configuration, and metrics). The chapter handler loads it lazily and stores each chapter with the bundle's version label, and the interface copies the chapters in YouTube's \texttt{00:00 Title} format.

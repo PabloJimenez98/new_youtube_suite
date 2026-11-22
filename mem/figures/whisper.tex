@@ -1,0 +1,27 @@
+% Figure source (whisper). Rendered to figures/pdf/whisper.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+% Each series: batch 4, 8, 16 (batch 16 is always the fastest, leftmost point).
+\begin{tikzpicture}
+\begin{axis}[
+    width=12.24cm, height=6.4cm,
+    xlabel={Time for 20 minutes of audio (s)}, ylabel={WER vs.\ reference (\%)},
+    xmin=10, xmax=68, ymin=9, ymax=21,
+    tick label style={font=\footnotesize}, label style={font=\footnotesize},
+    legend pos=north east, legend style={font=\scriptsize}, legend cell align=left,
+    grid=major, grid style={gray!20}
+]
+\addplot[only marks, mark=square*, orange!80!black, mark size=2.2pt] coordinates {(22,17.08) (19,17.11) (15,17.00)};
+\addlegendentry{turbo, int8\_float16}
+\addplot[only marks, mark=square, orange!80!black, mark size=2.2pt, thick] coordinates {(20,19.62) (19,19.62) (16,19.51)};
+\addlegendentry{turbo, float16}
+\addplot[only marks, mark=o, blue!70!black, mark size=2.4pt, thick] coordinates {(53,14.21) (43,14.18) (34,14.16)};
+\addlegendentry{large-v3, float16}
+\addplot[only marks, mark=*, blue!70!black, mark size=2.4pt] coordinates {(62,11.15) (48,11.15) (36,10.82)};
+\addlegendentry{large-v3, int8\_float16}
+\addplot[only marks, mark=x, black, mark size=4pt, very thick] coordinates {(22,17.08)};
+\addlegendentry{anchor: turbo, int8, batch 4}
+\node[font=\scriptsize, anchor=north] at (axis cs:36,10.6) {chosen (b16)};
+\node[font=\scriptsize, anchor=south] at (axis cs:48,11.4) {b8};
+\node[font=\scriptsize, anchor=south] at (axis cs:62,11.4) {b4};
+\end{axis}
+\end{tikzpicture}

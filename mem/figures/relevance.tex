@@ -1,0 +1,25 @@
+% Figure source (relevance). Rendered to figures/pdf/relevance.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}
+\node[fdata] (w) at (0,0) {Transcript\\words};
+\node[fproc] (bl) at (3.0,0) {7.5\,s blocks\\(word\\timestamps)};
+\node[fproc] (win) at (6.2,1.1) {15\,s windows\\7.5\,s hop};
+\node[fproc] (heu) at (9.6,1.1) {Heuristics: topic,\\question$\to$answer,\\speakers, fillers};
+\node[fproc] (llb) at (6.2,-1.1) {15\,s spans,\\20 per call,\\2 shifted passes};
+\node[fmodel] (llm) at (9.6,-1.1) {Local LLM\\JSON grammar,\\0--100 per span};
+\node[fproc] (map) at (12.9,-1.1) {Overlap-weighted\\mean per window};
+\node[fdec] (comb) at (15.9,0) {Combine\\$0.4\,h + 0.6\,\ell$};
+\node[fout] (out) at (18.9,0) {Relevance\\curve};
+\node[fout] (pl) at (15.9,-2.4) {Pseudo-labels\\$(h, \ell)$ per window};
+\draw[farr] (w) -- (bl);
+\draw[farr] (bl) -- (win);
+\draw[farr] (bl) -- (llb);
+\draw[farr] (win) -- (heu);
+\draw[farr] (llb) -- (llm);
+\draw[farr] (llm) -- (map);
+\draw[farr] (heu) -- node[flab, above, sloped] {$h$} (comb);
+\draw[farr] (map) -- node[flab, below, sloped] {$\ell$} (comb);
+\draw[farr] (comb) -- (out);
+\draw[fdash] (map.south) |- (pl.west);
+\draw[fdash] (heu.east) -- ++(0.3,0) |- (pl.west);
+\end{tikzpicture}

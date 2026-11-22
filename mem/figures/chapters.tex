@@ -1,0 +1,19 @@
+% Figure source (chapters). Rendered to figures/pdf/chapters.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[node distance=0.4cm]
+\node[fdata] (t) {Transcript\\words};
+\node[fproc, right=of t] (u) {Sentence\\units (2--15\,s)};
+\node[fmodel, right=of u] (e) {Frozen encoder\\e5-small};
+\node[fmodel, right=of e] (l) {BiLSTM\\$p_t$ per unit};
+\node[fdec, right=of l] (d) {Decoding\\YouTube rules};
+\node[fmodel, right=of d] (ti) {Title\\generation};
+\node[fout, right=of ti] (c) {Chapters};
+\draw[farr] (t) -- (u);
+\draw[farr] (u) -- (e);
+\draw[farr] (e) -- (l);
+\draw[farr] (l) -- (d);
+\draw[farr] (d) -- (ti);
+\draw[farr] (ti) -- (c);
+\node[font=\scriptsize, below=0.15cm of l, align=center] {fallback: TextTiling\\baseline};
+\node[font=\scriptsize, below=0.15cm of ti, align=center] {local LLM\\(mT5 fallback)};
+\end{tikzpicture}

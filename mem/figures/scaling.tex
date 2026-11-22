@@ -1,0 +1,16 @@
+% Figure source (scaling). Rendered to figures/pdf/scaling.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}
+\begin{axis}[
+    width=7.14cm, height=6cm, xmode=log, log basis x=2,
+    xlabel={Tokens (billions, log)}, ylabel={Held-out bpb},
+    xmin=0.4, xmax=6.5, ymin=0.9, ymax=1.2,
+    xtick={0.5,1,2,5}, xticklabels={0.5,1,2,5},
+    tick label style={font=\footnotesize}, label style={font=\footnotesize},
+    grid=major, grid style={gray!20},
+    nodes near coords, every node near coord/.append style={font=\scriptsize, anchor=south west,
+        /pgf/number format/.cd, fixed, fixed zerofill, precision=3}
+]
+\addplot[blue!70!black, thick, mark=*] coordinates {(0.5,1.145) (1,1.058) (2,1.001) (5,0.963)};
+\end{axis}
+\end{tikzpicture}

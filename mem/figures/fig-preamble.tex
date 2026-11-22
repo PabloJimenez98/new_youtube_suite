@@ -1,0 +1,23 @@
+% Packages and styles shared by the report and by the standalone figure
+% builds (figures/build.tex). Every figure source in figures/*.tex uses them.
+\usepackage{tikz}
+\usepackage{amsmath}
+\usetikzlibrary{arrows.meta,shapes.geometric,positioning,fit,backgrounds,calc}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{groupplots}
+
+% Shared style of the flow diagrams (Chapters 3-4):
+% grey = data, blue = processing, purple = model, orange = decision/rule, green = stored result.
+\tikzset{
+  flowbox/.style={draw, rounded corners=3pt, align=center, font=\footnotesize,
+                  minimum height=1.0cm, minimum width=2.2cm, inner sep=3pt},
+  fdata/.style={flowbox, fill=gray!15},
+  fproc/.style={flowbox, fill=blue!10},
+  fmodel/.style={flowbox, fill=purple!12},
+  fdec/.style={flowbox, fill=orange!20},
+  fout/.style={flowbox, fill=green!15},
+  farr/.style={-Stealth, thick},
+  fdash/.style={-Stealth, thick, dashed},
+  flab/.style={font=\scriptsize, fill=white, inner sep=1pt}
+}

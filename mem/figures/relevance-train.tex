@@ -1,0 +1,18 @@
+% Figure source (relevance-train). Rendered to figures/pdf/relevance-train.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[node distance=0.45cm]
+\node[fdata] (ep) {63 episodes\\scored by v0};
+\node[fdata, right=of ep] (pl) {Pseudo-labels\\$(h,\ell)$, kept\\separately};
+\node[fproc, right=of pl] (sp) {Fixed split\\48 / 7 / 8\\by episode};
+\node[fmodel, right=of sp] (tr) {e5 + BiLSTM\\2 heads, Huber,\\3 seeds};
+\node[fdec, right=of tr] (gate) {Offline gate\\Spearman vs $s$\\$>$ heuristic};
+\node[fdec, right=of gate] (ab) {Blind A/B: preferred\\or tied on\\$\geq$3 of 5 episodes};
+\node[fout, right=of ab] (live) {\texttt{set-live}\\(rollback:\\previous label)};
+\draw[farr] (ep) -- (pl);
+\draw[farr] (pl) -- (sp);
+\draw[farr] (sp) -- (tr);
+\draw[farr] (tr) -- (gate);
+\draw[farr] (gate) -- node[flab, above] {pass} (ab);
+\draw[farr] (ab) -- node[flab, above] {pass} (live);
+\draw[fdash] (gate.south) -- ++(0,-0.6) -| node[flab, pos=0.25, below] {fail: analyse errors, next iteration} (tr.south);
+\end{tikzpicture}

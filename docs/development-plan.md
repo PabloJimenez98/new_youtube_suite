@@ -2,6 +2,7 @@
 
 **Date:** 2026-08-13
 **Status:** Phase 4 output — based on `docs/project-description.md` (Phase 3).
+**Project status:** finished on 2026-11-22 — all milestones M0–M16 are done.
 
 ## How to read this plan
 

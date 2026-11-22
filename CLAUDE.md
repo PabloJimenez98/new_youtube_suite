@@ -1,6 +1,10 @@
 # YouTube Suite
 
 ## Status
+**Project finished (2026-11-22).** All milestones M0–M16 are done and the
+thesis report (`mem/`) is written. No milestone is in progress; any further
+work (e.g. the open follow-ups below) needs the owner to open it first.
+
 Planning is complete. All four brainstorm phases are done: scope
 (`docs/decisions/v1-scope.md`), research (`docs/research/bibliography.md`),
 full specification (`docs/project-description.md`), and a milestone-based

@@ -1,0 +1,27 @@
+% Figure source (market). Rendered to figures/pdf/market.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}
+\node[fdata] (d) at (0,2.4) {Data API v3 + RSS\\(curated channels)};
+\node[fdata] (a) at (0,1.2) {Analytics API v2\\(own channel)};
+\node[fdata] (r) at (0,0) {Reporting API v1\\(own channel)};
+\node[fproc] (pd) at (4.0,2.4) {Backfill catalogue,\\daily/weekly\\snapshots};
+\node[fproc] (pa) at (4.0,1.2) {Daily pull,\\retention curves};
+\node[fproc] (pr) at (4.0,0) {Daily CSV\\download, parse};
+\node[fout] (td) at (8.0,2.4) {Snapshots\\(time series)};
+\node[fout] (ta) at (8.0,1.2) {Engagement,\\retention};
+\node[fout] (tr) at (8.0,0) {Impressions,\\real CTR};
+\node[fmodel, minimum height=1.6cm] (an) at (12.0,2.0) {Analyses:\\residual model,\\clusters, drivers,\\growth, keywords};
+\node[fout, minimum height=1.0cm] (ins) at (15.6,2.0) {\texttt{insight\_}\\\texttt{results}};
+\node[fdec, minimum height=1.0cm] (lbl) at (12.0,-0.2) {Future labels\\relevance, CTR,\\hook};
+\draw[farr] (d) -- (pd);
+\draw[farr] (a) -- (pa);
+\draw[farr] (r) -- (pr);
+\draw[farr] (pd) -- (td);
+\draw[farr] (pa) -- (ta);
+\draw[farr] (pr) -- (tr);
+\draw[farr] (td.east) -- (an.west);
+\draw[farr] (ta.east) -- (an.west);
+\draw[farr] (an) -- (ins);
+\draw[fdash] (ta.east) -- (lbl.west);
+\draw[fdash] (tr.east) -- (lbl.west);
+\end{tikzpicture}

@@ -1,0 +1,26 @@
+% Figure source (chapters-duration). Rendered to figures/pdf/chapters-duration.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+% Data: experiments/m5-chapters/05_eval.ipynb (product setting, test sets, F1@5s by duration bucket).
+\begin{tikzpicture}
+\begin{groupplot}[
+    group style={group size=2 by 1, horizontal sep=1.6cm},
+    ybar, width=7.2cm, height=5.4cm, /pgf/bar width=9pt,
+    ymin=0, ymax=25,
+    symbolic x coords={15-30,30-60,60-120}, xtick=data,
+    xlabel={Video duration (minutes)},
+    tick label style={font=\footnotesize}, label style={font=\footnotesize},
+    title style={font=\footnotesize},
+    nodes near coords, every node near coord/.append style={font=\tiny, /pgf/number format/.cd, fixed, fixed zerofill, precision=1},
+    legend style={font=\scriptsize, at={(0.5,0.98)}, anchor=north, legend columns=2},
+    enlarge x limits=0.25, grid=major, grid style={gray!20}
+]
+\nextgroupplot[title={English test (500 / 500 / 480 videos)}, ylabel={F1@5s (\%)}]
+\addplot[fill=gray!40, draw=gray!70!black] coordinates {(15-30,10.03) (30-60,7.98) (60-120,7.00)};
+\addplot[fill=blue!45, draw=blue!70!black] coordinates {(15-30,17.45) (30-60,17.60) (60-120,17.12)};
+\legend{TextTiling, BiLSTM}
+\nextgroupplot[title={Spanish test (44 / 21 / 12 videos)}]
+\addplot[fill=gray!40, draw=gray!70!black] coordinates {(15-30,5.72) (30-60,2.87) (60-120,1.60)};
+\addplot[fill=blue!45, draw=blue!70!black] coordinates {(15-30,5.88) (30-60,2.34) (60-120,13.95)};
+\legend{TextTiling, BiLSTM}
+\end{groupplot}
+\end{tikzpicture}

@@ -1,0 +1,18 @@
+% Figure source (workflow). Rendered to figures/pdf/workflow.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[node distance=0.45cm]
+\node[fdata] (col) {Collect\\data};
+\node[fproc, right=of col] (spl) {Split by\\episode/channel,\\freeze test};
+\node[fproc, right=of spl] (base) {Measure a\\baseline\\(no training)};
+\node[fmodel, right=of base] (tr) {Train,\\select on\\validation};
+\node[fdec, right=of tr] (ev) {Evaluate on\\test, once};
+\node[fdec, right=of ev] (blind) {Blind review\\(subjective\\outputs)};
+\node[fout, right=of blind] (prom) {Promote\\(rule fixed\\in advance)};
+\draw[farr] (col) -- (spl);
+\draw[farr] (spl) -- (base);
+\draw[farr] (base) -- (tr);
+\draw[farr] (tr) -- (ev);
+\draw[farr] (ev) -- (blind);
+\draw[farr] (blind) -- (prom);
+\draw[fdash] (ev.south) -- ++(0,-0.6) -| node[flab, pos=0.25, below] {fails the rule: error analysis on train/validation, new iteration (test re-use is reported)} (tr.south);
+\end{tikzpicture}

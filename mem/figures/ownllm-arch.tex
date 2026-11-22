@@ -1,0 +1,31 @@
+% Figure source (ownllm-arch). Rendered to figures/pdf/ownllm-arch.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[
+    lay/.style={draw, rounded corners=2pt, align=center, font=\footnotesize, minimum width=5.6cm, minimum height=0.62cm},
+    arr/.style={-Stealth, thick}
+]
+\node[lay, fill=gray!15] (in) at (0,0) {Token ids (vocabulary 32{,}768)};
+\node[lay, fill=blue!15] (emb) at (0,-1.0) {Token embedding $32{,}768 \times 768$ (25.2M)};
+\node[lay, fill=gray!8] (n1) at (0,-2.3) {RMSNorm};
+\node[lay, fill=orange!25] (att) at (0,-3.2) {Attention: 12 query / 4 key-value heads, RoPE};
+\node[lay, fill=white] (r1) at (0,-4.1) {$+$ residual};
+\node[lay, fill=gray!8] (n2) at (0,-5.0) {RMSNorm};
+\node[lay, fill=green!20] (ffn) at (0,-5.9) {SwiGLU MLP $768 \to 2048 \to 768$};
+\node[lay, fill=white] (r2) at (0,-6.8) {$+$ residual};
+\node[lay, fill=gray!8] (nf) at (0,-8.1) {Final RMSNorm};
+\node[lay, fill=blue!15] (head) at (0,-9.0) {Output head (tied to the embedding)};
+\node[lay, fill=gray!15] (out) at (0,-10.0) {Next-token probabilities};
+\begin{scope}[on background layer]
+\node[draw, dashed, rounded corners=6pt, fit=(n1)(r2), inner sep=8pt, label={[font=\footnotesize]east:$\times 12$ blocks}] {};
+\end{scope}
+\draw[arr] (in) -- (emb);
+\draw[arr] (emb) -- (n1);
+\draw[arr] (n1) -- (att);
+\draw[arr] (att) -- (r1);
+\draw[arr] (r1) -- (n2);
+\draw[arr] (n2) -- (ffn);
+\draw[arr] (ffn) -- (r2);
+\draw[arr] (r2) -- (nf);
+\draw[arr] (nf) -- (head);
+\draw[arr] (head) -- (out);
+\end{tikzpicture}

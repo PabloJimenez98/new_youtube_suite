@@ -1,0 +1,19 @@
+% Figure source (hook). Rendered to figures/pdf/hook.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}[node distance=0.45cm]
+\node[fdata] (c) {Clip span\\+ transcript\\words};
+\node[fproc, right=of c] (w) {Opening\\window\\(first 15\,s)};
+\node[fmodel, right=of w] (nlp) {spaCy +\\XLM-EMO};
+\node[fproc, right=of nlp] (f) {Feature vector\\pace, silence,\\questions, address,\\emotion, \ldots};
+\node[fdec, right=of f, minimum height=2.2cm] (sub) {Sub-scores\\[2pt]start 0.30\\pace 0.25\\framing 0.25\\address 0.20};
+\node[fproc, right=of sub] (sum) {Weighted sum\\$\times 100$};
+\node[fout, right=of sum] (o) {Rank among\\the clips};
+\node[fdata, below=0.6cm of nlp] (t) {Episode title};
+\draw[farr] (c) -- (w);
+\draw[farr] (w) -- (nlp);
+\draw[farr] (nlp) -- (f);
+\draw[farr] (t) -| (f.south);
+\draw[farr] (f) -- (sub);
+\draw[farr] (sub) -- (sum);
+\draw[farr] (sum) -- (o);
+\end{tikzpicture}

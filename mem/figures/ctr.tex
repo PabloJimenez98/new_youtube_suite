@@ -1,0 +1,25 @@
+% Figure source (ctr). Rendered to figures/pdf/ctr.pdf by the
+% figure build; delete that PDF to have LaTeX compile this source instead.
+\begin{tikzpicture}
+\node[fdata] (ti) at (0,1.1) {Title candidate\\(show-notes\\suggestions)};
+\node[fdata] (th) at (0,-1.1) {Thumbnail\\(uploaded)};
+\node[fproc] (tf) at (3.6,1.1) {Title features\\length, words,\\digits, \texttt{?}, caps};
+\node[fproc] (val) at (3.6,-1.1) {Validate type,\\resize to\\1280$\times$720};
+\node[fmodel] (face) at (7.2,0) {YuNet faces\\count, size};
+\node[fmodel] (text) at (7.2,-1.1) {DB text detector\\text area};
+\node[fproc] (col) at (7.2,-2.2) {Colour stats\\brightness,\\contrast};
+\node[fdec, minimum height=2.4cm] (sub) at (11.0,0) {Piecewise-linear\\sub-scores\\[2pt]length 0.35\\faces 0.30\\face size 0.20\\text area 0.15};
+\node[fproc] (sum) at (14.4,0) {Weighted sum\\$\times 100$};
+\node[fout] (out) at (17.6,0) {Rank within\\the episode};
+\draw[farr] (ti) -- (tf);
+\draw[farr] (th) -- (val);
+\draw[farr] (val.east) -- ++(0.5,0) |- (face.west);
+\draw[farr] (val) -- (text);
+\draw[farr] (val.east) -- ++(0.5,0) |- (col.west);
+\draw[farr] (tf.east) -- (sub.west |- tf.east);
+\draw[farr] (face) -- (sub);
+\draw[farr] (text.east) -- (sub.west |- text.east);
+\draw[fdash] (col.east) -| node[flab, pos=0.25, below] {weight 0 (stored)} (sub.south);
+\draw[farr] (sub) -- (sum);
+\draw[farr] (sum) -- (out);
+\end{tikzpicture}

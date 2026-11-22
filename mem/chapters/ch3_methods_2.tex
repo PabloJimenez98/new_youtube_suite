@@ -1,0 +1,178 @@
+\section{Show-Notes Generation}
+
+The show-notes generator writes a draft with three to five title suggestions, a description, tags and a short summary. It uses the same local LLM as the chapter titles, so the whole platform stays local. The main data problem is length: a one-hour transcript has far more tokens than the model's context of 4{,}096 tokens. The pipeline therefore follows a \textit{map--reduce} scheme (Figure~\ref{fig:shownotes}):
+\begin{enumerate}
+\item \textbf{Chunking.} The transcript is cut into one chunk per chapter, or into blocks of about 1{,}600 words when there are no chapters. A transcript short enough for one call skips the map step.
+\item \textbf{Map.} The LLM writes a summary of three to five bullet points for each chunk, in the episode language.
+\item \textbf{Reduce.} One call receives all the summaries and the chapter titles and writes the draft. Its output is constrained by a grammar derived from a JSON schema, so it is always parseable.
+\item \textbf{Validation.} The draft is checked against YouTube's limits (at most 100 characters per title, 5{,}000 for the description, 500 for all tags) and normalised: duplicates removed, overlong text cut at the last sentence end. A draft that still breaks a hard rule (missing fields, too few titles or tags, wrong language) is regenerated, first greedily and then twice with sampling. After three failures the job fails and the previous draft is kept.
+\end{enumerate}
+The final description is completed with the chapter list in YouTube's format. The draft stores the model that produced it and can be edited in the interface; publication remains manual.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{shownotes}}
+\caption{Show-notes pipeline (map--reduce over the local LLM).}
+\label{fig:shownotes}
+\end{figure}
+
+\section{Relevance Model}
+\label{s:relevance}
+
+The relevance model gives each moment of an episode a score in $[0,1]$ that says how well it would work as a standalone short clip. Its output, the \textit{relevance curve}, drives the Shorts generator. There are no labels for this task: no dataset tells which moments of a Spanish podcast make good shorts, and the operator's retention data did not exist when the model was built. The model was therefore developed in two stages: a bootstrap version (v0) that combines transparent rules with a zero-shot LLM, and a trained version that learns from the bootstrap version's outputs, used as pseudo-labels.
+
+\subsection*{Windows}
+
+The transcript is re-cut into a regular time grid that does not depend on Whisper's segment boundaries. Words are grouped into 7.5-second \textit{blocks} by their timestamps, and two consecutive blocks form a 15-second \textit{window}; windows therefore overlap by 50\%. A 64-minute episode has about 510 windows. Each block keeps the speaker labels of its words when diarization has run.
+
+\subsection*{Bootstrap version (v0)}
+
+\textbf{Heuristic branch.} Four features are computed per window, each in $[0,1]$, with English and Spanish word lists (Table~\ref{tab:relevance-features}). Their weighted sum is the heuristic score $h$. Without diarization the speaker feature is dropped and the other weights are rescaled, and a window with fewer than five words scores zero.
+
+\begin{table}[H]
+\centering
+\caption{Heuristic features of the relevance model.}
+\label{tab:relevance-features}
+\small
+\begin{tabular}{@{}p{3.6cm}p{9.2cm}r@{}}
+\toprule
+\textbf{Feature} & \textbf{Definition} & \textbf{Weight} \\
+\midrule
+Topic anchor & Density of the episode's 30 most characteristic keywords (TF-IDF across the windows of the episode, stopwords removed), divided by the episode maximum & 0.35 \\
+Question $\rightarrow$ answer & A sentence ending in a question mark followed by at least 8 words & 0.25 \\
+Speaker changes & Speaker changes per minute, saturating at 6 per minute & 0.20 \\
+Fillers & One minus the share of filler words (\textit{eh}, \textit{o sea}, \textit{you know}\ldots), saturating at 15\% & 0.20 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{LLM branch.} The local LLM rates the transcript in non-overlapping 15-second \textit{spans} (every second window) from 0 to 100, according to how well each span would work as a short. Spans are sent 20 at a time with their chapter titles, in the episode language, and the output is constrained by a grammar to exactly 20 integers. An experiment during the performance pass showed that these integer answers are fragile: the model tends to write smooth patterned runs of numbers, and the same prompt gave different scores on CPU and GPU (Section~\ref{s:res-relevance}). To stabilise them, a second pass scores the spans shifted by 7.5 seconds, and each window receives the average of an aligned score and an overlap-weighted score. The LLM score of a window is $\ell \in [0,1]$.
+
+\textbf{Combination.} The score is $s = 0.4\,h + 0.6\,\ell$, or $h$ alone if an LLM batch fails three times. The two branches are stored separately: they are the pseudo-labels of the trained version (Figure~\ref{fig:relevance}).
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{relevance}}
+\caption{Relevance model v0: heuristic branch (top) and zero-shot LLM branch (bottom), which rates 15-second spans in two shifted passes. Both components are also stored as pseudo-labels for the trained version.}
+\label{fig:relevance}
+\end{figure}
+
+\subsection*{Trained version}
+
+The bootstrap version is slow (several minutes of LLM time per episode) and noisy. The trained version learns to reproduce it from the text alone, so that it runs in seconds, as a form of knowledge distillation \cite{hinton2015distilling} on pseudo-labels \cite{lee2013pseudolabel}.
+
+\textbf{Data.} 63 episodes of the operator's podcast (40.4 hours, 19{,}348 windows, 61 in Spanish and 2 in English) were scored by v0 with the 9B model. A first look at the labels showed that the two teacher signals do not agree: across all windows they are uncorrelated (Section~\ref{s:res-relevance}). They describe two different notions of relevance, which decided the architecture. The episodes were split once, by episode, into 48 for training, 7 for validation and 8 for test, and five of the test episodes were set aside, before training, for a blind comparison.
+
+\textbf{Model.} Each window is encoded with the frozen \texttt{multilingual-e5-small} encoder already used for chapters (the original specification proposed an English-only encoder, which did not fit Spanish episodes). A linear layer with a dropout of 0.3 reduces the 384-dimensional embeddings to 128, a one-layer BiLSTM with 128 units per direction reads the whole episode, and two small heads predict the two teacher components, $\hat h_t$ and $\hat \ell_t$. The final score is $\hat s_t = 0.4\,\hat h_t + 0.6\,\hat\ell_t$. Two heads keep the two signals apart, so each one can be evaluated, and the combination weights can change without retraining (Figure~\ref{fig:relevance-student}).
+
+\begin{figure}[H]
+\centering
+\resizebox{0.9\textwidth}{!}{%
+\fig{relevance-student}}
+\caption{Student model of the relevance score. Each head is trained against its own teacher component; in the deployed version the heuristic head is replaced by the exact heuristic.}
+\label{fig:relevance-student}
+\end{figure}
+
+\textbf{Loss.} Each head is trained with the Huber loss $\ell_\delta$ \cite{huber1964robust} with $\delta = 0.1$, which is robust to noisy labels, plus a penalty on abrupt changes of the score, since relevance changes slowly in time:
+\begin{equation}
+\mathcal{L} = \frac{1}{T}\sum_{t=1}^{T}\Big[\ell_\delta\big(\hat h_t, h_t\big) + \ell_\delta\big(\hat\ell_t, \ell_t\big)\Big] + \lambda\,\frac{1}{T-1}\sum_{t=2}^{T}\big(\hat s_t - \hat s_{t-1}\big)^2 ,
+\label{eq:relevance}
+\end{equation}
+with $\lambda \in \{0, 0.1, 0.5\}$ chosen on validation. Training uses Adam with a learning rate of $10^{-3}$, batches of eight episodes and early stopping on the validation Spearman correlation. Every configuration is trained with three random seeds, and the bundle keeps the median seed.
+
+\textbf{Evaluation and promotion.} The test metrics compare the student's curve with the teacher's combined score $s$, per episode and then averaged:
+\begin{itemize}
+\item the Spearman correlation \cite{spearman1904} between the two curves;
+\item the \textit{top-20\% precision}: the share of the student's top 20\% of windows that are also in the teacher's top 20\%;
+\item the \textit{top-5 overlap}: the share of the student's five best moments (the highest windows at least 60 seconds apart) that start within 15 seconds of one of the teacher's five best moments;
+\item the standard deviation of the curve (a flat curve would give the Shorts generator nothing to work with);
+\item for each head, the Spearman correlation with its own teacher component.
+\end{itemize}
+Two baselines frame the result: a constant score, and the heuristic alone, which is cheap and already agrees partly with $s$ because it is part of it. Promotion requires two conditions, fixed before training (Figure~\ref{fig:relevance-train}): an \textit{offline gate}, in which the student must correlate with the teacher better than the heuristic alone, and a \textit{blind A/B test}, in which the top five moments of the student and of the teacher on five test episodes are compared in random order and without labels, and the student must be preferred or tied on at least three of them. The offline gate is a minimum requirement rather than a strong test: since $s$ contains $h$, any student whose LLM part has some positive correlation with $\ell$ tends to pass it. The Spearman correlation of the LLM head with $\ell$ is therefore reported as well, as the direct measure of what the student learnt. Two training cycles were budgeted; if both failed, the bootstrap version would stay live.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{relevance-train}}
+\caption{Training and promotion of the relevance model. The bootstrap version stays live until a trained version passes both checks.}
+\label{fig:relevance-train}
+\end{figure}
+
+The first iteration failed the offline gate (Section~\ref{s:res-relevance}). Its error analysis, done on the training and validation episodes only, led to the second iteration, in which the heuristic component is computed exactly at inference (it is cheap) and the BiLSTM only replaces the expensive LLM component:
+\begin{equation}
+\hat s_t = 0.4\,h_t + 0.6\,\hat\ell_t .
+\label{eq:relevance-i2}
+\end{equation}
+
+\section{Shorts Generator}
+
+The Shorts generator turns the relevance curve into vertical clips without human intervention (Figure~\ref{fig:shorts}). It has two parts: selecting the time spans, which is a signal-processing problem on the curve, and framing the video, which is a computer-vision problem.
+
+\textbf{Span selection.} The curve is smoothed with a moving average over three windows, which removes single-window noise. Local maxima are found with a minimum \textit{prominence} of 0.05 (how much a peak stands out from its surroundings) and at least 60 seconds apart, so that two clips do not cover the same moment. From each peak, the span grows while the smoothed curve stays above a floor placed 70\% of the way from the episode's median to the peak height. A floor relative to the median adapts to each episode: with a floor at 70\% of the peak height, every clip of the first test episode grew to the maximum length. The span is then moved to sentence boundaries, extended to at least 20 seconds and cut to at most 60 seconds. Candidates that overlap a better one by more than 30\% are dropped, and the best five are kept.
+
+\textbf{Framing.} Each span is decoded at low resolution. Shot changes are detected by comparing the hue--saturation histograms of consecutive frames with the Bhattacharyya distance \cite{bhattacharyya1943}: a distance above 0.25 is a cut (within a shot the distance stayed below 0.12, and real cuts measured 0.37--0.48). Faces are detected with YuNet \cite{wu2023yunet} at five frames per second. The subject of each shot is the face with the highest $\text{area} \times \text{confidence}^4$, with a penalty for faces at the frame edge; the fourth power was introduced after a blurred hand in the foreground was taken for a face. If at least half of the samples of a shot contain a face, a vertical window follows the subject (\textit{crop} mode); otherwise the whole frame is placed over a blurred copy of itself (\textit{fit} mode). The centre of the crop is smoothed with an exponential moving average,
+\begin{equation}
+c_t = \alpha\, x_t + (1-\alpha)\, c_{t-1}, \qquad \alpha = 0.3,
+\label{eq:ema}
+\end{equation}
+which is reset at every cut and ignores moves smaller than 5\% of the crop width, so the frame neither jitters nor drifts across a cut. Finally FFmpeg renders the clip in 9:16 with karaoke-style captions built from the word timestamps, in which the spoken word is highlighted.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{shorts}}
+\caption{Shorts generation: selection of spans from the relevance curve (top) and video processing of each span (bottom).}
+\label{fig:shorts}
+\end{figure}
+
+\section{Market-Analysis Pipeline}
+\label{s:market}
+
+The market-analysis pipeline collects the data that the custom models will need and turns it into analyses that help the operator understand the podcast market. It has three collection flows and one analysis layer (Figure~\ref{fig:market}).
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\fig{market}}
+\caption{Market-analysis pipeline: three collection flows, the analysis layer and the future training labels.}
+\label{fig:market}
+\end{figure}
+
+\subsection*{Data collection}
+
+\textbf{Public data.} A curated list of 22 podcast channels (11 Spanish and 11 English) was proposed and reviewed with the operator. When a channel is added, its whole catalogue is read once through its uploads playlist, which costs one unit per 50 videos instead of the 100 units of a search. A daily task then takes a snapshot of the statistics of every video that is \textit{due}: videos published in the last 90 days are refreshed every day, older ones once a week. The weekly rule is based on the date of the last snapshot, so a missed day is recovered automatically. A free RSS check every hour discovers new uploads. The budget is planned in advance: a typical day costs about 200 of the 10{,}000 daily units, and a soft cap and a clean stop on a quota error protect the rest. Snapshots are stored as a time series, one row per video and day.
+
+\textbf{Private engagement and retention.} A single OAuth connection with read-only scopes gives access to the operator's channel. A daily task reads the engagement of each video and its audience-retention curve (100 points, one video per request). Analytics data arrives 48 to 72 hours late, so each run re-reads the last seven days. Token refresh failures and revocations are reported loudly instead of failing silently.
+
+\textbf{Real CTR.} Impressions and CTR are only available through a reporting job of type \texttt{channel\_reach\_basic\_a1}. The pipeline creates the job once and, every day, downloads the new CSV reports. A corrected report arrives as a new file for the same day and replaces the old one, and columns are read by header name because YouTube may add new ones.
+
+\subsection*{Market analyses}
+
+Raw views are a poor signal: a video has many views mostly because its channel is large or because it is old. All analyses therefore start from an adjusted measure. For each channel with at least 20 videos, a least-squares line is fitted to the logarithm of views against the logarithm of the video's age,
+\begin{equation}
+\log_{10}(\text{views}+1) = a_c + b_c \log_{10}(\text{age in days}) + \varepsilon ,
+\label{eq:residual}
+\end{equation}
+and smaller channels use a pooled fit. The residual $\varepsilon$ is the ``surprise'': how many more (or fewer) views a video has than expected for its channel and age. The exponent $b_c$ also describes how fast a channel's videos keep growing. On this basis the worker computes five analyses (Table~\ref{tab:analyses}), recomputed only when the data changes, and stores them so that the interface reads them instantly.
+
+\begin{table}[H]
+\centering
+\caption{Analyses of the market data.}
+\label{tab:analyses}
+\small
+\begin{tabular}{@{}p{2.6cm}p{11.6cm}@{}}
+\toprule
+\textbf{Analysis} & \textbf{Method} \\
+\midrule
+Overview & Distribution of views per channel and format (long videos and shorts). \\
+Channel clusters & Six features per channel (log median views, likes and comments per view, uploads per week, median length, spread of log views), standardised, grouped with k-means \cite{lloyd1982kmeans} with $k \leq 3$ chosen by the silhouette coefficient \cite{rousseeuw1987silhouette}, and projected to two dimensions with principal component analysis (PCA) for a map. \\
+What drives views & Spearman correlation \cite{spearman1904} between the residual and video features (length, title length, question or number in the title, capitals, tags, weekend), with a 95\% interval $\rho \pm 1.96\,\mathrm{SE}$ from a bootstrap \cite{efron1979bootstrap} of 300 resamples; plus a weekday $\times$ hour map of the median residual. \\
+Growth & Views against age on log--log axes, binned medians with an interquartile band, and the exponent $b_c$ of each channel. \\
+Title keywords & Candidate words by summed TF-IDF over titles, used by at least 40 videos in at least 3 channels; for each word, the \textit{lift} (mean residual with the word minus without it) with a Welch \cite{welch1947} 95\% interval. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two details of these analyses come from problems found in the data. A percentile bootstrap interval was tried first and rejected, because ties created by resampling binary features shifted the intervals away from the estimate (for example $\rho = 0.157$ with an interval of $[0.156, 0.205]$). And the keyword analysis excludes words that appear in a channel's name or come mostly from one channel: before this filter, the top words were the name of one show.
